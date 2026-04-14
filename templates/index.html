@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ATS Resume Optimizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="bg-grid"></div>
+
+  <header>
+    <div class="logo">
+      <span class="logo-icon">⚡</span>
+      <span>ATS<strong>Optimizer</strong></span>
+    </div>
+    <div class="header-badge">Powered by Claude AI</div>
+  </header>
+
+  <main>
+    <!-- INPUT SECTION -->
+    <section class="input-section" id="inputSection">
+      <div class="hero">
+        <h1>Land More <span class="gradient-text">Interviews</span></h1>
+        <p class="subtitle">Paste your resume & job description. Get an ATS-optimized resume in seconds.</p>
+      </div>
+
+      <div class="input-grid">
+        <div class="input-card">
+          <div class="card-label">
+            <span class="label-icon">📄</span>
+            Your Resume
+          </div>
+          <div class="upload-row">
+            <label for="resumeFile" class="upload-btn">Upload Resume</label>
+            <input id="resumeFile" type="file" accept=".pdf,.doc,.docx,.txt" />
+            <span class="upload-hint">PDF, DOC, DOCX, TXT</span>
+          </div>
+          <textarea id="resumeInput" placeholder="Paste your full resume here...&#10;&#10;Include: Work experience, skills, education, projects, etc."></textarea>
+          <div class="char-count" id="resumeCount">0 characters</div>
+        </div>
+
+        <div class="input-card">
+          <div class="card-label">
+            <span class="label-icon">🎯</span>
+            Job Description
+          </div>
+          <textarea id="jdInput" placeholder="Paste the full job description here...&#10;&#10;Include: Requirements, responsibilities, skills needed, etc."></textarea>
+          <div class="char-count" id="jdCount">0 characters</div>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <label class="low-credit-toggle" for="lowCreditMode">
+          <input type="checkbox" id="lowCreditMode" />
+          <span>Low Credit Mode (faster, cheaper)</span>
+        </label>
+        <button class="optimize-btn" id="optimizeBtn" onclick="optimizeResume()">
+          <span class="btn-icon">⚡</span>
+          Optimize My Resume
+        </button>
+      </div>
+    </section>
+
+    <!-- LOADING -->
+    <div class="loading-overlay" id="loadingOverlay" style="display:none">
+      <div class="loader-box">
+        <div class="spinner"></div>
+        <p class="loading-text">Analyzing & optimizing your resume...</p>
+        <div class="loading-steps">
+          <div class="step active" id="step1">Extracting JD keywords</div>
+          <div class="step" id="step2">Identifying gaps</div>
+          <div class="step" id="step3">Rewriting bullet points</div>
+          <div class="step" id="step4">Calculating ATS score</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS SECTION -->
+    <section class="results-section" id="resultsSection" style="display:none">
+      <!-- Score + Meta -->
+      <div class="results-top">
+        <div class="score-card">
+          <div class="score-ring" id="scoreRing">
+            <svg viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="50" class="ring-bg"/>
+              <circle cx="60" cy="60" r="50" class="ring-fill" id="ringFill"/>
+            </svg>
+            <div class="score-num" id="scoreNum">0%</div>
+          </div>
+          <div class="score-label">ATS Match Score</div>
+        </div>
+
+        <div class="meta-cards">
+          <div class="meta-card" id="missingCard">
+            <div class="meta-title">🔴 Missing Keywords</div>
+            <div class="meta-content" id="missingKeywords"></div>
+          </div>
+          <div class="meta-card" id="matchedCard">
+            <div class="meta-title">✅ Matched Keywords</div>
+            <div class="meta-content" id="matchedKeywords"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Improvements -->
+      <div class="improvements-box" id="improvementsBox">
+        <h3>💡 3 Ways to Improve Further</h3>
+        <ul id="improvementsList"></ul>
+      </div>
+
+      <!-- Resume Output -->
+      <div class="resume-output" id="resumeOutput">
+        <div class="output-header">
+          <h2>✨ Optimized Resume</h2>
+          <div class="export-btns">
+            <button class="export-btn" onclick="copyToClipboard()">📋 Copy Text</button>
+            <button class="export-btn primary" onclick="exportDocx()">⬇️ Download .docx</button>
+          </div>
+        </div>
+        <div class="resume-content" id="resumeContent"></div>
+      </div>
+
+      <div class="resume-output" id="coverLetterOutput" style="display:none">
+        <div class="output-header">
+          <h2>📝 Cover Letter (Company-Specific)</h2>
+          <div class="export-btns">
+            <button class="export-btn" onclick="copyCoverLetter()">📋 Copy Letter</button>
+            <button class="export-btn primary" onclick="exportCoverLetterDocx()">⬇️ Download Letter</button>
+          </div>
+        </div>
+        <div class="cover-letter-content" id="coverLetterContent"></div>
+      </div>
+
+      <div class="reset-row">
+        <button class="reset-btn" onclick="resetForm()">↩ Optimize Another Resume</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>
