@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Application Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/tracker.css" />
+</head>
+<body>
+  <main class="tracker-shell">
+    <section class="tracker-header">
+      <h1>Application Tracker</h1>
+      <p>Phase 1 MVP: add jobs, track status, and monitor pipeline.</p>
+    </section>
+
+    <section class="toolbar">
+      <input id="searchInput" type="text" placeholder="Search role or company" />
+      <button id="refreshBtn" type="button">Refresh</button>
+    </section>
+
+    <section class="add-form-card">
+      <h2>Add Application</h2>
+      <form id="addForm">
+        <div class="form-grid">
+          <input name="title" placeholder="Job title" required />
+          <input name="company" placeholder="Company" required />
+          <input name="location" placeholder="Location" />
+          <input name="source" placeholder="Source (LinkedIn, Naukri...)" />
+          <input name="job_url" placeholder="Job URL" />
+          <input name="applied_date" type="date" />
+        </div>
+        <textarea name="notes" placeholder="Notes"></textarea>
+        <button type="submit">Add to Tracker</button>
+      </form>
+      <div id="formMessage" class="message"></div>
+    </section>
+
+    <section id="statsRow" class="stats-row"></section>
+
+    <section class="board" id="board"></section>
+  </main>
+
+  <script>
+    window.TRACKER_STATUSES = {{ statuses|tojson }};
+  </script>
+  <script src="/static/js/tracker.js"></script>
+</body>
+</html>

@@ -14,9 +14,12 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from tracker import tracker_blueprint, ensure_database
 import io
 
 app = Flask(__name__)
+ensure_database()
+app.register_blueprint(tracker_blueprint)
 
 
 def load_env_file(path=".env"):

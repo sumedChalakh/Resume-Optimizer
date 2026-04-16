@@ -14,5 +14,9 @@ resume/
 .env.*
 !.env.example
 
+# Local runtime data
+data/
+*.db
+
 # IDE
 .vscode/

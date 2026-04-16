@@ -59,6 +59,32 @@ header {
 .logo-icon { font-size: 22px; }
 .logo strong { color: var(--accent); }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tracker-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: #c7d6ff;
+  border: 1px solid rgba(79,142,247,0.35);
+  background: rgba(79,142,247,0.12);
+  padding: 6px 12px;
+  border-radius: 999px;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.tracker-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(79,142,247,0.6);
+}
+
 .header-badge {
   font-size: 12px;
   background: linear-gradient(135deg, rgba(79,142,247,0.15), rgba(124,58,237,0.15));
@@ -66,6 +92,22 @@ header {
   padding: 4px 12px;
   border-radius: 20px;
   color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  header {
+    padding: 12px 16px;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .tracker-link,
+  .header-badge {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
 }
 
 main {
