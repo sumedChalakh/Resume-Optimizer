@@ -2,6 +2,20 @@ let currentResumeData = null;
 let currentOriginalResumeText = '';
 let currentCoverLetterData = null;
 
+function setProviderBadge(label) {
+  const badge = document.getElementById('providerBadge');
+  if (!badge) return;
+  badge.textContent = label || 'Provider: Auto';
+}
+
+function inferProviderLabel(data) {
+  const notice = String((data && data.notice) || '').toLowerCase();
+  if (notice.includes('github models')) return 'Provider: GitHub Models';
+  if (notice.includes('hugging face')) return 'Provider: Hugging Face';
+  if (data && data.fallback_mode) return 'Provider: Local Fallback';
+  return 'Provider: OpenRouter/Auto';
+}
+
 const resumeFileInput = document.getElementById('resumeFile');
 resumeFileInput.addEventListener('change', async (e) => {
   const file = e.target.files && e.target.files[0];
@@ -77,6 +91,8 @@ async function optimizeResume() {
   if (!resume) return showError('Please paste your resume text.');
   if (!jd) return showError('Please paste the job description.');
 
+  setProviderBadge('Provider: Processing...');
+
   const btn = document.getElementById('optimizeBtn');
   btn.disabled = true;
   currentOriginalResumeText = resume;
@@ -106,6 +122,8 @@ async function optimizeResume() {
       throw new Error(data.error || 'Unknown error');
     }
 
+    setProviderBadge(inferProviderLabel(data));
+
     if (data.notice) {
       showToast(data.notice, '#f59e0b');
     }
@@ -119,10 +137,65 @@ async function optimizeResume() {
     document.getElementById('loadingOverlay').style.display = 'none';
     btn.disabled = false;
     if (err.name === 'AbortError') {
+      setProviderBadge('Provider: Request timed out');
       showError('Request timed out. Try a shorter JD or resume, then retry.');
       return;
     }
+    setProviderBadge('Provider: Error (check API keys)');
     showError(err.message || 'Something went wrong. Please try again.');
+  }
+}
+
+async function generateCoverLetterOnly() {
+  const resume = document.getElementById('resumeInput').value.trim();
+  const jd = document.getElementById('jdInput').value.trim();
+  const lowCreditMode = document.getElementById('lowCreditMode')?.checked || false;
+
+  if (!resume) return showError('Please paste your resume text.');
+  if (!jd) return showError('Please paste the job description.');
+
+  setProviderBadge('Provider: Processing cover letter...');
+
+  const btn = document.getElementById('coverLetterBtn');
+  btn.disabled = true;
+
+  if (lowCreditMode) {
+    showToast('Low Credit Mode enabled: using smaller model output budget.', '#f59e0b');
+  }
+
+  try {
+    const response = await fetch('/generate-cover-letter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resume, jd, low_credit_mode: lowCreditMode })
+    });
+
+    const data = await response.json();
+    if (!response.ok || data.error) {
+      throw new Error(data.error || 'Unknown error');
+    }
+
+    const cover = data.cover_letter || data;
+    currentCoverLetterData = cover;
+    currentOriginalResumeText = resume;
+    setProviderBadge(inferProviderLabel(data));
+
+    if (data.notice) {
+      showToast(data.notice, '#f59e0b');
+    }
+
+    document.getElementById('inputSection').style.display = 'none';
+    document.getElementById('resultsSection').style.display = 'none';
+    const standalone = document.getElementById('coverLetterStandaloneSection');
+    standalone.style.display = 'block';
+    document.getElementById('coverLetterStandaloneContent').innerHTML = '';
+    renderStandaloneCoverLetter(cover);
+    standalone.scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    setProviderBadge('Provider: Error (check API keys)');
+    showError(err.message || 'Something went wrong. Please try again.');
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -296,6 +369,9 @@ function getCoverLetterBody(cover) {
   if (typeof cover === 'string') {
     return cover.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
   }
+  if (typeof cover.body === 'string' && cover.body.trim()) {
+    return cover.body.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+  }
   if (Array.isArray(cover.body_paragraphs)) {
     return cover.body_paragraphs.map(p => String(p).trim()).filter(Boolean);
   }
@@ -309,7 +385,7 @@ function buildCoverLetterText(cover) {
   if (!cover) return '';
   const body = getCoverLetterBody(cover);
   const company = typeof cover === 'object' ? (cover.company_name || '') : '';
-  const subject = typeof cover === 'object' ? (cover.subject || '') : '';
+  const subject = typeof cover === 'object' ? (cover.subject || cover.subject_line || '') : '';
   const hiringManager = typeof cover === 'object' ? (cover.hiring_manager || 'Hiring Manager') : 'Hiring Manager';
   const closing = typeof cover === 'object' ? (cover.closing || 'Sincerely') : 'Sincerely';
   const signature = typeof cover === 'object' ? (cover.signature_name || '') : '';
@@ -334,6 +410,16 @@ function renderCoverLetter(cover) {
   }
 
   wrapper.style.display = 'block';
+  content.innerHTML = `<pre>${escapeHtml(text)}</pre>`;
+}
+
+function renderStandaloneCoverLetter(cover) {
+  const content = document.getElementById('coverLetterStandaloneContent');
+  const text = buildCoverLetterText(cover);
+  if (!text) {
+    content.innerHTML = '<div style="color:var(--text-muted)">No cover letter generated.</div>';
+    return;
+  }
   content.innerHTML = `<pre>${escapeHtml(text)}</pre>`;
 }
 
@@ -464,8 +550,11 @@ async function exportCoverLetterDocx() {
 
 function resetForm() {
   document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('coverLetterStandaloneSection').style.display = 'none';
   document.getElementById('inputSection').style.display = 'block';
   document.getElementById('optimizeBtn').disabled = false;
+  const coverLetterBtn = document.getElementById('coverLetterBtn');
+  if (coverLetterBtn) coverLetterBtn.disabled = false;
   // Reset loading steps
   ['step1','step2','step3','step4'].forEach((id, i) => {
     const el = document.getElementById(id);
@@ -479,6 +568,8 @@ function resetForm() {
   currentOriginalResumeText = '';
   document.getElementById('coverLetterOutput').style.display = 'none';
   document.getElementById('coverLetterContent').innerHTML = '';
+  document.getElementById('coverLetterStandaloneContent').innerHTML = '';
+  setProviderBadge('Provider: Auto');
 }
 
 function showError(msg) {

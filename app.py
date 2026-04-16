@@ -74,17 +74,16 @@ client = (
 
 SYSTEM_PROMPT = """You are a world-class ATS Resume Optimizer, Technical Recruiter, and Career Coach.
 Your task is to optimize a candidate resume for a target job description while staying truthful, ATS-safe, and recruiter-friendly.
-
 CORE RULES:
 1. Truth first: never fabricate experience, achievements, or certifications.
-2.
- Keyword coverage: extract and naturally use important JD keywords across summary, skills, experience, and projects.
-3. Skill completeness:
+2. Keyword coverage: extract and naturally use important JD keywords across summary, skills, experience, and projects.
+3. Preserve entries: NEVER remove original projects or certifications. Keep every original project and certification entry; rewrite and reorder for JD relevance only.
+4. Skill completeness:
    - Keep all original resume skills.
    - Add skills clearly inferred from projects/experience.
    - Add strong JD-aligned adjacent skills only when realistic, and explain those additions.
-4. Bullet quality: use strong action verbs, concrete technologies, and measurable impact where possible.
-5. ATS format: use standard sections and plain ATS-readable wording.
+5. Bullet quality: use strong action verbs, concrete technologies, and measurable impact where possible.
+6. ATS format: use standard sections and plain ATS-readable wording.
 
 OUTPUT REQUIREMENTS:
 - Respond ONLY with valid JSON (no markdown or extra text).
@@ -181,16 +180,14 @@ OUTPUT REQUIREMENTS:
     "Optional cover letter angle"
   ],
   "cover_letter": {
-    "company_name": "Target Company",
-    "hiring_manager": "Hiring Manager",
-    "subject": "Application for <Exact Job Title>",
-    "body_paragraphs": [
-      "Paragraph 1: Strong role/company-specific opening.",
-      "Paragraph 2: Most relevant achievements aligned to JD.",
-      "Paragraph 3: Closing with call to action and fit statement."
-    ],
-    "closing": "Sincerely",
-    "signature_name": "Candidate Name"
+    "subject_line": "Application for [exact job title] — [Your Name]",
+    "body": "Full cover letter text here",
+    "word_count": 285,
+    "personalization_score": 87,
+    "tips": [
+      "tip 1 to make it stronger",
+      "tip 2"
+    ]
   },
   "analysis": {
     "role_fit_score": "Strong",
@@ -199,6 +196,65 @@ OUTPUT REQUIREMENTS:
     "differentiators": ["Unique differentiator"]
   }
 }"""
+
+
+COVER_LETTER_PROMPT = """You are an expert cover letter writer.
+Write a professional, ATS-friendly cover letter based on the resume and job description provided.
+
+STRICT RULES:
+- Maximum 4 paragraphs
+- Para 1: Hook — why THIS company + role excites you (mention company name)
+- Para 2: Your strongest 2-3 achievements relevant to THIS JD
+- Para 3: What unique value you bring (domain + tech stack match)
+- Para 4: Call to action — confident closing
+
+TONE: Professional but human. Not robotic. Not over-formal.
+LENGTH: 250-320 words max — recruiters don't read long letters
+
+Respond ONLY in this JSON:
+{
+  "cover_letter": {
+    "subject_line": "Application for [exact job title] — [Your Name]",
+    "body": "Full cover letter text here",
+    "word_count": 285
+  },
+  "personalization_score": 87,
+  "tips": [
+    "tip 1 to make it stronger",
+    "tip 2"
+  ]
+}"""
+
+def normalize_cover_letter_shape(cover_letter, resume_text="", jd_text=""):
+  """Normalize cover-letter output into the app's internal shape."""
+  if not isinstance(cover_letter, dict):
+    return cover_letter
+
+  body_text = cover_letter.get("body", "")
+  if not body_text and cover_letter.get("body_paragraphs"):
+    body_text = "\n\n".join(str(p).strip() for p in cover_letter.get("body_paragraphs", []) if str(p).strip())
+
+  header = extract_header_from_resume_text(resume_text)
+  company_name = guess_company_name(jd_text)
+  subject_line = normalize_space(cover_letter.get("subject_line") or cover_letter.get("subject") or "")
+
+  if not subject_line:
+    subject_line = f"Application for the advertised role — {header.get('name', 'Candidate').title()}"
+
+  normalized = {
+    "subject_line": subject_line,
+    "body": body_text.strip(),
+    "word_count": int(cover_letter.get("word_count") or len(re.findall(r"\b\w+\b", body_text))),
+    "personalization_score": int(cover_letter.get("personalization_score") or 0),
+    "tips": cover_letter.get("tips") if isinstance(cover_letter.get("tips"), list) else [],
+    "company_name": company_name,
+    "hiring_manager": "Hiring Manager",
+    "subject": subject_line,
+    "body_paragraphs": [p.strip() for p in re.split(r"\n\s*\n", body_text.strip()) if p.strip()],
+    "closing": "Sincerely",
+    "signature_name": header.get("name", "Candidate"),
+  }
+  return normalized
 
 
 def normalize_response_shape(result):
@@ -226,22 +282,10 @@ def normalize_response_shape(result):
 
   cover_letter = result.get("cover_letter")
   if isinstance(cover_letter, str):
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", cover_letter) if p.strip()]
-    result["cover_letter"] = {
-      "company_name": "",
-      "hiring_manager": "Hiring Manager",
-      "subject": "",
-      "body_paragraphs": paragraphs,
-      "closing": "Sincerely",
-      "signature_name": "",
-    }
+    result["cover_letter"] = normalize_cover_letter_shape({"body": cover_letter}, "", "")
 
   if isinstance(result.get("cover_letter"), dict):
-    cover = result["cover_letter"]
-    body = cover.get("body_paragraphs", [])
-    if isinstance(body, str):
-      body = [line.strip() for line in body.splitlines() if line.strip()]
-      cover["body_paragraphs"] = body
+    result["cover_letter"] = normalize_cover_letter_shape(result["cover_letter"], "", "")
 
   return result
 
@@ -284,7 +328,160 @@ def extract_certifications_from_resume_text(resume_text):
       continue
     seen.add(key)
     cleaned.append({"name": cert, "issuer": "", "year": ""})
-  return cleaned[:8]
+  return cleaned
+
+
+def canonicalize_cert_key(name):
+  value = normalize_space(name).lower()
+  if not value:
+    return ""
+
+  value = value.replace("–", "-").replace("—", "-")
+  value = re.sub(r"\([^)]*\)", "", value)
+  value = re.sub(r"^[a-z][a-z\s&/\+\-]{1,20}:\s*", "", value)
+  value = re.sub(
+    r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{4}\b",
+    "",
+    value,
+    flags=re.IGNORECASE,
+  )
+  value = re.sub(r"\b\d{4}\b", "", value)
+  parts = [p.strip() for p in re.split(r"\s+-\s+", value) if p.strip()]
+  if parts:
+    value = parts[0]
+  value = re.sub(r"[^a-z0-9\+\s]", " ", value)
+  value = re.sub(r"\s+", " ", value).strip()
+  return value
+
+
+def canonicalize_project_key(name):
+  value = normalize_space(name).lower()
+  if not value:
+    return ""
+
+  value = value.replace("–", "-").replace("—", "-")
+  value = re.sub(
+    r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{4}(?:\s*-\s*(?:present|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{4}))?\b",
+    "",
+    value,
+    flags=re.IGNORECASE,
+  )
+  value = re.sub(r"\b\d{4}\b", "", value)
+  value = re.sub(r"\s+", " ", value).strip(" -")
+  return value
+
+
+def project_quality_score(project):
+  bullets = project.get("bullets", []) if isinstance(project, dict) else []
+  tech = normalize_space(project.get("tech", "")) if isinstance(project, dict) else ""
+  name = normalize_space(project.get("name", "")) if isinstance(project, dict) else ""
+  return len(bullets) * 3 + (2 if tech else 0) + (1 if len(name) > 20 else 0)
+
+
+def normalize_project_entry(project):
+  if not isinstance(project, dict):
+    return {"name": "", "tech": "", "bullets": []}
+
+  bullets = project.get("bullets", [])
+  if not isinstance(bullets, list):
+    bullets = []
+  clean_bullets = []
+  seen = set()
+  for bullet in bullets:
+    text = normalize_space(str(bullet))
+    key = text.lower()
+    if not text or key in seen:
+      continue
+    seen.add(key)
+    clean_bullets.append(text)
+
+  return {
+    "name": normalize_space(project.get("name", "")),
+    "tech": normalize_space(project.get("tech", "")),
+    "bullets": clean_bullets,
+  }
+
+
+def looks_like_project_sentence(text):
+  value = normalize_space(text)
+  low = value.lower()
+  if not value:
+    return False
+
+  action_prefixes = (
+    "built", "developed", "implemented", "engineered", "optimized", "applied",
+    "processed", "designed", "delivered", "trained", "secured", "containerized",
+    "evaluated", "gained", "executed", "collaborated",
+  )
+  if len(value) > 95:
+    return True
+  if value.endswith(".") and len(value.split()) > 8:
+    return True
+  if low.startswith(action_prefixes) and len(value.split()) > 6:
+    return True
+  return False
+
+
+def is_valid_project_entry(project):
+  if not isinstance(project, dict):
+    return False
+
+  name = normalize_space(project.get("name", ""))
+  tech = normalize_space(project.get("tech", ""))
+  bullets = project.get("bullets", [])
+  if not isinstance(bullets, list):
+    bullets = []
+
+  if not name:
+    return False
+  if is_probable_date_line(name):
+    return False
+  if is_probable_tech_line(name):
+    return False
+  if looks_like_project_sentence(name):
+    return False
+
+  # Reject entries that are just stack lines unless they have meaningful bullets.
+  if (not tech) and len(bullets) == 0 and len(name.split()) > 8:
+    return False
+
+  return True
+
+
+def is_probable_tech_line(line):
+  low = normalize_space(line).lower()
+  if not low:
+    return False
+
+  hints = [
+    "python", "sql", "pyspark", "spark", "docker", "power bi", "dax", "flask",
+    "streamlit", "scikit", "tensorflow", "keras", "pytorch", "mllib", "pandas",
+    "numpy", "matplotlib", "github actions", "rest api", "kubernetes", "aws",
+  ]
+  hits = sum(1 for hint in hints if hint in low)
+  comma_count = low.count(",")
+  return hits >= 2 or (hits >= 1 and comma_count >= 2)
+
+
+def is_probable_date_line(line):
+  low = normalize_space(line).lower()
+  if not low:
+    return False
+
+  return bool(re.search(
+    r"^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{4}(?:\s*[\-–—]\s*(?:present|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{4}))?$",
+    low,
+    flags=re.IGNORECASE,
+  ))
+
+
+def is_probable_project_subtitle(line):
+  low = normalize_space(line).lower()
+  if not low:
+    return False
+  if "," in low:
+    return False
+  return any(kw in low for kw in ["project", "pipeline", "dashboard", "api", "internship"])
 
 
 def ensure_certifications_present(result, resume_text):
@@ -294,13 +491,203 @@ def ensure_certifications_present(result, resume_text):
   if not isinstance(optimized, dict):
     return result
 
-  certs = optimized.get("certifications")
-  if isinstance(certs, list) and len(certs) > 0:
+  fallback = extract_certifications_from_resume_text(resume_text)
+  existing = optimized.get("certifications")
+  if not isinstance(existing, list):
+    existing = []
+
+  seen = set()
+  merged = []
+
+  for cert in existing:
+    if isinstance(cert, str):
+      name = normalize_space(cert)
+      cert_obj = {"name": name, "issuer": "", "year": ""}
+    elif isinstance(cert, dict):
+      name = normalize_space(cert.get("name", ""))
+      cert_obj = {
+        "name": name,
+        "issuer": normalize_space(cert.get("issuer", "")),
+        "year": normalize_space(cert.get("year", "")),
+      }
+    else:
+      continue
+
+    key = canonicalize_cert_key(name)
+    if not key or key in seen:
+      continue
+    seen.add(key)
+    merged.append(cert_obj)
+
+  for cert in fallback:
+    name = normalize_space(cert.get("name", ""))
+    key = canonicalize_cert_key(name)
+    if not key or key in seen:
+      continue
+    seen.add(key)
+    merged.append({
+      "name": name,
+      "issuer": normalize_space(cert.get("issuer", "")),
+      "year": normalize_space(cert.get("year", "")),
+    })
+
+  optimized["certifications"] = merged
+  return result
+
+
+def extract_projects_from_resume_text(resume_text):
+  """Best-effort extraction of project entries from original resume text."""
+  if not resume_text:
+    return []
+
+  lines = [line.strip() for line in resume_text.splitlines() if line.strip()]
+  projects = []
+  current = None
+  in_projects = False
+
+  project_headers = {"projects", "project", "personal projects", "academic projects"}
+  section_breaks = {
+    "experience",
+    "professional experience",
+    "work experience",
+    "education",
+    "skills",
+    "certifications",
+    "certification",
+    "achievements",
+    "summary",
+    "professional summary",
+  }
+
+  for raw in lines:
+    line = raw.strip(" \t")
+    low = line.lower().strip(" :")
+
+    if low in project_headers:
+      in_projects = True
+      continue
+
+    if in_projects and low in section_breaks:
+      break
+
+    if not in_projects:
+      continue
+
+    # Attach bullet lines to the active project entry.
+    if line.startswith(("-", "•", "*", "▸")):
+      if current is not None:
+        bullet = normalize_space(line.lstrip("-•*▸ "))
+        if bullet:
+          current.setdefault("bullets", []).append(bullet)
+      continue
+
+    if current is not None and is_probable_tech_line(line):
+      tech = normalize_space(current.get("tech", ""))
+      incoming = normalize_space(line)
+      current["tech"] = f"{tech}, {incoming}".strip(", ") if tech else incoming
+      continue
+
+    if current is not None and is_probable_date_line(line):
+      continue
+
+    if current is not None and is_probable_project_subtitle(line):
+      continue
+
+    candidate = normalize_space(line)
+    if len(candidate) < 3:
+      continue
+    if any(tok in low for tok in ["linkedin", "github.com", "@"]):
+      continue
+
+    name = candidate
+    tech = ""
+    if "|" in candidate:
+      left, right = candidate.split("|", 1)
+      name = normalize_space(left)
+      tech = normalize_space(right)
+
+    current = {"name": name, "tech": tech, "bullets": []}
+    projects.append(current)
+
+  deduped = []
+  seen = set()
+  for proj in projects:
+    key = canonicalize_project_key(proj.get("name", ""))
+    if not key or key in seen:
+      continue
+    seen.add(key)
+    deduped.append(normalize_project_entry(proj))
+
+  return deduped
+
+
+def ensure_projects_present(result, resume_text):
+  if not isinstance(result, dict):
+    return result
+  optimized = result.get("optimized_resume")
+  if not isinstance(optimized, dict):
     return result
 
-  fallback = extract_certifications_from_resume_text(resume_text)
-  if fallback:
-    optimized["certifications"] = fallback
+  extracted_projects = extract_projects_from_resume_text(resume_text)
+  existing = optimized.get("projects")
+  if not isinstance(existing, list):
+    existing = []
+
+  by_key = {}
+  order = []
+
+  for proj in existing:
+    if not isinstance(proj, dict):
+      continue
+    normalized = normalize_project_entry(proj)
+    if not is_valid_project_entry(normalized):
+      continue
+    key = canonicalize_project_key(normalized.get("name", ""))
+    if not key:
+      continue
+    if key not in by_key:
+      by_key[key] = normalized
+      order.append(key)
+      continue
+
+    current = by_key[key]
+    if project_quality_score(normalized) > project_quality_score(current):
+      replacement = normalized
+      if not replacement.get("tech") and current.get("tech"):
+        replacement["tech"] = current.get("tech")
+      if not replacement.get("bullets") and current.get("bullets"):
+        replacement["bullets"] = current.get("bullets")
+      by_key[key] = replacement
+
+  for proj in extracted_projects:
+    normalized = normalize_project_entry(proj)
+    if not is_valid_project_entry(normalized):
+      continue
+    key = canonicalize_project_key(normalized.get("name", ""))
+    if not key:
+      continue
+    if key not in by_key:
+      by_key[key] = normalized
+      order.append(key)
+      continue
+
+    current = by_key[key]
+    merged_bullets = current.get("bullets", []) + normalized.get("bullets", [])
+    unique_bullets = []
+    seen_bullets = set()
+    for bullet in merged_bullets:
+      token = normalize_space(bullet).lower()
+      if not token or token in seen_bullets:
+        continue
+      seen_bullets.add(token)
+      unique_bullets.append(normalize_space(bullet))
+
+    if not current.get("tech") and normalized.get("tech"):
+      current["tech"] = normalized.get("tech")
+    current["bullets"] = unique_bullets
+    by_key[key] = current
+
+  optimized["projects"] = [by_key[key] for key in order if key in by_key]
   return result
 
 
@@ -408,7 +795,7 @@ def guess_company_name(jd_text):
 
 
 def build_local_fallback_result(resume_text, jd_text):
-  resume_lines = [l.strip() for l in (resume_text or "").splitlines() if l.strip()]
+  resume_lines = [line.strip() for line in (resume_text or "").splitlines() if line.strip()]
   resume_summary_seed = " ".join(resume_lines[:4])[:450]
   jd_keywords = extract_keywords_from_jd(jd_text, resume_text, limit=40)
   resume_keywords = extract_keywords(resume_text, limit=40)
@@ -480,11 +867,20 @@ def build_local_fallback_result(resume_text, jd_text):
     "cover_letter": {
       "company_name": company_name,
       "hiring_manager": "Hiring Manager",
-      "subject": "Application for the advertised role",
-      "body_paragraphs": [
-        f"I am excited to apply for the opportunity at {company_name}. My background aligns with your role requirements and the technical priorities in the job description.",
-        "Across my recent work, I have built practical solutions using the tools listed in my resume, with a strong focus on production readiness, collaboration, and measurable impact.",
-        "I would welcome the chance to discuss how I can contribute to your team and help deliver results from day one.",
+      "subject_line": f"Application for the advertised role — {header.get('name', 'Candidate')}",
+      "body": (
+        f"Dear Hiring Manager,\n\n"
+        f"I am excited to apply for the opportunity at {company_name}. My background aligns with your role requirements and the technical priorities in the job description.\n\n"
+        "Across my recent work, I have built practical solutions using the tools listed in my resume, with a strong focus on production readiness, collaboration, and measurable impact.\n\n"
+        "I would welcome the chance to discuss how I can contribute to your team and help deliver results from day one.\n\n"
+        "Sincerely,\n"
+        f"{header.get('name', 'Candidate')}"
+      ),
+      "word_count": 78,
+      "personalization_score": 0,
+      "tips": [
+        "Add 1-2 company-specific details from the job description to the opening paragraph.",
+        "Mention a measurable result from your strongest project or internship experience."
       ],
       "closing": "Sincerely",
       "signature_name": header.get("name", "Candidate"),
@@ -570,17 +966,17 @@ def parse_ai_json(raw_text):
   return json.loads(raw)
 
 
-def call_anthropic(user_message):
+def call_anthropic(user_message, system_prompt=SYSTEM_PROMPT):
   response = client.messages.create(
     model="claude-opus-4-5",
     max_tokens=MODEL_MAX_TOKENS,
-    system=SYSTEM_PROMPT,
+    system=system_prompt,
     messages=[{"role": "user", "content": user_message}],
   )
   return response.content[0].text.strip()
 
 
-def call_openrouter(user_message, low_credit_mode=False, api_keys_override=None):
+def call_openrouter(user_message, low_credit_mode=False, api_keys_override=None, system_prompt=SYSTEM_PROMPT):
   url = "https://openrouter.ai/api/v1/chat/completions"
   models_to_try = [OPENROUTER_MODEL] + [m for m in OPENROUTER_MODEL_FALLBACKS if m != OPENROUTER_MODEL]
 
@@ -588,7 +984,7 @@ def call_openrouter(user_message, low_credit_mode=False, api_keys_override=None)
     payload = {
       "model": model_name,
       "messages": [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_message},
       ],
       "temperature": 0.2,
@@ -673,7 +1069,7 @@ def call_openrouter(user_message, low_credit_mode=False, api_keys_override=None)
   return content.strip()
 
 
-def call_huggingface(user_message):
+def call_huggingface(user_message, system_prompt=SYSTEM_PROMPT):
   api_keys = [key for key in [HUGGINGFACE_API_KEY, HUGGINGFACE_API_KEY_BACKUP] if key]
   if not api_keys:
     raise RuntimeError("No Hugging Face API key configured")
@@ -686,7 +1082,7 @@ def call_huggingface(user_message):
     payload = {
       "model": model_name,
       "messages": [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_message},
       ],
       "temperature": 0.2,
@@ -743,7 +1139,7 @@ def call_huggingface(user_message):
   raise RuntimeError("Hugging Face request failed")
 
 
-def call_github_models(user_message):
+def call_github_models(user_message, system_prompt=SYSTEM_PROMPT):
   if not GITHUB_PAT:
     raise RuntimeError("No GitHub PAT configured")
 
@@ -755,7 +1151,7 @@ def call_github_models(user_message):
     payload = {
       "model": model_name,
       "messages": [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_message},
       ],
       "temperature": 0.2,
@@ -800,37 +1196,96 @@ def call_github_models(user_message):
   raise RuntimeError("GitHub Models request failed")
 
 
-def generate_model_response(user_message, low_credit_mode=False):
+def generate_model_response(user_message, low_credit_mode=False, system_prompt=SYSTEM_PROMPT):
   if OPENROUTER_API_KEY_BACKUP:
     try:
-      return call_openrouter(user_message, low_credit_mode=low_credit_mode, api_keys_override=[OPENROUTER_API_KEY_BACKUP]), "openrouter_backup"
+      return call_openrouter(user_message, low_credit_mode=low_credit_mode, api_keys_override=[OPENROUTER_API_KEY_BACKUP], system_prompt=system_prompt), "openrouter_backup"
     except Exception:
       pass
   if GITHUB_PAT:
     try:
-      return call_github_models(user_message), "github"
+      return call_github_models(user_message, system_prompt=system_prompt), "github"
     except Exception:
       pass
   if OPENROUTER_API_KEY:
     try:
-      return call_openrouter(user_message, low_credit_mode=low_credit_mode, api_keys_override=[OPENROUTER_API_KEY]), "openrouter"
+      return call_openrouter(user_message, low_credit_mode=low_credit_mode, api_keys_override=[OPENROUTER_API_KEY], system_prompt=system_prompt), "openrouter"
     except Exception:
       pass
   if HUGGINGFACE_API_KEY:
     try:
-      return call_huggingface(user_message), "huggingface"
+      return call_huggingface(user_message, system_prompt=system_prompt), "huggingface"
     except Exception:
       pass
   if HUGGINGFACE_API_KEY_BACKUP:
     try:
-      return call_huggingface(user_message), "huggingface"
+      return call_huggingface(user_message, system_prompt=system_prompt), "huggingface"
     except Exception:
       pass
   if client:
-    return call_anthropic(user_message), "anthropic"
+    return call_anthropic(user_message, system_prompt=system_prompt), "anthropic"
   raise RuntimeError(
     "No model API key configured. Add OPENROUTER_API_KEY_BACKUP, GITHUB_PAT, OPENROUTER_API_KEY, HUGGINGFACE_API_KEY, or ANTHROPIC_API_KEY to .env"
   )
+
+
+def generate_cover_letter_response(resume_text, jd_text, low_credit_mode=False):
+  company_name = guess_company_name(jd_text)
+  header = extract_header_from_resume_text(resume_text)
+  resume_for_model, _ = trim_for_model(resume_text, MODEL_INPUT_MAX_CHARS)
+  jd_for_model, _ = trim_for_model(jd_text, MODEL_INPUT_MAX_CHARS)
+
+  user_message = f"""Resume:
+{resume_for_model}
+
+Job Description:
+{jd_for_model}
+
+Target company: {company_name}
+Candidate name: {header.get('name', 'Candidate')}
+
+Write the cover letter now and return only the JSON object defined in the prompt."""
+
+  raw, provider = generate_model_response(user_message, low_credit_mode=low_credit_mode, system_prompt=COVER_LETTER_PROMPT)
+  result = parse_ai_json(raw)
+
+  if isinstance(result, dict) and isinstance(result.get("cover_letter"), dict):
+    cover_letter = result["cover_letter"]
+  else:
+    cover_letter = result if isinstance(result, dict) else {}
+
+  normalized_cover = normalize_cover_letter_shape(cover_letter, resume_text, jd_text)
+  if provider == "github":
+    normalized_cover["notice"] = "GitHub Models was used via GITHUB_PAT."
+  elif provider == "huggingface":
+    normalized_cover["notice"] = "Hugging Face fallback was used (OpenRouter unavailable/low credits)."
+  elif provider == "openrouter_backup":
+    normalized_cover["notice"] = "OpenRouter backup key was used first."
+
+  return {
+    "cover_letter": normalized_cover,
+    "personalization_score": normalized_cover.get("personalization_score", 0),
+    "tips": normalized_cover.get("tips", []),
+    "provider": provider,
+  }
+
+
+def attach_cover_letter(result, resume_text, jd_text, low_credit_mode=False):
+  """Attach a dedicated cover letter to an optimize response."""
+  try:
+    cover_payload = generate_cover_letter_response(resume_text, jd_text, low_credit_mode=low_credit_mode)
+    if isinstance(cover_payload, dict) and isinstance(cover_payload.get("cover_letter"), dict):
+      result["cover_letter"] = cover_payload["cover_letter"]
+      if cover_payload.get("provider"):
+        result["cover_letter_provider"] = cover_payload["provider"]
+      return result
+  except Exception:
+    pass
+
+  if not isinstance(result.get("cover_letter"), dict):
+    fallback_cover = build_local_fallback_result(resume_text, jd_text).get("cover_letter", {})
+    result["cover_letter"] = fallback_cover
+  return result
 
 
 def extract_resume_text(file_storage):
@@ -1127,56 +1582,85 @@ JOB DESCRIPTION:
 
 Analyze and optimize the resume for this specific job.
 Return ONLY valid JSON, no markdown, no explanation.
-Keep the output concise enough to avoid truncation while preserving required fields."""
+Rewrite content for JD fit, but DO NOT remove any original project or certification entries.
+Preserve all projects and all certifications from the original resume."""
 
     try:
-        raw, provider = generate_model_response(user_message, low_credit_mode=low_credit_mode)
-        result = parse_ai_json(raw)
-        result = normalize_response_shape(result)
-        result = ensure_certifications_present(result, resume_text)
-        if resume_trimmed or jd_trimmed:
-            result["notice"] = "Input was trimmed for speed. If you need full-context optimization, split JD into essentials and rerun."
-        if low_credit_mode:
-            extra = "Low Credit Mode is enabled; output depth may be shorter to fit token budget."
-            result["notice"] = f"{result.get('notice', '')} {extra}".strip()
-        if provider == "huggingface":
-            extra = "Hugging Face fallback was used (OpenRouter unavailable/low credits)."
-            result["notice"] = f"{result.get('notice', '')} {extra}".strip()
-        if provider == "github":
-          extra = "GitHub Models was used via GITHUB_PAT."
-          result["notice"] = f"{result.get('notice', '')} {extra}".strip()
-        return jsonify(result)
+      raw, provider = generate_model_response(user_message, low_credit_mode=low_credit_mode)
+      result = parse_ai_json(raw)
+      result = normalize_response_shape(result)
+      result = ensure_certifications_present(result, resume_text)
+      result = ensure_projects_present(result, resume_text)
+      result = attach_cover_letter(result, resume_text, jd_text, low_credit_mode=low_credit_mode)
+      if resume_trimmed or jd_trimmed:
+        result["notice"] = "Input was trimmed for speed. If you need full-context optimization, split JD into essentials and rerun."
+      if low_credit_mode:
+        extra = "Low Credit Mode is enabled; output depth may be shorter to fit token budget."
+        result["notice"] = f"{result.get('notice', '')} {extra}".strip()
+      if provider == "huggingface":
+        extra = "Hugging Face fallback was used (OpenRouter unavailable/low credits)."
+        result["notice"] = f"{result.get('notice', '')} {extra}".strip()
+      if provider == "github":
+        extra = "GitHub Models was used via GITHUB_PAT."
+        result["notice"] = f"{result.get('notice', '')} {extra}".strip()
+      return jsonify(result)
 
     except RuntimeError:
         fallback = build_local_fallback_result(resume_text, jd_text)
         fallback = normalize_response_shape(fallback)
         fallback = ensure_certifications_present(fallback, resume_text)
+        fallback = ensure_projects_present(fallback, resume_text)
         return jsonify(fallback)
 
     except json.JSONDecodeError as e:
         # One automatic retry with strict compact-output reminder.
         try:
-            retry_message = user_message + "\n\nIMPORTANT: Your previous response was invalid/truncated. Return compact valid JSON only."
-            retry_raw, retry_provider = generate_model_response(retry_message, low_credit_mode=low_credit_mode)
-            retry_result = parse_ai_json(retry_raw)
-            retry_result = normalize_response_shape(retry_result)
-            retry_result = ensure_certifications_present(retry_result, resume_text)
-            if resume_trimmed or jd_trimmed:
-                retry_result["notice"] = "Input was trimmed for speed. If you need full-context optimization, split JD into essentials and rerun."
-            if low_credit_mode:
-                extra = "Low Credit Mode is enabled; output depth may be shorter to fit token budget."
-                retry_result["notice"] = f"{retry_result.get('notice', '')} {extra}".strip()
-            if retry_provider == "huggingface":
-                extra = "Hugging Face fallback was used (OpenRouter unavailable/low credits)."
-                retry_result["notice"] = f"{retry_result.get('notice', '')} {extra}".strip()
-            if retry_provider == "github":
-              extra = "GitHub Models was used via GITHUB_PAT."
-              retry_result["notice"] = f"{retry_result.get('notice', '')} {extra}".strip()
-            return jsonify(retry_result)
+          retry_message = user_message + "\n\nIMPORTANT: Your previous response was invalid/truncated. Return compact valid JSON only."
+          retry_raw, retry_provider = generate_model_response(retry_message, low_credit_mode=low_credit_mode)
+          retry_result = parse_ai_json(retry_raw)
+          retry_result = normalize_response_shape(retry_result)
+          retry_result = ensure_certifications_present(retry_result, resume_text)
+          retry_result = ensure_projects_present(retry_result, resume_text)
+          retry_result = attach_cover_letter(retry_result, resume_text, jd_text, low_credit_mode=low_credit_mode)
+          if resume_trimmed or jd_trimmed:
+            retry_result["notice"] = "Input was trimmed for speed. If you need full-context optimization, split JD into essentials and rerun."
+          if low_credit_mode:
+            extra = "Low Credit Mode is enabled; output depth may be shorter to fit token budget."
+            retry_result["notice"] = f"{retry_result.get('notice', '')} {extra}".strip()
+          if retry_provider == "huggingface":
+            extra = "Hugging Face fallback was used (OpenRouter unavailable/low credits)."
+            retry_result["notice"] = f"{retry_result.get('notice', '')} {extra}".strip()
+          if retry_provider == "github":
+            extra = "GitHub Models was used via GITHUB_PAT."
+            retry_result["notice"] = f"{retry_result.get('notice', '')} {extra}".strip()
+          return jsonify(retry_result)
         except Exception:
             return jsonify({"error": f"Failed to parse AI response: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/generate-cover-letter", methods=["POST"])
+def generate_cover_letter():
+    data = request.get_json(silent=True) or {}
+    resume_text = data.get("resume", "").strip()
+    jd_text = data.get("jd", "").strip()
+    low_credit_mode = bool(data.get("low_credit_mode", False))
+
+    if not resume_text or not jd_text:
+        return jsonify({"error": "Both resume and job description are required."}), 400
+
+    try:
+        payload = generate_cover_letter_response(resume_text, jd_text, low_credit_mode=low_credit_mode)
+        return jsonify(payload)
+    except Exception as e:
+        fallback = build_local_fallback_result(resume_text, jd_text).get("cover_letter", {})
+        return jsonify({
+            "cover_letter": fallback,
+            "personalization_score": fallback.get("personalization_score", 0),
+            "tips": fallback.get("tips", []),
+            "error": str(e),
+        }), 200
 
 
 @app.route("/extract-resume", methods=["POST"])

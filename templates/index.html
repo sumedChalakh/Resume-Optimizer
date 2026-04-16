@@ -16,7 +16,7 @@
       <span class="logo-icon">⚡</span>
       <span>ATS<strong>Optimizer</strong></span>
     </div>
-    <div class="header-badge">Powered by Claude AI</div>
+    <div class="header-badge" id="providerBadge">Provider: Auto</div>
   </header>
 
   <main>
@@ -57,10 +57,12 @@
           <input type="checkbox" id="lowCreditMode" />
           <span>Low Credit Mode (faster, cheaper)</span>
         </label>
-        <button class="optimize-btn" id="optimizeBtn" onclick="optimizeResume()">
-          <span class="btn-icon">⚡</span>
-          Optimize My Resume
-        </button>
+        <div class="action-buttons">
+          <button class="optimize-btn" id="optimizeBtn" onclick="optimizeResume()">
+            <span class="btn-icon">⚡</span>
+            Optimize My Resume
+          </button>
+        </div>
       </div>
     </section>
 
@@ -136,6 +138,22 @@
 
       <div class="reset-row">
         <button class="reset-btn" onclick="resetForm()">↩ Optimize Another Resume</button>
+      </div>
+    </section>
+
+    <section class="results-section" id="coverLetterStandaloneSection" style="display:none">
+      <div class="resume-output">
+        <div class="output-header">
+          <h2>📝 Cover Letter</h2>
+          <div class="export-btns">
+            <button class="export-btn" onclick="copyCoverLetter()">📋 Copy Letter</button>
+            <button class="export-btn primary" onclick="exportCoverLetterDocx()">⬇️ Download Letter</button>
+          </div>
+        </div>
+        <div class="cover-letter-content" id="coverLetterStandaloneContent"></div>
+      </div>
+      <div class="reset-row">
+        <button class="reset-btn" onclick="resetForm()">↩ Back</button>
       </div>
     </section>
   </main>

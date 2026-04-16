@@ -36,16 +36,22 @@ pip install -r req.txt
 Create `.env` in project root:
 
 ```bash
-ANTHROPIC_API_KEY=your-anthropic-key
+OPENROUTER_API_KEY_BACKUP=optional
+GITHUB_PAT=optional
 OPENROUTER_API_KEY=your-openrouter-key
 OPENROUTER_MODEL=openrouter/auto
 HUGGINGFACE_API_KEY=optional
 HUGGINGFACE_API_KEY_BACKUP=optional
+ANTHROPIC_API_KEY=optional
 ```
 
 Priority used by app:
-- Uses `ANTHROPIC_API_KEY` if provided
-- Falls back to `OPENROUTER_API_KEY` if Anthropic key is absent
+- Uses `OPENROUTER_API_KEY_BACKUP` first (if configured)
+- Then uses `GITHUB_PAT` (GitHub Models)
+- Then uses `OPENROUTER_API_KEY`
+- Then uses `HUGGINGFACE_API_KEY`
+- Then uses `HUGGINGFACE_API_KEY_BACKUP`
+- Uses `ANTHROPIC_API_KEY` last (if configured)
 
 ### 3. Run the app
 ```bash
@@ -138,3 +144,4 @@ Note: `.doc` option is shown in picker, but backend supports modern formats (`.d
 | python-docx | Word document export |
 | pypdf | PDF text extraction for upload |
 | python-dotenv | .env support for Flask runtime |
+| gunicorn | Production web server for deployment |
