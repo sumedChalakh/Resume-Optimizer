@@ -35,6 +35,29 @@ const sourceBreakdownEl = document.getElementById("sourceBreakdown");
 let lastApplications = [];
 let sourceOptions = [];
 
+async function readApiJson(response, fallbackMessage) {
+  const bodyText = await response.text();
+  let data = null;
+
+  if (bodyText) {
+    try {
+      data = JSON.parse(bodyText);
+    } catch (error) {
+      if (!response.ok) {
+        throw new Error(`${fallbackMessage} (HTTP ${response.status})`);
+      }
+      throw new Error("Received invalid response format from server.");
+    }
+  }
+
+  if (!response.ok) {
+    const serverError = data && typeof data.error === "string" ? data.error : `${fallbackMessage} (HTTP ${response.status})`;
+    throw new Error(serverError);
+  }
+
+  return data || {};
+}
+
 function renderPersistenceWarning(healthData) {
   if (!persistenceWarningEl) {
     return;
@@ -53,13 +76,7 @@ function renderPersistenceWarning(healthData) {
 
 async function fetchTrackerHealth() {
   const response = await fetch("/tracker/api/health");
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to load tracker health");
-  }
-
-  return data;
+  return readApiJson(response, "Failed to load tracker health");
 }
 
 function setMessage(text, type = "") {
@@ -554,24 +571,14 @@ function renderFlowChart(flowData) {
 async function fetchFlowChartData() {
   const query = buildQueryString(getActiveFilters());
   const response = await fetch(`/tracker/api/flow${query}`);
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to load flow chart data");
-  }
-
-  return data;
+  return readApiJson(response, "Failed to load flow chart data");
 }
 
 async function fetchApplications() {
   const query = buildQueryString(getActiveFilters());
 
   const response = await fetch(`/tracker/api/applications${query}`);
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to load tracker applications");
-  }
+  const data = await readApiJson(response, "Failed to load tracker applications");
 
   lastApplications = data.applications || [];
   sourceOptions = Array.isArray(data.source_options) ? data.source_options : sourceOptions;
@@ -596,11 +603,7 @@ async function addApplication(payload) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Could not add application");
-  }
+  await readApiJson(response, "Could not add application");
 }
 
 async function updateStatus(id, status) {
@@ -609,11 +612,7 @@ async function updateStatus(id, status) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
   });
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Could not update status");
-  }
+  await readApiJson(response, "Could not update status");
 
   await fetchApplications();
 }
@@ -622,11 +621,7 @@ async function deleteApplication(id) {
   const response = await fetch(`/tracker/api/applications/${id}`, {
     method: "DELETE",
   });
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Could not delete application");
-  }
+  await readApiJson(response, "Could not delete application");
 }
 
 formEl.addEventListener("submit", async (event) => {
