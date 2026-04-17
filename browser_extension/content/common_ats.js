@@ -102,6 +102,23 @@ function collectJobDetails() {
   };
 }
 
+function ensureCompany(payload, confidence) {
+  if (payload.company) {
+    return payload;
+  }
+
+  const successState = successTextPresent(document.body) || successModalPresent(document.body);
+  if (successState && confidence >= 0.74) {
+    return {
+      ...payload,
+      company: "Unknown Company",
+      notes: `${payload.notes || `Detected from ${getSiteName()} apply flow`}; company not visible on confirmation page`,
+    };
+  }
+
+  return payload;
+}
+
 function applyClickedRecently() {
   return Date.now() - lastApplyClickAt < 240000;
 }
@@ -127,12 +144,14 @@ function successModalPresent(root = document) {
 }
 
 function buildPayload(signal, confidence, note) {
-  return {
+  const payload = {
     ...collectJobDetails(),
     apply_signal: signal,
     confidence,
     notes: note || `Detected from ${getSiteName()} apply flow`,
   };
+
+  return ensureCompany(payload, confidence);
 }
 
 function maybeSendAutoAdd(signal, confidence, note, attempt = 0) {

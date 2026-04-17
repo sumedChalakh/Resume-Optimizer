@@ -99,6 +99,23 @@ function collectJobDetails() {
   };
 }
 
+function ensureCompany(payload, confidence) {
+  if (payload.company) {
+    return payload;
+  }
+
+  const successState = successTextPresent(document.body) || hasAppliedBadgeState();
+  if (successState && confidence >= 0.74) {
+    return {
+      ...payload,
+      company: "Unknown Company",
+      notes: `${payload.notes || "Detected from Indeed apply flow"}; company not visible on confirmation page`,
+    };
+  }
+
+  return payload;
+}
+
 function applyClickedRecently() {
   return Date.now() - lastApplyClickAt < 180000;
 }
@@ -132,12 +149,14 @@ function hasAppliedBadgeState() {
 }
 
 function buildPayload(signal, confidence, note) {
-  return {
+  const payload = {
     ...collectJobDetails(),
     apply_signal: signal,
     confidence,
     notes: note || "Detected from Indeed apply flow",
   };
+
+  return ensureCompany(payload, confidence);
 }
 
 function maybeSendAutoAdd(signal, confidence, note, attempt = 0) {

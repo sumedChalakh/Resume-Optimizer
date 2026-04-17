@@ -73,6 +73,56 @@ button {
   font-size: 12px;
 }
 
+.accuracy-summary {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.accuracy-chip {
+  border: 1px solid #d4ddf3;
+  background: #f8faff;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1b2340;
+}
+
+.accuracy-by-source {
+  display: grid;
+  gap: 6px;
+}
+
+.source-card {
+  border: 1px solid #d4ddf3;
+  background: #f8faff;
+  border-radius: 8px;
+  padding: 7px;
+}
+
+.source-head {
+  font-size: 11px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.source-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.source-badge {
+  border: 1px solid #c7d3f5;
+  background: #fff;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 pre {
   margin: 0;
   white-space: pre-wrap;

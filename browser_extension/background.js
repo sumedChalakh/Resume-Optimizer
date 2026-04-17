@@ -49,17 +49,24 @@ async function pushToTracker(payload) {
     company: payload?.company || "",
     confidence: payload?.confidence,
     signal: payload?.apply_signal || "",
+    source: payload?.source || "Unknown",
   });
 
   if (!config.autoAddEnabled) {
     const result = { status: "disabled", message: "Auto add is disabled in extension settings." };
-    await appendDebugEvent("push_skipped", result);
+    await appendDebugEvent("push_skipped", {
+      ...result,
+      source: payload?.source || "Unknown",
+    });
     return result;
   }
 
   if (!config.ingestToken) {
     const result = { status: "error", message: "Missing ingest token in extension popup settings." };
-    await appendDebugEvent("push_error", result);
+    await appendDebugEvent("push_error", {
+      ...result,
+      source: payload?.source || "Unknown",
+    });
     return result;
   }
 
@@ -120,6 +127,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         code: result.code,
         status: result.data?.status || result.status || "",
         error: result.data?.error || result.message || "",
+        source: payload?.source || "Unknown",
       });
       await setLastResult(result);
 
@@ -147,6 +155,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       };
       await appendDebugEvent("push_exception", {
         error: failure.data.error,
+        source: payload?.source || "Unknown",
       });
       await setLastResult(failure);
       notify("ATS Tracker", "Could not reach tracker API.");
