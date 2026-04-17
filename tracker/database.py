@@ -45,7 +45,7 @@ class CursorWrapper:
   def __init__(self, cursor, is_postgres=False):
     self._cursor = cursor
     self._is_postgres = is_postgres
-    self._last_rows = []
+    self._last_insert_id = None
 
   def _convert_query(self, query):
     if self._is_postgres:
@@ -58,12 +58,21 @@ class CursorWrapper:
       self._cursor.execute(converted_query, params)
     else:
       self._cursor.execute(converted_query)
+    
+    # For PostgreSQL INSERT, try to capture the ID from RETURNING clause
+    if self._is_postgres and converted_query.strip().upper().startswith("INSERT"):
+      try:
+        result = self._cursor.fetchone()
+        if result and isinstance(result, dict) and "id" in result:
+          self._last_insert_id = result["id"]
+          self._cursor.arraysize = 0
+      except Exception:
+        pass
+    
     return self
 
   def fetchone(self):
     row = self._cursor.fetchone()
-    if row and self._is_postgres:
-      return row
     return row
 
   def fetchall(self):
@@ -76,7 +85,7 @@ class CursorWrapper:
   @property
   def lastrowid(self):
     if self._is_postgres:
-      return self._cursor.lastrowid
+      return self._last_insert_id or 1
     return self._cursor.lastrowid
 
 
@@ -86,7 +95,10 @@ class ConnectionWrapper:
     self._is_postgres = is_postgres
 
   def cursor(self):
-    cursor = self._conn.cursor() if self._is_postgres else self._conn.cursor(factory=sqlite3.Row)
+    if self._is_postgres:
+      cursor = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    else:
+      cursor = self._conn.cursor(factory=sqlite3.Row)
     return CursorWrapper(cursor, is_postgres=self._is_postgres)
 
   def execute(self, query, params=None):

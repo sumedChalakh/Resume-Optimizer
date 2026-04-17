@@ -63,7 +63,10 @@ def create_application(
         application.get("notes", ""),
       ),
     )
-    app_id = cursor.lastrowid
+
+    cursor.execute("SELECT id FROM applications WHERE dedupe_key = ?", (application["dedupe_key"],))
+    inserted_row = cursor.fetchone()
+    app_id = inserted_row["id"] if inserted_row else None
 
     cursor.execute(
       """
