@@ -27,10 +27,13 @@ def _build_application_filters(status=None, search=None, source=None, applied_fr
 
 def get_application_by_dedupe_key(dedupe_key, base_dir=None):
   with get_connection(base_dir) as conn:
-    row = conn.execute(
+    cursor = conn.cursor()
+    cursor.execute(
       "SELECT * FROM applications WHERE dedupe_key = ?",
       (dedupe_key,),
-    ).fetchone()
+    )
+    row = cursor.fetchone()
+    cursor.close()
   return dict(row) if row else None
 
 
@@ -41,7 +44,8 @@ def create_application(
   event_note="Application added to tracker",
 ):
   with get_connection(base_dir) as conn:
-    cursor = conn.execute(
+    cursor = conn.cursor()
+    cursor.execute(
       """
       INSERT INTO applications (
         title, company, location, job_url, source, status, applied_date, dedupe_key, notes
@@ -61,7 +65,7 @@ def create_application(
     )
     app_id = cursor.lastrowid
 
-    conn.execute(
+    cursor.execute(
       """
       INSERT INTO application_events (application_id, event_type, event_note)
       VALUES (?, ?, ?)
@@ -69,7 +73,9 @@ def create_application(
       (app_id, event_type, event_note),
     )
 
-    row = conn.execute("SELECT * FROM applications WHERE id = ?", (app_id,)).fetchone()
+    cursor.execute("SELECT * FROM applications WHERE id = ?", (app_id,))
+    row = cursor.fetchone()
+    cursor.close()
   return dict(row)
 
 
@@ -88,28 +94,35 @@ def list_applications(status=None, search=None, source=None, applied_from=None, 
   query += " ORDER BY created_at DESC, id DESC"
 
   with get_connection(base_dir) as conn:
-    rows = conn.execute(query, tuple(params)).fetchall()
+    cursor = conn.cursor()
+    cursor.execute(query, tuple(params) if params else ())
+    rows = cursor.fetchall()
+    cursor.close()
 
   return [dict(row) for row in rows]
 
 
 def list_sources(base_dir=None):
   with get_connection(base_dir) as conn:
-    rows = conn.execute(
+    cursor = conn.cursor()
+    cursor.execute(
       """
       SELECT DISTINCT source
       FROM applications
       WHERE TRIM(COALESCE(source, '')) <> ''
       ORDER BY source COLLATE NOCASE ASC
       """
-    ).fetchall()
+    )
+    rows = cursor.fetchall()
+    cursor.close()
 
   return [row["source"] for row in rows if row["source"]]
 
 
 def update_application_status(application_id, status, base_dir=None):
   with get_connection(base_dir) as conn:
-    conn.execute(
+    cursor = conn.cursor()
+    cursor.execute(
       """
       UPDATE applications
       SET status = ?, updated_at = CURRENT_TIMESTAMP
@@ -118,7 +131,7 @@ def update_application_status(application_id, status, base_dir=None):
       (status, application_id),
     )
 
-    conn.execute(
+    cursor.execute(
       """
       INSERT INTO application_events (application_id, event_type, event_note)
       VALUES (?, ?, ?)
@@ -126,42 +139,51 @@ def update_application_status(application_id, status, base_dir=None):
       (application_id, "status_changed", f"Moved to {status}"),
     )
 
-    row = conn.execute("SELECT * FROM applications WHERE id = ?", (application_id,)).fetchone()
+    cursor.execute("SELECT * FROM applications WHERE id = ?", (application_id,))
+    row = cursor.fetchone()
+    cursor.close()
 
   return dict(row) if row else None
 
 
 def delete_application(application_id, base_dir=None):
   with get_connection(base_dir) as conn:
-    existing = conn.execute(
+    cursor = conn.cursor()
+    cursor.execute(
       "SELECT id FROM applications WHERE id = ?",
       (application_id,),
-    ).fetchone()
+    )
+    existing = cursor.fetchone()
 
     if not existing:
+      cursor.close()
       return False
 
-    conn.execute(
+    cursor.execute(
       "DELETE FROM application_events WHERE application_id = ?",
       (application_id,),
     )
-    conn.execute(
+    cursor.execute(
       "DELETE FROM applications WHERE id = ?",
       (application_id,),
     )
+    cursor.close()
 
   return True
 
 
 def dashboard_counts(base_dir=None):
   with get_connection(base_dir) as conn:
-    rows = conn.execute(
+    cursor = conn.cursor()
+    cursor.execute(
       """
       SELECT status, COUNT(*) AS count
       FROM applications
       GROUP BY status
       """
-    ).fetchall()
+    )
+    rows = cursor.fetchall()
+    cursor.close()
 
   return {row["status"]: row["count"] for row in rows}
 
@@ -181,12 +203,14 @@ def flow_overview(statuses, source=None, applied_from=None, base_dir=None):
     app_query += " WHERE " + " AND ".join(where)
 
   with get_connection(base_dir) as conn:
-    app_rows = conn.execute(app_query, tuple(params)).fetchall()
+    cursor = conn.cursor()
+    cursor.execute(app_query, tuple(params) if params else ())
+    app_rows = cursor.fetchall()
 
     app_ids = [row["id"] for row in app_rows]
     if app_ids:
       placeholders = ",".join(["?"] * len(app_ids))
-      event_rows = conn.execute(
+      cursor.execute(
         f"""
         SELECT application_id, event_note
         FROM application_events
@@ -195,9 +219,11 @@ def flow_overview(statuses, source=None, applied_from=None, base_dir=None):
         ORDER BY application_id ASC, id ASC
         """,
         tuple(app_ids),
-      ).fetchall()
+      )
+      event_rows = cursor.fetchall()
     else:
       event_rows = []
+    cursor.close()
 
   app_status_map = {row["id"]: row["status"] for row in app_rows}
 

@@ -96,7 +96,16 @@ Add the same keys you use in `.env`:
 - `HUGGINGFACE_API_KEY_BACKUP`
 - `ANTHROPIC_API_KEY` (optional)
 - `FLASK_DEBUG=0`
-- `TRACKER_DB_PATH=/var/data/tracker.db` (recommended for tracker data persistence)
+
+**Tracker Database (choose one):**
+- **PostgreSQL (recommended for production)**: 
+  - Add a Postgres add-on in Render (includes free tier)
+  - Render will auto-populate `DATABASE_URL` env var
+  - App auto-detects and uses PostgreSQL
+- **SQLite (local dev only)**:
+  - Leave `DATABASE_URL` empty
+  - App uses local `data/tracker.db` file
+  - ⚠️ Not persistent on Render after restart
 
 ### 4. Deploy
 - Click Deploy.
@@ -125,6 +134,11 @@ Tracker routes:
 - Auto-ingest endpoint (extension): /tracker/api/ingest
 - Flow chart data API: /tracker/api/flow
 - Health API (phase + features): /tracker/api/health
+
+**Database Support:**
+- Automatically uses PostgreSQL if `DATABASE_URL` is set (production)
+- Falls back to SQLite if `DATABASE_URL` is empty (local development)
+- Both databases use the same table schema and query logic
 
 Phase 2 auto-add uses a browser extension (LinkedIn + major ATS):
 - Extension source folder: `browser_extension/`

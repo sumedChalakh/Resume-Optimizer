@@ -40,15 +40,15 @@ function renderPersistenceWarning(healthData) {
     return;
   }
 
-  const isConfigured = Boolean(healthData?.db_persistence_configured);
-  if (isConfigured) {
+  const isPostgres = healthData?.database_type === "postgres";
+  if (isPostgres) {
     persistenceWarningEl.classList.add("hidden");
     persistenceWarningEl.textContent = "";
     return;
   }
 
   persistenceWarningEl.classList.remove("hidden");
-  persistenceWarningEl.textContent = "Production warning: TRACKER_DB_PATH is not configured. Set it to a persistent disk path (for Render, use /var/data/tracker.db) to avoid data loss after restarts.";
+  persistenceWarningEl.textContent = "Production warning: Using SQLite database. Set DATABASE_URL environment variable in Render to use PostgreSQL for persistent storage.";
 }
 
 async function fetchTrackerHealth() {
