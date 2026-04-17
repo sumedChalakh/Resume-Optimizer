@@ -1,6 +1,89 @@
 let currentResumeData = null;
 let currentOriginalResumeText = '';
 let currentCoverLetterData = null;
+let lastOptimizeResponse = null;
+const BUILDER_STATE_KEY = 'ats_optimizer_builder_state_v1';
+
+function getBuilderStateSnapshot() {
+  const resumeInputEl = document.getElementById('resumeInput');
+  const jdInputEl = document.getElementById('jdInput');
+  const lowCreditEl = document.getElementById('lowCreditMode');
+  const providerBadgeEl = document.getElementById('providerBadge');
+  const inputSectionEl = document.getElementById('inputSection');
+  const resultsSectionEl = document.getElementById('resultsSection');
+
+  return {
+    resumeInput: resumeInputEl ? resumeInputEl.value : '',
+    jdInput: jdInputEl ? jdInputEl.value : '',
+    lowCreditMode: Boolean(lowCreditEl && lowCreditEl.checked),
+    providerLabel: providerBadgeEl ? providerBadgeEl.textContent : 'Provider: Auto',
+    currentOriginalResumeText,
+    currentResumeData,
+    currentCoverLetterData,
+    lastOptimizeResponse,
+    inputVisible: inputSectionEl ? inputSectionEl.style.display !== 'none' : true,
+    resultsVisible: resultsSectionEl ? resultsSectionEl.style.display !== 'none' : false,
+    savedAt: Date.now(),
+  };
+}
+
+function persistBuilderState() {
+  try {
+    const snapshot = getBuilderStateSnapshot();
+    localStorage.setItem(BUILDER_STATE_KEY, JSON.stringify(snapshot));
+  } catch (error) {
+    // Ignore storage errors.
+  }
+}
+
+function clearBuilderState() {
+  try {
+    localStorage.removeItem(BUILDER_STATE_KEY);
+  } catch (error) {
+    // Ignore storage errors.
+  }
+}
+
+function restoreBuilderState() {
+  try {
+    const raw = localStorage.getItem(BUILDER_STATE_KEY);
+    if (!raw) {
+      return;
+    }
+
+    const saved = JSON.parse(raw);
+    const resumeInputEl = document.getElementById('resumeInput');
+    const jdInputEl = document.getElementById('jdInput');
+    const lowCreditEl = document.getElementById('lowCreditMode');
+
+    if (resumeInputEl) {
+      resumeInputEl.value = String(saved.resumeInput || '');
+      document.getElementById('resumeCount').textContent = resumeInputEl.value.length.toLocaleString() + ' characters';
+    }
+
+    if (jdInputEl) {
+      jdInputEl.value = String(saved.jdInput || '');
+      document.getElementById('jdCount').textContent = jdInputEl.value.length.toLocaleString() + ' characters';
+    }
+
+    if (lowCreditEl) {
+      lowCreditEl.checked = Boolean(saved.lowCreditMode);
+    }
+
+    currentOriginalResumeText = String(saved.currentOriginalResumeText || '');
+    currentResumeData = saved.currentResumeData || null;
+    currentCoverLetterData = saved.currentCoverLetterData || null;
+    lastOptimizeResponse = saved.lastOptimizeResponse || null;
+
+    setProviderBadge(saved.providerLabel || 'Provider: Auto');
+
+    if (saved.resultsVisible && saved.lastOptimizeResponse) {
+      renderResults(saved.lastOptimizeResponse, { scroll: false, persist: false });
+    }
+  } catch (error) {
+    // Ignore malformed state.
+  }
+}
 
 function setProviderBadge(label) {
   const badge = document.getElementById('providerBadge');
@@ -27,9 +110,11 @@ resumeFileInput.addEventListener('change', async (e) => {
 // Character counters
 document.getElementById('resumeInput').addEventListener('input', e => {
   document.getElementById('resumeCount').textContent = e.target.value.length.toLocaleString() + ' characters';
+  persistBuilderState();
 });
 document.getElementById('jdInput').addEventListener('input', e => {
   document.getElementById('jdCount').textContent = e.target.value.length.toLocaleString() + ' characters';
+  persistBuilderState();
 });
 
 async function uploadResumeFile(file) {
@@ -57,6 +142,7 @@ async function uploadResumeFile(file) {
     const textarea = document.getElementById('resumeInput');
     textarea.value = data.text || '';
     document.getElementById('resumeCount').textContent = textarea.value.length.toLocaleString() + ' characters';
+    persistBuilderState();
     showToast('Resume text loaded from file.', '#22c55e');
   } catch (err) {
     showError(err.message || 'Could not read uploaded file.');
@@ -130,6 +216,7 @@ async function optimizeResume() {
 
     document.getElementById('loadingOverlay').style.display = 'none';
     renderResults(data);
+    persistBuilderState();
 
   } catch (err) {
     clearTimeout(timeoutId);
@@ -199,11 +286,15 @@ async function generateCoverLetterOnly() {
   }
 }
 
-function renderResults(data) {
+function renderResults(data, options = {}) {
+  const shouldScroll = options.scroll !== false;
+  const shouldPersist = options.persist !== false;
+
   document.getElementById('inputSection').style.display = 'none';
   const results = document.getElementById('resultsSection');
   results.style.display = 'block';
 
+  lastOptimizeResponse = data;
   const resume = data.optimized_resume;
   currentResumeData = resume;
   currentCoverLetterData = data.cover_letter || null;
@@ -241,7 +332,13 @@ function renderResults(data) {
   renderResumeHTML(resume);
   renderCoverLetter(currentCoverLetterData);
 
-  results.scrollIntoView({ behavior: 'smooth' });
+  if (shouldPersist) {
+    persistBuilderState();
+  }
+
+  if (shouldScroll) {
+    results.scrollIntoView({ behavior: 'smooth' });
+  }
 }
 
 function animateScore(score) {
@@ -566,10 +663,12 @@ function resetForm() {
   currentResumeData = null;
   currentCoverLetterData = null;
   currentOriginalResumeText = '';
+  lastOptimizeResponse = null;
   document.getElementById('coverLetterOutput').style.display = 'none';
   document.getElementById('coverLetterContent').innerHTML = '';
   document.getElementById('coverLetterStandaloneContent').innerHTML = '';
   setProviderBadge('Provider: Auto');
+  clearBuilderState();
 }
 
 function showError(msg) {
@@ -588,3 +687,12 @@ function showToast(msg, color = '#4f8ef7') {
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }
+
+const lowCreditModeEl = document.getElementById('lowCreditMode');
+if (lowCreditModeEl) {
+  lowCreditModeEl.addEventListener('change', () => {
+    persistBuilderState();
+  });
+}
+
+restoreBuilderState();

@@ -11,13 +11,20 @@
 <body>
   <div class="bg-grid"></div>
 
-  <header>
-    <div class="logo">
-      <span class="logo-icon">⚡</span>
+  <header class="app-topbar">
+    <a class="brand" href="/">
+      <span class="brand-icon">⚡</span>
       <span>ATS<strong>Optimizer</strong></span>
-    </div>
-    <div class="header-actions">
-      <a class="tracker-link" href="/tracker">Open Tracker</a>
+    </a>
+
+    <nav class="top-nav" aria-label="Primary">
+      <a class="top-link active" href="/">Home</a>
+      <a class="top-link" href="/#inputSection">Resume Builder</a>
+      <a class="top-link" href="/tracker">Job Tracker</a>
+    </nav>
+
+    <div class="top-actions">
+      <a class="top-btn" href="/tracker">Open Tracker</a>
       <div class="header-badge" id="providerBadge">Provider: Auto</div>
     </div>
   </header>
