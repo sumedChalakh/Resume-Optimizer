@@ -53,6 +53,18 @@ def _build_counts_from_apps(apps):
   return counts
 
 
+def _safe_empty_applications_payload(error_message=None):
+  payload = {
+    "applications": [],
+    "counts": {status: 0 for status in TRACKER_STATUSES},
+    "statuses": TRACKER_STATUSES,
+    "source_options": [],
+  }
+  if error_message:
+    payload["warning"] = error_message
+  return payload
+
+
 def _corsify(response):
   origin = get_ingest_cors_origin()
   response.headers["Access-Control-Allow-Origin"] = origin
@@ -104,53 +116,65 @@ def tracker_health():
 
 @tracker_blueprint.get("/tracker/api/applications")
 def tracker_list_applications():
-  ensure_database()
-  status = (request.args.get("status") or "").strip().lower()
-  search = (request.args.get("q") or "").strip()
-  source = (request.args.get("source") or "").strip()
-  days = (request.args.get("days") or "all").strip().lower()
-
-  if status and status not in get_status_set():
-    return jsonify({"error": "Invalid status filter"}), 400
-
   try:
-    applied_from = _resolve_applied_from(days)
-  except ValueError as exc:
-    return jsonify({"error": str(exc)}), 400
+    ensure_database()
+    status = (request.args.get("status") or "").strip().lower()
+    search = (request.args.get("q") or "").strip()
+    source = (request.args.get("source") or "").strip()
+    days = (request.args.get("days") or "all").strip().lower()
 
-  apps = list_applications(
-    status=status or None,
-    search=search or None,
-    source=source or None,
-    applied_from=applied_from,
-  )
-  counts = _build_counts_from_apps(apps)
-  sources = list_sources()
-  return jsonify({
-    "applications": apps,
-    "counts": counts,
-    "statuses": TRACKER_STATUSES,
-    "source_options": sources,
-  })
+    if status and status not in get_status_set():
+      return jsonify({"error": "Invalid status filter"}), 400
+
+    try:
+      applied_from = _resolve_applied_from(days)
+    except ValueError as exc:
+      return jsonify({"error": str(exc)}), 400
+
+    apps = list_applications(
+      status=status or None,
+      search=search or None,
+      source=source or None,
+      applied_from=applied_from,
+    )
+    counts = _build_counts_from_apps(apps)
+    sources = list_sources()
+    return jsonify({
+      "applications": apps,
+      "counts": counts,
+      "statuses": TRACKER_STATUSES,
+      "source_options": sources,
+    })
+  except Exception as exc:
+    print(f"[tracker] list_applications failed: {exc}")
+    return jsonify(_safe_empty_applications_payload("Tracker temporarily unavailable; showing empty state."))
 
 
 @tracker_blueprint.get("/tracker/api/flow")
 def tracker_flow_data():
-  ensure_database()
-  source = (request.args.get("source") or "").strip()
-  days = (request.args.get("days") or "all").strip().lower()
-
   try:
-    applied_from = _resolve_applied_from(days)
-  except ValueError as exc:
-    return jsonify({"error": str(exc)}), 400
+    ensure_database()
+    source = (request.args.get("source") or "").strip()
+    days = (request.args.get("days") or "all").strip().lower()
 
-  flow_data = flow_overview(
-    TRACKER_STATUSES,
-    source=source or None,
-    applied_from=applied_from,
-  )
-  return jsonify(flow_data)
+    try:
+      applied_from = _resolve_applied_from(days)
+    except ValueError as exc:
+      return jsonify({"error": str(exc)}), 400
+
+    flow_data = flow_overview(
+      TRACKER_STATUSES,
+      source=source or None,
+      applied_from=applied_from,
+    )
+    return jsonify(flow_data)
+  except Exception as exc:
+    print(f"[tracker] flow_data failed: {exc}")
+    return jsonify({
+      "nodes": [{"id": status, "label": status.capitalize(), "count": 0} for status in TRACKER_STATUSES],
+      "links": [],
+      "warning": "Flow data temporarily unavailable.",
+    })
 
 
 @tracker_blueprint.post("/tracker/api/applications")
