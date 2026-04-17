@@ -116,14 +116,15 @@ You can now upload resume files directly in the Resume panel:
 
 Note: `.doc` option is shown in picker, but backend supports modern formats (`.docx/.pdf/.txt`) for reliable parsing.
 
-## 🧭 Application Tracker (Phase 1 + Phase 2)
+## 🧭 Application Tracker (Phase 1 + Phase 2 + Phase 3)
 
 Tracker routes:
 - Board UI: /tracker
-- API list/create/update: /tracker/api/applications
+- API list/create/update/delete: /tracker/api/applications
 - Auto-ingest endpoint (extension): /tracker/api/ingest
+- Flow chart data API: /tracker/api/flow
 
-Phase 2 auto-add uses a browser extension (LinkedIn-first):
+Phase 2 auto-add uses a browser extension (LinkedIn + major ATS):
 - Extension source folder: `browser_extension/`
 - Configure in `.env`:
     - TRACKER_EXTENSION_TOKEN
@@ -136,7 +137,14 @@ Quick setup:
 3. In extension popup, set:
      - Tracker Base URL (local or deployed)
      - Ingest Token (same as backend token)
-4. Apply on LinkedIn Easy Apply and verify card appears in /tracker.
+4. Apply on LinkedIn/Indeed/Naukri/Workday (or supported ATS page) and verify card appears in /tracker.
+
+Phase 3 adds:
+- Insights dashboard with conversion percentages, ghost rate, response/wait metrics
+- Sankey flow chart with forward-only transitions
+- Date range + source filters for board, metrics, and flow chart
+- CSV/JSON export for currently filtered applications
+- Source breakdown chips in Insights
 
 Detailed guide: `docs/TRACKER_PHASE2_EXTENSION.md`
 

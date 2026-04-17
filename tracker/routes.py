@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from flask import Blueprint, jsonify, make_response, render_template, request
 
 from .config import (
@@ -10,17 +12,42 @@ from .config import (
 from .database import ensure_database
 from .repository import (
   create_application,
-  dashboard_counts,
   delete_application,
   flow_overview,
   get_application_by_dedupe_key,
   list_applications,
+  list_sources,
   update_application_status,
 )
 from .service import normalize_external_payload, validate_and_normalize
 
 
 tracker_blueprint = Blueprint("tracker", __name__)
+
+
+def _resolve_applied_from(days_value):
+  days_raw = str(days_value or "").strip().lower()
+  if not days_raw or days_raw == "all":
+    return None
+
+  if not days_raw.isdigit():
+    raise ValueError("Invalid days filter")
+
+  days = int(days_raw)
+  if days <= 0:
+    raise ValueError("Invalid days filter")
+
+  threshold = date.today() - timedelta(days=days - 1)
+  return threshold.isoformat()
+
+
+def _build_counts_from_apps(apps):
+  counts = {status: 0 for status in TRACKER_STATUSES}
+  for app in apps:
+    status = str(app.get("status") or "").strip().lower()
+    if status in counts:
+      counts[status] += 1
+  return counts
 
 
 def _corsify(response):
@@ -55,19 +82,49 @@ def tracker_list_applications():
   ensure_database()
   status = (request.args.get("status") or "").strip().lower()
   search = (request.args.get("q") or "").strip()
+  source = (request.args.get("source") or "").strip()
+  days = (request.args.get("days") or "all").strip().lower()
 
   if status and status not in get_status_set():
     return jsonify({"error": "Invalid status filter"}), 400
 
-  apps = list_applications(status=status or None, search=search or None)
-  counts = dashboard_counts()
-  return jsonify({"applications": apps, "counts": counts, "statuses": TRACKER_STATUSES})
+  try:
+    applied_from = _resolve_applied_from(days)
+  except ValueError as exc:
+    return jsonify({"error": str(exc)}), 400
+
+  apps = list_applications(
+    status=status or None,
+    search=search or None,
+    source=source or None,
+    applied_from=applied_from,
+  )
+  counts = _build_counts_from_apps(apps)
+  sources = list_sources()
+  return jsonify({
+    "applications": apps,
+    "counts": counts,
+    "statuses": TRACKER_STATUSES,
+    "source_options": sources,
+  })
 
 
 @tracker_blueprint.get("/tracker/api/flow")
 def tracker_flow_data():
   ensure_database()
-  flow_data = flow_overview(TRACKER_STATUSES)
+  source = (request.args.get("source") or "").strip()
+  days = (request.args.get("days") or "all").strip().lower()
+
+  try:
+    applied_from = _resolve_applied_from(days)
+  except ValueError as exc:
+    return jsonify({"error": str(exc)}), 400
+
+  flow_data = flow_overview(
+    TRACKER_STATUSES,
+    source=source or None,
+    applied_from=applied_from,
+  )
   return jsonify(flow_data)
 
 

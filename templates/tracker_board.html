@@ -17,7 +17,19 @@
 
     <section class="toolbar">
       <input id="searchInput" type="text" placeholder="Search role or company" />
+      <select id="daysFilter">
+        <option value="all">All time</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="365">Last 365 days</option>
+      </select>
+      <select id="sourceFilter">
+        <option value="">All sources</option>
+      </select>
       <button id="refreshBtn" type="button">Refresh</button>
+      <button id="exportCsvBtn" type="button">Export CSV</button>
+      <button id="exportJsonBtn" type="button">Export JSON</button>
     </section>
 
     <section class="add-form-card">
@@ -97,6 +109,11 @@
               <strong id="metricInterviewToOffer">0%</strong>
             </div>
           </div>
+        </article>
+
+        <article class="insight-block">
+          <h3>Source Breakdown</h3>
+          <div id="sourceBreakdown" class="source-breakdown"></div>
         </article>
       </div>
     </section>

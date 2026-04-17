@@ -1,6 +1,30 @@
 from .database import get_connection
 
 
+def _build_application_filters(status=None, search=None, source=None, applied_from=None):
+  where = []
+  params = []
+
+  if status:
+    where.append("status = ?")
+    params.append(status)
+
+  if search:
+    where.append("(title LIKE ? OR company LIKE ? OR location LIKE ?)")
+    like_value = f"%{search}%"
+    params.extend([like_value, like_value, like_value])
+
+  if source:
+    where.append("LOWER(source) = LOWER(?)")
+    params.append(source)
+
+  if applied_from:
+    where.append("applied_date >= ?")
+    params.append(applied_from)
+
+  return where, params
+
+
 def get_application_by_dedupe_key(dedupe_key, base_dir=None):
   with get_connection(base_dir) as conn:
     row = conn.execute(
@@ -49,19 +73,14 @@ def create_application(
   return dict(row)
 
 
-def list_applications(status=None, search=None, base_dir=None):
+def list_applications(status=None, search=None, source=None, applied_from=None, base_dir=None):
   query = "SELECT * FROM applications"
-  where = []
-  params = []
-
-  if status:
-    where.append("status = ?")
-    params.append(status)
-
-  if search:
-    where.append("(title LIKE ? OR company LIKE ? OR location LIKE ?)")
-    like_value = f"%{search}%"
-    params.extend([like_value, like_value, like_value])
+  where, params = _build_application_filters(
+    status=status,
+    search=search,
+    source=source,
+    applied_from=applied_from,
+  )
 
   if where:
     query += " WHERE " + " AND ".join(where)
@@ -72,6 +91,20 @@ def list_applications(status=None, search=None, base_dir=None):
     rows = conn.execute(query, tuple(params)).fetchall()
 
   return [dict(row) for row in rows]
+
+
+def list_sources(base_dir=None):
+  with get_connection(base_dir) as conn:
+    rows = conn.execute(
+      """
+      SELECT DISTINCT source
+      FROM applications
+      WHERE TRIM(COALESCE(source, '')) <> ''
+      ORDER BY source COLLATE NOCASE ASC
+      """
+    ).fetchall()
+
+  return [row["source"] for row in rows if row["source"]]
 
 
 def update_application_status(application_id, status, base_dir=None):
@@ -133,21 +166,38 @@ def dashboard_counts(base_dir=None):
   return {row["status"]: row["count"] for row in rows}
 
 
-def flow_overview(statuses, base_dir=None):
+def flow_overview(statuses, source=None, applied_from=None, base_dir=None):
   node_counts = {status: 0 for status in statuses}
   links = {}
   status_order = {status: idx for idx, status in enumerate(statuses)}
 
+  where, params = _build_application_filters(
+    source=source,
+    applied_from=applied_from,
+  )
+
+  app_query = "SELECT id, status FROM applications"
+  if where:
+    app_query += " WHERE " + " AND ".join(where)
+
   with get_connection(base_dir) as conn:
-    app_rows = conn.execute("SELECT id, status FROM applications").fetchall()
-    event_rows = conn.execute(
-      """
-      SELECT application_id, event_note
-      FROM application_events
-      WHERE event_type = 'status_changed'
-      ORDER BY application_id ASC, id ASC
-      """
-    ).fetchall()
+    app_rows = conn.execute(app_query, tuple(params)).fetchall()
+
+    app_ids = [row["id"] for row in app_rows]
+    if app_ids:
+      placeholders = ",".join(["?"] * len(app_ids))
+      event_rows = conn.execute(
+        f"""
+        SELECT application_id, event_note
+        FROM application_events
+        WHERE event_type = 'status_changed'
+          AND application_id IN ({placeholders})
+        ORDER BY application_id ASC, id ASC
+        """,
+        tuple(app_ids),
+      ).fetchall()
+    else:
+      event_rows = []
 
   app_status_map = {row["id"]: row["status"] for row in app_rows}
 

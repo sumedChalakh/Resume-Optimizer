@@ -14,7 +14,11 @@ const statsRowEl = document.getElementById("statsRow");
 const flowChartEl = document.getElementById("flowChart");
 const flowFallbackEl = document.getElementById("flowFallback");
 const searchInputEl = document.getElementById("searchInput");
+const daysFilterEl = document.getElementById("daysFilter");
+const sourceFilterEl = document.getElementById("sourceFilter");
 const refreshBtnEl = document.getElementById("refreshBtn");
+const exportCsvBtnEl = document.getElementById("exportCsvBtn");
+const exportJsonBtnEl = document.getElementById("exportJsonBtn");
 
 const metricGhostRateEl = document.getElementById("metricGhostRate");
 const metricResponseTimeEl = document.getElementById("metricResponseTime");
@@ -25,8 +29,10 @@ const metricRateEl = document.getElementById("metricRate");
 const metricAppliedToScreenEl = document.getElementById("metricAppliedToScreen");
 const metricScreenToInterviewEl = document.getElementById("metricScreenToInterview");
 const metricInterviewToOfferEl = document.getElementById("metricInterviewToOffer");
+const sourceBreakdownEl = document.getElementById("sourceBreakdown");
 
 let lastApplications = [];
+let sourceOptions = [];
 
 function setMessage(text, type = "") {
   messageEl.textContent = text;
@@ -180,6 +186,137 @@ function renderInsights(insights) {
   setMetricValue(metricAppliedToScreenEl, formatPercent(insights.appliedToScreenPct));
   setMetricValue(metricScreenToInterviewEl, formatPercent(insights.screenToInterviewPct));
   setMetricValue(metricInterviewToOfferEl, formatPercent(insights.interviewToOfferPct));
+}
+
+function renderSourceBreakdown(applications) {
+  if (!sourceBreakdownEl) {
+    return;
+  }
+
+  sourceBreakdownEl.innerHTML = "";
+  const counts = {};
+  applications.forEach((app) => {
+    const source = String(app.source || "Unknown").trim() || "Unknown";
+    counts[source] = (counts[source] || 0) + 1;
+  });
+
+  const items = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  if (!items.length) {
+    const empty = document.createElement("span");
+    empty.className = "source-chip";
+    empty.textContent = "No data";
+    sourceBreakdownEl.appendChild(empty);
+    return;
+  }
+
+  items.forEach(([source, count]) => {
+    const chip = document.createElement("span");
+    chip.className = "source-chip";
+    chip.textContent = `${source}: ${count}`;
+    sourceBreakdownEl.appendChild(chip);
+  });
+}
+
+function renderSourceOptions(options) {
+  if (!sourceFilterEl) {
+    return;
+  }
+
+  const previousValue = sourceFilterEl.value;
+  sourceFilterEl.innerHTML = "";
+
+  const allOption = document.createElement("option");
+  allOption.value = "";
+  allOption.textContent = "All sources";
+  sourceFilterEl.appendChild(allOption);
+
+  options.forEach((source) => {
+    const opt = document.createElement("option");
+    opt.value = source;
+    opt.textContent = source;
+    sourceFilterEl.appendChild(opt);
+  });
+
+  sourceFilterEl.value = options.includes(previousValue) ? previousValue : "";
+}
+
+function getActiveFilters() {
+  return {
+    q: (searchInputEl.value || "").trim(),
+    days: (daysFilterEl?.value || "all").trim(),
+    source: (sourceFilterEl?.value || "").trim(),
+  };
+}
+
+function buildQueryString(filters) {
+  const params = new URLSearchParams();
+  if (filters.q) {
+    params.set("q", filters.q);
+  }
+  if (filters.days && filters.days !== "all") {
+    params.set("days", filters.days);
+  }
+  if (filters.source) {
+    params.set("source", filters.source);
+  }
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+function downloadTextFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(value) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function exportCurrentAsCsv() {
+  const header = [
+    "id",
+    "title",
+    "company",
+    "location",
+    "source",
+    "status",
+    "applied_date",
+    "job_url",
+    "notes",
+    "created_at",
+    "updated_at",
+  ];
+
+  const rows = lastApplications.map((app) => [
+    app.id,
+    app.title,
+    app.company,
+    app.location,
+    app.source,
+    app.status,
+    app.applied_date,
+    app.job_url,
+    app.notes,
+    app.created_at,
+    app.updated_at,
+  ]);
+
+  const lines = [header.map(csvEscape).join(",")];
+  rows.forEach((row) => lines.push(row.map(csvEscape).join(",")));
+  downloadTextFile("tracker_export.csv", `${lines.join("\n")}\n`, "text/csv;charset=utf-8");
+}
+
+function exportCurrentAsJson() {
+  downloadTextFile("tracker_export.json", JSON.stringify(lastApplications, null, 2), "application/json;charset=utf-8");
 }
 
 function renderStats(counts) {
@@ -387,7 +524,8 @@ function renderFlowChart(flowData) {
 }
 
 async function fetchFlowChartData() {
-  const response = await fetch("/tracker/api/flow");
+  const query = buildQueryString(getActiveFilters());
+  const response = await fetch(`/tracker/api/flow${query}`);
   const data = await response.json();
 
   if (!response.ok) {
@@ -398,8 +536,7 @@ async function fetchFlowChartData() {
 }
 
 async function fetchApplications() {
-  const searchValue = (searchInputEl.value || "").trim();
-  const query = searchValue ? `?q=${encodeURIComponent(searchValue)}` : "";
+  const query = buildQueryString(getActiveFilters());
 
   const response = await fetch(`/tracker/api/applications${query}`);
   const data = await response.json();
@@ -409,8 +546,11 @@ async function fetchApplications() {
   }
 
   lastApplications = data.applications || [];
+  sourceOptions = Array.isArray(data.source_options) ? data.source_options : sourceOptions;
+  renderSourceOptions(sourceOptions);
   renderStats(data.counts || {});
   renderBoard(lastApplications);
+  renderSourceBreakdown(lastApplications);
 
   try {
     const flowData = await fetchFlowChartData();
@@ -494,6 +634,22 @@ searchInputEl.addEventListener("input", async () => {
   }
 });
 
+daysFilterEl.addEventListener("change", async () => {
+  try {
+    await fetchApplications();
+  } catch (error) {
+    setMessage(error.message, "warn");
+  }
+});
+
+sourceFilterEl.addEventListener("change", async () => {
+  try {
+    await fetchApplications();
+  } catch (error) {
+    setMessage(error.message, "warn");
+  }
+});
+
 refreshBtnEl.addEventListener("click", async () => {
   try {
     await fetchApplications();
@@ -501,6 +657,16 @@ refreshBtnEl.addEventListener("click", async () => {
   } catch (error) {
     setMessage(error.message, "warn");
   }
+});
+
+exportCsvBtnEl.addEventListener("click", () => {
+  exportCurrentAsCsv();
+  setMessage("Exported CSV for current filtered results.", "ok");
+});
+
+exportJsonBtnEl.addEventListener("click", () => {
+  exportCurrentAsJson();
+  setMessage("Exported JSON for current filtered results.", "ok");
 });
 
 (async function init() {
