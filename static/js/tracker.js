@@ -19,6 +19,7 @@ const sourceFilterEl = document.getElementById("sourceFilter");
 const refreshBtnEl = document.getElementById("refreshBtn");
 const exportCsvBtnEl = document.getElementById("exportCsvBtn");
 const exportJsonBtnEl = document.getElementById("exportJsonBtn");
+const persistenceWarningEl = document.getElementById("persistenceWarning");
 
 const metricGhostRateEl = document.getElementById("metricGhostRate");
 const metricResponseTimeEl = document.getElementById("metricResponseTime");
@@ -33,6 +34,33 @@ const sourceBreakdownEl = document.getElementById("sourceBreakdown");
 
 let lastApplications = [];
 let sourceOptions = [];
+
+function renderPersistenceWarning(healthData) {
+  if (!persistenceWarningEl) {
+    return;
+  }
+
+  const isConfigured = Boolean(healthData?.db_persistence_configured);
+  if (isConfigured) {
+    persistenceWarningEl.classList.add("hidden");
+    persistenceWarningEl.textContent = "";
+    return;
+  }
+
+  persistenceWarningEl.classList.remove("hidden");
+  persistenceWarningEl.textContent = "Production warning: TRACKER_DB_PATH is not configured. Set it to a persistent disk path (for Render, use /var/data/tracker.db) to avoid data loss after restarts.";
+}
+
+async function fetchTrackerHealth() {
+  const response = await fetch("/tracker/api/health");
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to load tracker health");
+  }
+
+  return data;
+}
 
 function setMessage(text, type = "") {
   messageEl.textContent = text;
@@ -671,6 +699,8 @@ exportJsonBtnEl.addEventListener("click", () => {
 
 (async function init() {
   try {
+    const health = await fetchTrackerHealth();
+    renderPersistenceWarning(health);
     await fetchApplications();
   } catch (error) {
     setMessage(error.message, "warn");

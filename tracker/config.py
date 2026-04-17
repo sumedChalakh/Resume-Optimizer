@@ -30,6 +30,10 @@ def get_db_path(base_dir):
   return os.path.join(db_dir, DEFAULT_DB_FILE)
 
 
+def is_db_path_explicitly_configured():
+  return bool(os.getenv(TRACKER_DB_ENV, "").strip())
+
+
 def get_extension_token():
   return os.getenv(TRACKER_EXTENSION_TOKEN_ENV, "").strip()
 

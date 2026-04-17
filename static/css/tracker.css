@@ -115,6 +115,21 @@ body {
   margin: 8px 0 0;
 }
 
+.system-warning {
+  margin: 14px 0 0;
+  border: 1px solid #f7c27b;
+  background: #fff8eb;
+  color: #8a4b06;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.system-warning.hidden {
+  display: none;
+}
+
 .toolbar {
   display: flex;
   gap: 10px;

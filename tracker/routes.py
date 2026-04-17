@@ -1,3 +1,4 @@
+import os
 from datetime import date, timedelta
 
 from flask import Blueprint, jsonify, make_response, render_template, request
@@ -5,8 +6,10 @@ from flask import Blueprint, jsonify, make_response, render_template, request
 from .config import (
   TRACKER_STATUSES,
   get_extension_token,
+  get_db_path,
   get_ingest_cors_origin,
   get_ingest_min_confidence,
+  is_db_path_explicitly_configured,
   get_status_set,
 )
 from .database import ensure_database
@@ -74,10 +77,16 @@ def tracker_board():
 @tracker_blueprint.get("/tracker/api/health")
 def tracker_health():
   ensure_database()
+  base_dir = os.getcwd()
+  db_path = get_db_path(base_dir)
+  explicit_db_path = is_db_path_explicitly_configured()
   return jsonify({
     "ok": True,
     "module": "tracker",
     "phase": 3,
+    "db_path": db_path,
+    "db_persistence_configured": explicit_db_path,
+    "warnings": ([] if explicit_db_path else ["TRACKER_DB_PATH is not set; tracker data may be lost after redeploy or restart."]),
     "tracker_features": [
       "board",
       "ingest",
