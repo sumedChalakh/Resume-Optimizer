@@ -113,7 +113,7 @@ def list_sources(base_dir=None):
       SELECT DISTINCT source
       FROM applications
       WHERE TRIM(COALESCE(source, '')) <> ''
-      ORDER BY source COLLATE NOCASE ASC
+      ORDER BY LOWER(source) ASC
       """
     )
     rows = cursor.fetchall()
