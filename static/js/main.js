@@ -91,6 +91,146 @@ function setProviderBadge(label) {
   badge.textContent = label || 'Provider: Auto';
 }
 
+function setTopNavActive(mode) {
+  const homeLink = document.getElementById('homeNavLink');
+  const builderLink = document.getElementById('builderNavLink');
+  if (!homeLink || !builderLink) return;
+
+  homeLink.classList.toggle('active', mode === 'home');
+  builderLink.classList.toggle('active', mode === 'builder');
+  homeLink.setAttribute('aria-current', mode === 'home' ? 'page' : 'false');
+  builderLink.setAttribute('aria-current', mode === 'builder' ? 'page' : 'false');
+}
+
+function bindTopNavHandlers() {
+  const homeLink = document.getElementById('homeNavLink');
+  const builderLink = document.getElementById('builderNavLink');
+  if (!homeLink || !builderLink) return;
+
+  homeLink.addEventListener('click', () => {
+    setTopNavActive('home');
+  });
+
+  builderLink.addEventListener('click', () => {
+    setTopNavActive('builder');
+  });
+}
+
+function getPageModeFromHash() {
+  const hash = String(window.location.hash || '').toLowerCase();
+  if (hash === '#inputsection' || hash === '#resumebuildersection') {
+    return 'builder';
+  }
+  return 'home';
+}
+
+function applyPageModeFromHash() {
+  const mode = getPageModeFromHash();
+  const homeSection = document.getElementById('homeSection');
+  const inputSection = document.getElementById('inputSection');
+  const resultsSection = document.getElementById('resultsSection');
+  const standaloneSection = document.getElementById('coverLetterStandaloneSection');
+
+  setTopNavActive(mode);
+
+  if (mode === 'home') {
+    if (homeSection) homeSection.style.display = 'block';
+    if (inputSection) inputSection.style.display = 'none';
+    if (resultsSection) resultsSection.style.display = 'none';
+    if (standaloneSection) standaloneSection.style.display = 'none';
+    return;
+  }
+
+  if (homeSection) homeSection.style.display = 'none';
+
+  restoreBuilderState();
+
+  const inputVisible = inputSection && inputSection.style.display !== 'none';
+  const resultsVisible = resultsSection && resultsSection.style.display !== 'none';
+  const standaloneVisible = standaloneSection && standaloneSection.style.display !== 'none';
+
+  if (!inputVisible && !resultsVisible && !standaloneVisible && inputSection) {
+    inputSection.style.display = 'block';
+  }
+}
+
+function getHomeEl(id) {
+  return document.getElementById(id);
+}
+
+function renderHomeMetrics(applications, counts) {
+  const statEl = getHomeEl('homeStatCards');
+  if (!statEl) return;
+
+  const total = Number((applications || []).length || 0);
+  const applied = Number(counts.applied || 0);
+  const interview = Number(counts.interview || 0);
+  const offer = Number(counts.offer || 0);
+
+  statEl.innerHTML = `
+    <div class="overview-metric">Total Applications<strong>${total}</strong></div>
+    <div class="overview-metric">Applied<strong>${applied}</strong></div>
+    <div class="overview-metric">Interview<strong>${interview}</strong></div>
+    <div class="overview-metric">Offers<strong>${offer}</strong></div>
+  `;
+}
+
+function renderHomeSourceViz(applications) {
+  const vizEl = getHomeEl('homeSourceViz');
+  if (!vizEl) return;
+
+  const sourceCounts = {};
+  (applications || []).forEach((item) => {
+    const source = String(item.source || 'Unknown').trim() || 'Unknown';
+    sourceCounts[source] = (sourceCounts[source] || 0) + 1;
+  });
+
+  const entries = Object.entries(sourceCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+
+  if (!entries.length) {
+    vizEl.innerHTML = '<div class="overview-metric">No application data yet. Add your first tracked job to see source insights.</div>';
+    return;
+  }
+
+  const maxValue = entries[0][1] || 1;
+  vizEl.innerHTML = entries.map(([source, value]) => {
+    const width = Math.max(8, Math.round((value / maxValue) * 100));
+    return `
+      <div class="source-row">
+        <span class="source-name">${source}</span>
+        <div class="source-bar-track">
+          <div class="source-bar-fill" style="width:${width}%"></div>
+        </div>
+        <span class="source-value">${value}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadHomeOverview() {
+  const statEl = getHomeEl('homeStatCards');
+  if (!statEl) return;
+
+  try {
+    const response = await fetch('/tracker/api/applications');
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Could not load tracker snapshot');
+    }
+
+    renderHomeMetrics(data.applications || [], data.counts || {});
+    renderHomeSourceViz(data.applications || []);
+  } catch (error) {
+    statEl.innerHTML = '<div class="overview-metric">Tracker metrics unavailable right now.</div>';
+    const vizEl = getHomeEl('homeSourceViz');
+    if (vizEl) {
+      vizEl.innerHTML = '<div class="overview-metric">Could not load source distribution.</div>';
+    }
+  }
+}
+
 function inferProviderLabel(data) {
   const notice = String((data && data.notice) || '').toLowerCase();
   if (notice.includes('github models')) return 'Provider: GitHub Models';
@@ -695,4 +835,8 @@ if (lowCreditModeEl) {
   });
 }
 
-restoreBuilderState();
+loadHomeOverview();
+bindTopNavHandlers();
+applyPageModeFromHash();
+window.addEventListener('DOMContentLoaded', applyPageModeFromHash);
+window.addEventListener('hashchange', applyPageModeFromHash);

@@ -18,8 +18,8 @@
     </a>
 
     <nav class="top-nav" aria-label="Primary">
-      <a class="top-link active" href="/">Home</a>
-      <a class="top-link" href="/#inputSection">Resume Builder</a>
+      <a class="top-link" id="homeNavLink" href="/#homeSection">Home</a>
+      <a class="top-link" id="builderNavLink" href="/#inputSection">Resume Builder</a>
       <a class="top-link" href="/tracker">Job Tracker</a>
     </nav>
 
@@ -30,10 +30,42 @@
   </header>
 
   <main>
+    <section class="home-overview" id="homeSection">
+      <div class="overview-grid">
+        <article class="overview-card overview-hero">
+          <p class="kicker">Your Career Command Center</p>
+          <h1>One Place For Resume Building And Job Tracking</h1>
+          <p>
+            ATSOptimizer helps you tailor resumes quickly, track every application stage,
+            and measure progress with real funnel analytics.
+          </p>
+          <div class="overview-cta-row">
+            <a class="overview-cta primary" href="#inputSection">Go To Resume Builder</a>
+            <a class="overview-cta" href="/tracker">Open Job Tracker</a>
+          </div>
+        </article>
+
+        <article class="overview-card">
+          <h3>Tracker Snapshot</h3>
+          <div class="overview-metric-grid" id="homeStatCards">
+            <div class="overview-metric">Loading metrics...</div>
+          </div>
+        </article>
+
+        <article class="overview-card overview-wide">
+          <div class="overview-wide-head">
+            <h3>Top Sources</h3>
+            <span>Recent application distribution</span>
+          </div>
+          <div id="homeSourceViz" class="source-viz"></div>
+        </article>
+      </div>
+    </section>
+
     <!-- INPUT SECTION -->
     <section class="input-section" id="inputSection">
       <div class="hero">
-        <h1>Land More <span class="gradient-text">Interviews</span></h1>
+        <h1>Resume <span class="gradient-text">Builder</span></h1>
         <p class="subtitle">Paste your resume & job description. Get an ATS-optimized resume in seconds.</p>
       </div>
 
