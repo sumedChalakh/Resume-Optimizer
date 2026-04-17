@@ -5,6 +5,26 @@ const DEFAULTS = {
   minConfidence: 0.7,
 };
 
+const SUPPORTED_JOB_HOSTS = [
+  "linkedin.com",
+  "naukri.com",
+  "indeed.com",
+  "indeed.co.in",
+  "myworkdayjobs.com",
+  "workday.com",
+  "greenhouse.io",
+  "lever.co",
+  "smartrecruiters.com",
+  "ashbyhq.com",
+  "icims.com",
+  "taleo.net",
+];
+
+function isSupportedJobHost(url) {
+  const normalized = String(url || "").toLowerCase();
+  return SUPPORTED_JOB_HOSTS.some((host) => normalized.includes(host));
+}
+
 function getEl(id) {
   return document.getElementById(id);
 }
@@ -93,8 +113,8 @@ async function forceAddCurrentJob() {
     return;
   }
 
-  if (!tab.url.includes("linkedin.com")) {
-    setMessage("Not on LinkedIn. Navigate to a LinkedIn job page.", true);
+  if (!isSupportedJobHost(tab.url)) {
+    setMessage("Open a LinkedIn, Naukri, Indeed, or Workday job page first.", true);
     return;
   }
 
@@ -115,7 +135,7 @@ async function forceAddCurrentJob() {
       company: response.company || "Unknown Company",
       location: response.location || "",
       job_url: tab.url,
-      source: "LinkedIn (Manual Add)",
+      source: `${response.source || "Job Board"} (Manual Add)`,
       applied_date: new Date().toISOString().slice(0, 10),
       apply_signal: "manual_force_add",
       confidence: 0.95,
