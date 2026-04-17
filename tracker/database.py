@@ -98,7 +98,7 @@ class ConnectionWrapper:
     if self._is_postgres:
       cursor = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     else:
-      cursor = self._conn.cursor(factory=sqlite3.Row)
+      cursor = self._conn.cursor()
     return CursorWrapper(cursor, is_postgres=self._is_postgres)
 
   def execute(self, query, params=None):
