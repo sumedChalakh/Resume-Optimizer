@@ -96,6 +96,7 @@ Add the same keys you use in `.env`:
 - `HUGGINGFACE_API_KEY_BACKUP`
 - `ANTHROPIC_API_KEY` (optional)
 - `FLASK_DEBUG=0`
+- `TRACKER_DB_PATH=/var/data/tracker.db` (recommended for tracker data persistence)
 
 ### 4. Deploy
 - Click Deploy.
@@ -123,6 +124,7 @@ Tracker routes:
 - API list/create/update/delete: /tracker/api/applications
 - Auto-ingest endpoint (extension): /tracker/api/ingest
 - Flow chart data API: /tracker/api/flow
+- Health API (phase + features): /tracker/api/health
 
 Phase 2 auto-add uses a browser extension (LinkedIn + major ATS):
 - Extension source folder: `browser_extension/`
@@ -145,6 +147,9 @@ Phase 3 adds:
 - Date range + source filters for board, metrics, and flow chart
 - CSV/JSON export for currently filtered applications
 - Source breakdown chips in Insights
+
+Production note:
+- Use a persistent DB path via `TRACKER_DB_PATH` on Render. Without persistent storage, tracker records can be lost after restarts/redeploys.
 
 Detailed guide: `docs/TRACKER_PHASE2_EXTENSION.md`
 

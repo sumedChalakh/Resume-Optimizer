@@ -74,7 +74,19 @@ def tracker_board():
 @tracker_blueprint.get("/tracker/api/health")
 def tracker_health():
   ensure_database()
-  return jsonify({"ok": True, "module": "tracker", "phase": 1})
+  return jsonify({
+    "ok": True,
+    "module": "tracker",
+    "phase": 3,
+    "tracker_features": [
+      "board",
+      "ingest",
+      "insights",
+      "flow",
+      "filters",
+      "exports",
+    ],
+  })
 
 
 @tracker_blueprint.get("/tracker/api/applications")
