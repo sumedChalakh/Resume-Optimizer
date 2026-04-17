@@ -39,12 +39,84 @@
 
     <section id="statsRow" class="stats-row"></section>
 
+    <section class="insights-card">
+      <div class="insights-head">
+        <h2>Insights</h2>
+        <p>Live metrics from your tracker data.</p>
+      </div>
+      <div class="insights-grid">
+        <article class="insight-block">
+          <h3>Performance Metrics</h3>
+          <div class="metric-tiles">
+            <div class="metric-tile metric-tile-soft">
+              <span class="metric-label">Ghost Rate</span>
+              <strong id="metricGhostRate">0%</strong>
+            </div>
+            <div class="metric-tile">
+              <span class="metric-label">Response Time</span>
+              <strong id="metricResponseTime">0 days</strong>
+            </div>
+            <div class="metric-tile metric-tile-wide">
+              <span class="metric-label">Longest Waiting Application</span>
+              <strong id="metricLongestWait">0 days</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="insight-block">
+          <h3>Volume Metrics</h3>
+          <div class="metric-tiles">
+            <div class="metric-tile metric-tile-mint">
+              <span class="metric-label">Total Applications</span>
+              <strong id="metricTotalApplications">0</strong>
+            </div>
+            <div class="metric-tile">
+              <span class="metric-label">Most Active Day</span>
+              <strong id="metricMostActiveDay">N/A</strong>
+            </div>
+            <div class="metric-tile metric-tile-wide">
+              <span class="metric-label">Application Rate</span>
+              <strong id="metricRate">0/day · 0/week · 0/month · 0/year</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="insight-block">
+          <h3>Conversion Funnel</h3>
+          <div class="metric-tiles">
+            <div class="metric-tile metric-tile-soft-red">
+              <span class="metric-label">Applied to Screening</span>
+              <strong id="metricAppliedToScreen">0%</strong>
+            </div>
+            <div class="metric-tile">
+              <span class="metric-label">Screening to Interview</span>
+              <strong id="metricScreenToInterview">0%</strong>
+            </div>
+            <div class="metric-tile metric-tile-wide">
+              <span class="metric-label">Interview to Offer</span>
+              <strong id="metricInterviewToOffer">0%</strong>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="flow-card">
+      <div class="flow-card-head">
+        <h2>Application Flow Chart</h2>
+        <p>Transition map based on your tracker status changes.</p>
+      </div>
+      <div id="flowChart" class="flow-chart"></div>
+      <div id="flowFallback" class="flow-fallback"></div>
+    </section>
+
     <section class="board" id="board"></section>
   </main>
 
   <script>
     window.TRACKER_STATUSES = {{ statuses|tojson }};
   </script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <script src="/static/js/tracker.js"></script>
 </body>
 </html>

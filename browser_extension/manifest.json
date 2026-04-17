@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "ATS Tracker Auto Add",
+  "description": "Detects successful job applications and auto-adds them to your ATS tracker.",
+  "version": "0.1.0",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "https://*.onrender.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/jobs/*"],
+      "js": ["content/linkedin.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "ATS Tracker Auto Add",
+    "default_popup": "popup/popup.html"
+  }
+}

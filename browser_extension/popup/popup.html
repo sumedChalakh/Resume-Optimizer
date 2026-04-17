@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ATS Tracker Auto Add</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main class="wrap">
+    <h1>ATS Tracker</h1>
+    <p class="hint">Configure where extension sends auto-detected applications.</p>
+
+    <label>
+      Tracker Base URL
+      <input id="apiBaseUrl" placeholder="http://127.0.0.1:5000" />
+    </label>
+
+    <label>
+      Ingest Token
+      <input id="ingestToken" type="password" placeholder="TRACKER_EXTENSION_TOKEN" />
+    </label>
+
+    <label class="row">
+      <input id="autoAddEnabled" type="checkbox" />
+      Enable auto add
+    </label>
+
+    <label>
+      Minimum confidence (0-1)
+      <input id="minConfidence" type="number" min="0" max="1" step="0.05" />
+    </label>
+
+    <button id="saveBtn" type="button">Save</button>
+    <button id="testBtn" type="button">Test Connection + Ingest</button>
+    <button id="forceAddBtn" type="button">Force Add Current Job</button>
+
+    <section class="status-box">
+      <h2>Last Ingest Result</h2>
+      <pre id="lastResult">No result yet.</pre>
+    </section>
+
+    <section class="status-box">
+      <h2>Debug Events (Latest)</h2>
+      <pre id="debugEvents">No debug events yet.</pre>
+    </section>
+
+    <p id="message" class="message"></p>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

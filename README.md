@@ -116,6 +116,30 @@ You can now upload resume files directly in the Resume panel:
 
 Note: `.doc` option is shown in picker, but backend supports modern formats (`.docx/.pdf/.txt`) for reliable parsing.
 
+## 🧭 Application Tracker (Phase 1 + Phase 2)
+
+Tracker routes:
+- Board UI: /tracker
+- API list/create/update: /tracker/api/applications
+- Auto-ingest endpoint (extension): /tracker/api/ingest
+
+Phase 2 auto-add uses a browser extension (LinkedIn-first):
+- Extension source folder: `browser_extension/`
+- Configure in `.env`:
+    - TRACKER_EXTENSION_TOKEN
+    - TRACKER_INGEST_CORS_ORIGIN
+    - TRACKER_INGEST_MIN_CONFIDENCE
+
+Quick setup:
+1. Set `TRACKER_EXTENSION_TOKEN` in your backend environment.
+2. Load unpacked extension from `browser_extension` in Chrome/Brave.
+3. In extension popup, set:
+     - Tracker Base URL (local or deployed)
+     - Ingest Token (same as backend token)
+4. Apply on LinkedIn Easy Apply and verify card appears in /tracker.
+
+Detailed guide: `docs/TRACKER_PHASE2_EXTENSION.md`
+
 ## ✨ Features
 
 - **ATS Score** — Visual score ring showing match percentage (0–100%)
