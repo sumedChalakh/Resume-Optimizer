@@ -63,15 +63,15 @@ function renderPersistenceWarning(healthData) {
     return;
   }
 
-  const isPostgres = healthData?.database_type === "postgres";
-  if (isPostgres) {
+  const isSQLite = healthData?.database_type === "sqlite";
+  if (isSQLite) {
     persistenceWarningEl.classList.add("hidden");
     persistenceWarningEl.textContent = "";
     return;
   }
 
-  persistenceWarningEl.classList.remove("hidden");
-  persistenceWarningEl.textContent = "Production warning: Using SQLite database. Set DATABASE_URL environment variable in Render to use PostgreSQL for persistent storage.";
+  persistenceWarningEl.classList.add("hidden");
+  persistenceWarningEl.textContent = "";
 }
 
 async function fetchTrackerHealth() {

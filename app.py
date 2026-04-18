@@ -381,27 +381,73 @@ def project_quality_score(project):
   return len(bullets) * 3 + (2 if tech else 0) + (1 if len(name) > 20 else 0)
 
 
+def normalize_for_compare(value):
+  text = normalize_space(str(value)).lower()
+  text = re.sub(r"[^a-z0-9\s]", " ", text)
+  return re.sub(r"\s+", " ", text).strip()
+
+
+def text_token_set(value):
+  tokens = normalize_for_compare(value).split()
+  return {t for t in tokens if len(t) > 2}
+
+
+def is_near_duplicate_text(a, b):
+  na = normalize_for_compare(a)
+  nb = normalize_for_compare(b)
+  if not na or not nb:
+    return False
+  if na == nb:
+    return True
+  if len(na) > 35 and na in nb:
+    return True
+  if len(nb) > 35 and nb in na:
+    return True
+
+  ta = text_token_set(na)
+  tb = text_token_set(nb)
+  if not ta or not tb:
+    return False
+
+  overlap = len(ta & tb)
+  union = len(ta | tb)
+  jaccard = overlap / union if union else 0
+  return jaccard >= 0.82 and min(len(ta), len(tb)) >= 6
+
+
+def clean_bullet_lines(lines, max_items=6):
+  if not isinstance(lines, list):
+    return []
+
+  clean = []
+  for raw in lines:
+    text = normalize_space(str(raw))
+    low = text.lower()
+    if not text:
+      continue
+    if len(text) < 15:
+      continue
+    if low in {"projects", "project", "experience", "skills", "education", "certifications"}:
+      continue
+    if any(is_near_duplicate_text(text, existing) for existing in clean):
+      continue
+    clean.append(text)
+    if len(clean) >= max_items:
+      break
+
+  return clean
+
+
 def normalize_project_entry(project):
   if not isinstance(project, dict):
     return {"name": "", "tech": "", "bullets": []}
 
-  bullets = project.get("bullets", [])
-  if not isinstance(bullets, list):
-    bullets = []
-  clean_bullets = []
-  seen = set()
-  for bullet in bullets:
-    text = normalize_space(str(bullet))
-    key = text.lower()
-    if not text or key in seen:
-      continue
-    seen.add(key)
-    clean_bullets.append(text)
+  bullets = clean_bullet_lines(project.get("bullets", []), max_items=6)
 
   return {
     "name": normalize_space(project.get("name", "")),
     "tech": normalize_space(project.get("tech", "")),
-    "bullets": clean_bullets,
+    "bullets": bullets,
   }
 
 
@@ -421,6 +467,12 @@ def looks_like_project_sentence(text):
   if value.endswith(".") and len(value.split()) > 8:
     return True
   if low.startswith(action_prefixes) and len(value.split()) > 6:
+    return True
+  if value[:1].islower() and len(value.split()) > 5:
+    return True
+  if ";" in value and len(value.split()) > 6:
+    return True
+  if re.search(r"\b\d+(?:\.\d+)?%\b", value) and len(value.split()) > 6:
     return True
   return False
 
@@ -443,12 +495,70 @@ def is_valid_project_entry(project):
     return False
   if looks_like_project_sentence(name):
     return False
+  if len(name.split()) > 12:
+    return False
+  if name[:1].islower():
+    return False
+  if name.count("|") > 1:
+    return False
+
+  # Avoid including malformed entries that are likely bullet fragments.
+  if (";" in name or "," in name) and len(name.split()) > 10:
+    return False
 
   # Reject entries that are just stack lines unless they have meaningful bullets.
   if (not tech) and len(bullets) == 0 and len(name.split()) > 8:
     return False
 
   return True
+
+
+def normalize_experience_entry(exp):
+  if not isinstance(exp, dict):
+    return {"title": "", "company": "", "duration": "", "bullets": []}
+
+  return {
+    "title": normalize_space(exp.get("title", "")),
+    "company": normalize_space(exp.get("company", "")),
+    "duration": normalize_space(exp.get("duration", "")),
+    "bullets": clean_bullet_lines(exp.get("bullets", []), max_items=6),
+  }
+
+
+def sanitize_resume_entries(result):
+  if not isinstance(result, dict):
+    return result
+
+  optimized = result.get("optimized_resume")
+  if not isinstance(optimized, dict):
+    return result
+
+  projects = optimized.get("projects")
+  if isinstance(projects, list):
+    clean_projects = []
+    seen_project_names = []
+    for proj in projects:
+      normalized = normalize_project_entry(proj)
+      if not is_valid_project_entry(normalized):
+        continue
+      name = normalized.get("name", "")
+      if any(is_near_duplicate_text(name, existing_name) for existing_name in seen_project_names):
+        continue
+      seen_project_names.append(name)
+      clean_projects.append(normalized)
+    optimized["projects"] = clean_projects
+
+  experience = optimized.get("experience")
+  if isinstance(experience, list):
+    clean_experience = []
+    for exp in experience:
+      normalized = normalize_experience_entry(exp)
+      if not normalized.get("title") and not normalized.get("company") and not normalized.get("bullets"):
+        continue
+      clean_experience.append(normalized)
+    optimized["experience"] = clean_experience
+
+  return result
 
 
 def is_probable_tech_line(line):
@@ -676,14 +786,7 @@ def ensure_projects_present(result, resume_text):
 
     current = by_key[key]
     merged_bullets = current.get("bullets", []) + normalized.get("bullets", [])
-    unique_bullets = []
-    seen_bullets = set()
-    for bullet in merged_bullets:
-      token = normalize_space(bullet).lower()
-      if not token or token in seen_bullets:
-        continue
-      seen_bullets.add(token)
-      unique_bullets.append(normalize_space(bullet))
+    unique_bullets = clean_bullet_lines(merged_bullets, max_items=6)
 
     if not current.get("tech") and normalized.get("tech"):
       current["tech"] = normalized.get("tech")
@@ -691,6 +794,147 @@ def ensure_projects_present(result, resume_text):
     by_key[key] = current
 
   optimized["projects"] = [by_key[key] for key in order if key in by_key]
+  return result
+
+
+ROLE_HINT_KEYWORDS = {
+  "analyst": {
+    "analyst", "analysis", "analytics", "sql", "excel", "power bi", "tableau", "dashboard",
+    "reporting", "kpi", "cohort", "funnel", "segmentation", "a/b testing", "hypothesis testing",
+    "business intelligence", "stakeholder", "ad hoc", "insights",
+  },
+  "data_scientist": {
+    "data scientist", "machine learning", "deep learning", "model", "feature engineering", "xgboost",
+    "scikit-learn", "pytorch", "tensorflow", "nlp", "classification", "regression", "forecasting",
+    "pyspark", "spark", "databricks", "snowflake", "azure", "gcp", "aws", "big data",
+    "price optimization", "demand forecasting", "dimensionality reduction", "clustering", "eda",
+    "statistical tests", "model deployment",
+  },
+  "data_engineer": {
+    "data engineer", "etl", "pipeline", "spark", "pyspark", "airflow", "kafka", "dbt", "warehouse",
+    "data lake", "bigquery", "redshift", "snowflake", "databricks", "orchestration",
+  },
+  "software_engineer": {
+    "software engineer", "api", "rest", "backend", "microservice", "flask", "fastapi", "django",
+    "java", "javascript", "typescript", "system design", "ci/cd", "docker", "kubernetes",
+  },
+}
+
+
+def detect_target_role(jd_text):
+  text = (jd_text or "").lower()
+  if not text:
+    return "general"
+
+  role_scores = {}
+  for role, hints in ROLE_HINT_KEYWORDS.items():
+    score = 0
+    for hint in hints:
+      if hint in text:
+        score += 3 if " " in hint else 1
+    role_scores[role] = score
+
+  best_role, best_score = max(role_scores.items(), key=lambda item: item[1])
+  return best_role if best_score > 0 else "general"
+
+
+def score_keyword_matches(text, keywords):
+  if not text or not keywords:
+    return 0
+
+  lowered = text.lower()
+  score = 0
+  for keyword in keywords:
+    if not keyword:
+      continue
+    if keyword in lowered:
+      score += 3 if " " in keyword else 1
+  return score
+
+
+def score_project_relevance(project, jd_keywords, role_keywords, role="general"):
+  if not isinstance(project, dict):
+    return 0.0
+
+  name = normalize_space(project.get("name", ""))
+  tech = normalize_space(project.get("tech", ""))
+  bullets = project.get("bullets", [])
+  if not isinstance(bullets, list):
+    bullets = []
+
+  corpus = " ".join([name, tech] + [normalize_space(str(b)) for b in bullets])
+  jd_score = score_keyword_matches(corpus, jd_keywords)
+  role_score = score_keyword_matches(corpus, role_keywords)
+  quality_bonus = project_quality_score(project) * 0.35
+
+  role_bonus = 0.0
+  lowered = corpus.lower()
+  if role == "data_scientist":
+    ds_core_terms = [
+      "predictive", "forecast", "model deployment", "classification", "regression",
+      "clustering", "dimensionality reduction", "spark", "pyspark", "xgboost",
+    ]
+    ds_hits = sum(1 for term in ds_core_terms if term in lowered)
+    role_bonus += ds_hits * 1.2
+
+    # Keep BI helpful but avoid BI-only projects outranking stronger ML projects.
+    bi_terms = ["power bi", "dashboard", "kpi design", "reporting"]
+    bi_hits = sum(1 for term in bi_terms if term in lowered)
+    if ds_hits == 0 and bi_hits > 0:
+      role_bonus -= min(2.0, bi_hits * 0.7)
+
+  return (jd_score * 2.0) + (role_score * 1.5) + quality_bonus + role_bonus
+
+
+def score_experience_relevance(exp, jd_keywords, role_keywords):
+  if not isinstance(exp, dict):
+    return 0.0
+
+  title = normalize_space(exp.get("title", ""))
+  company = normalize_space(exp.get("company", ""))
+  bullets = exp.get("bullets", [])
+  if not isinstance(bullets, list):
+    bullets = []
+
+  corpus = " ".join([title, company] + [normalize_space(str(b)) for b in bullets])
+  jd_score = score_keyword_matches(corpus, jd_keywords)
+  role_score = score_keyword_matches(corpus, role_keywords)
+  bullet_bonus = len([b for b in bullets if normalize_space(str(b))]) * 0.6
+  title_bonus = 2.0 if title else 0.0
+  return (jd_score * 2.0) + (role_score * 1.2) + bullet_bonus + title_bonus
+
+
+def apply_role_based_ordering(result, jd_text):
+  if not isinstance(result, dict):
+    return result
+
+  result = sanitize_resume_entries(result)
+  optimized = result.get("optimized_resume")
+  if not isinstance(optimized, dict):
+    return result
+
+  role = detect_target_role(jd_text)
+  role_keywords = list(ROLE_HINT_KEYWORDS.get(role, set()))
+  jd_keywords = extract_keywords_from_jd(jd_text, limit=40)
+
+  projects = optimized.get("projects")
+  if isinstance(projects, list) and projects:
+    scored_projects = []
+    for idx, proj in enumerate(projects):
+      score = score_project_relevance(proj, jd_keywords, role_keywords, role=role)
+      scored_projects.append((score, idx, proj))
+    scored_projects.sort(key=lambda item: (-item[0], item[1]))
+    optimized["projects"] = [proj for _, _, proj in scored_projects]
+
+  experience = optimized.get("experience")
+  if isinstance(experience, list) and experience:
+    scored_exp = []
+    for idx, exp in enumerate(experience):
+      score = score_experience_relevance(exp, jd_keywords, role_keywords)
+      scored_exp.append((score, idx, exp))
+    scored_exp.sort(key=lambda item: (-item[0], item[1]))
+    optimized["experience"] = [exp for _, _, exp in scored_exp]
+
   return result
 
 
@@ -1594,6 +1838,7 @@ Preserve all projects and all certifications from the original resume."""
       result = normalize_response_shape(result)
       result = ensure_certifications_present(result, resume_text)
       result = ensure_projects_present(result, resume_text)
+      result = apply_role_based_ordering(result, jd_text)
       result = attach_cover_letter(result, resume_text, jd_text, low_credit_mode=low_credit_mode)
       if resume_trimmed or jd_trimmed:
         result["notice"] = "Input was trimmed for speed. If you need full-context optimization, split JD into essentials and rerun."
@@ -1613,6 +1858,7 @@ Preserve all projects and all certifications from the original resume."""
         fallback = normalize_response_shape(fallback)
         fallback = ensure_certifications_present(fallback, resume_text)
         fallback = ensure_projects_present(fallback, resume_text)
+        fallback = apply_role_based_ordering(fallback, jd_text)
         return jsonify(fallback)
 
     except json.JSONDecodeError as e:
@@ -1624,6 +1870,7 @@ Preserve all projects and all certifications from the original resume."""
           retry_result = normalize_response_shape(retry_result)
           retry_result = ensure_certifications_present(retry_result, resume_text)
           retry_result = ensure_projects_present(retry_result, resume_text)
+          retry_result = apply_role_based_ordering(retry_result, jd_text)
           retry_result = attach_cover_letter(retry_result, resume_text, jd_text, low_credit_mode=low_credit_mode)
           if resume_trimmed or jd_trimmed:
             retry_result["notice"] = "Input was trimmed for speed. If you need full-context optimization, split JD into essentials and rerun."

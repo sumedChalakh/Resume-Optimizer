@@ -1,4 +1,3 @@
-import os
 from datetime import date, timedelta
 
 from flask import Blueprint, jsonify, make_response, render_template, request
@@ -6,10 +5,8 @@ from flask import Blueprint, jsonify, make_response, render_template, request
 from .config import (
   TRACKER_STATUSES,
   get_extension_token,
-  get_db_path,
   get_ingest_cors_origin,
   get_ingest_min_confidence,
-  is_db_path_explicitly_configured,
   get_status_set,
 )
 from .database import ensure_database
@@ -53,18 +50,6 @@ def _build_counts_from_apps(apps):
   return counts
 
 
-def _safe_empty_applications_payload(error_message=None):
-  payload = {
-    "applications": [],
-    "counts": {status: 0 for status in TRACKER_STATUSES},
-    "statuses": TRACKER_STATUSES,
-    "source_options": [],
-  }
-  if error_message:
-    payload["warning"] = error_message
-  return payload
-
-
 def _corsify(response):
   origin = get_ingest_cors_origin()
   response.headers["Access-Control-Allow-Origin"] = origin
@@ -89,20 +74,11 @@ def tracker_board():
 @tracker_blueprint.get("/tracker/api/health")
 def tracker_health():
   ensure_database()
-  database_url = os.getenv("DATABASE_URL", "").strip()
-  db_type = "postgres" if (database_url and (database_url.startswith("postgres://") or database_url.startswith("postgresql://"))) else "sqlite"
-  
-  warnings = []
-  if db_type == "sqlite":
-    warnings.append("Using SQLite: tracker data is ephemeral on Render. Set DATABASE_URL for PostgreSQL persistence.")
-  
   return jsonify({
     "ok": True,
     "module": "tracker",
     "phase": 3,
-    "database_type": db_type,
-    "database_url_configured": bool(database_url),
-    "warnings": warnings,
+    "database_type": "sqlite",
     "tracker_features": [
       "board",
       "ingest",
@@ -116,65 +92,53 @@ def tracker_health():
 
 @tracker_blueprint.get("/tracker/api/applications")
 def tracker_list_applications():
+  ensure_database()
+  status = (request.args.get("status") or "").strip().lower()
+  search = (request.args.get("q") or "").strip()
+  source = (request.args.get("source") or "").strip()
+  days = (request.args.get("days") or "all").strip().lower()
+
+  if status and status not in get_status_set():
+    return jsonify({"error": "Invalid status filter"}), 400
+
   try:
-    ensure_database()
-    status = (request.args.get("status") or "").strip().lower()
-    search = (request.args.get("q") or "").strip()
-    source = (request.args.get("source") or "").strip()
-    days = (request.args.get("days") or "all").strip().lower()
+    applied_from = _resolve_applied_from(days)
+  except ValueError as exc:
+    return jsonify({"error": str(exc)}), 400
 
-    if status and status not in get_status_set():
-      return jsonify({"error": "Invalid status filter"}), 400
-
-    try:
-      applied_from = _resolve_applied_from(days)
-    except ValueError as exc:
-      return jsonify({"error": str(exc)}), 400
-
-    apps = list_applications(
-      status=status or None,
-      search=search or None,
-      source=source or None,
-      applied_from=applied_from,
-    )
-    counts = _build_counts_from_apps(apps)
-    sources = list_sources()
-    return jsonify({
-      "applications": apps,
-      "counts": counts,
-      "statuses": TRACKER_STATUSES,
-      "source_options": sources,
-    })
-  except Exception as exc:
-    print(f"[tracker] list_applications failed: {exc}")
-    return jsonify(_safe_empty_applications_payload("Tracker temporarily unavailable; showing empty state."))
+  apps = list_applications(
+    status=status or None,
+    search=search or None,
+    source=source or None,
+    applied_from=applied_from,
+  )
+  counts = _build_counts_from_apps(apps)
+  sources = list_sources()
+  return jsonify({
+    "applications": apps,
+    "counts": counts,
+    "statuses": TRACKER_STATUSES,
+    "source_options": sources,
+  })
 
 
 @tracker_blueprint.get("/tracker/api/flow")
 def tracker_flow_data():
+  ensure_database()
+  source = (request.args.get("source") or "").strip()
+  days = (request.args.get("days") or "all").strip().lower()
+
   try:
-    ensure_database()
-    source = (request.args.get("source") or "").strip()
-    days = (request.args.get("days") or "all").strip().lower()
+    applied_from = _resolve_applied_from(days)
+  except ValueError as exc:
+    return jsonify({"error": str(exc)}), 400
 
-    try:
-      applied_from = _resolve_applied_from(days)
-    except ValueError as exc:
-      return jsonify({"error": str(exc)}), 400
-
-    flow_data = flow_overview(
-      TRACKER_STATUSES,
-      source=source or None,
-      applied_from=applied_from,
-    )
-    return jsonify(flow_data)
-  except Exception as exc:
-    print(f"[tracker] flow_data failed: {exc}")
-    return jsonify({
-      "nodes": [{"id": status, "label": status.capitalize(), "count": 0} for status in TRACKER_STATUSES],
-      "links": [],
-      "warning": "Flow data temporarily unavailable.",
-    })
+  flow_data = flow_overview(
+    TRACKER_STATUSES,
+    source=source or None,
+    applied_from=applied_from,
+  )
+  return jsonify(flow_data)
 
 
 @tracker_blueprint.post("/tracker/api/applications")
