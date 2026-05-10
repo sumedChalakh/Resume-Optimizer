@@ -2,7 +2,48 @@ let currentResumeData = null;
 let currentOriginalResumeText = '';
 let currentCoverLetterData = null;
 let lastOptimizeResponse = null;
+let currentAutoPacket = null;
+let currentLatexSource = '';
 const BUILDER_STATE_KEY = 'ats_optimizer_builder_state_v1';
+const AUTO_QUEUE_KEY = 'ats_optimizer_auto_queue_v1';
+const TRACKER_WRITE_TOKEN_KEY = 'ats_tracker_write_token';
+
+function getTrackerWriteHeaders() {
+  const token = String(localStorage.getItem(TRACKER_WRITE_TOKEN_KEY) || '').trim();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+async function fetchTrackerWrite(url, options = {}) {
+  let response = await fetch(url, {
+    ...options,
+    headers: {
+      ...getTrackerWriteHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const token = window.prompt('Tracker write token is required.');
+  if (!token) {
+    return response;
+  }
+
+  localStorage.setItem(TRACKER_WRITE_TOKEN_KEY, token.trim());
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...getTrackerWriteHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+}
 
 function getBuilderStateSnapshot() {
   const resumeInputEl = document.getElementById('resumeInput');
@@ -94,18 +135,26 @@ function setProviderBadge(label) {
 function setTopNavActive(mode) {
   const homeLink = document.getElementById('homeNavLink');
   const builderLink = document.getElementById('builderNavLink');
-  if (!homeLink || !builderLink) return;
+  const latexLink = document.getElementById('latexNavLink');
+  const autoApplyLink = document.getElementById('autoApplyNavLink');
+  if (!homeLink || !builderLink || !latexLink || !autoApplyLink) return;
 
   homeLink.classList.toggle('active', mode === 'home');
   builderLink.classList.toggle('active', mode === 'builder');
+  latexLink.classList.toggle('active', mode === 'latex');
+  autoApplyLink.classList.toggle('active', mode === 'auto');
   homeLink.setAttribute('aria-current', mode === 'home' ? 'page' : 'false');
   builderLink.setAttribute('aria-current', mode === 'builder' ? 'page' : 'false');
+  latexLink.setAttribute('aria-current', mode === 'latex' ? 'page' : 'false');
+  autoApplyLink.setAttribute('aria-current', mode === 'auto' ? 'page' : 'false');
 }
 
 function bindTopNavHandlers() {
   const homeLink = document.getElementById('homeNavLink');
   const builderLink = document.getElementById('builderNavLink');
-  if (!homeLink || !builderLink) return;
+  const latexLink = document.getElementById('latexNavLink');
+  const autoApplyLink = document.getElementById('autoApplyNavLink');
+  if (!homeLink || !builderLink || !latexLink || !autoApplyLink) return;
 
   homeLink.addEventListener('click', () => {
     setTopNavActive('home');
@@ -114,6 +163,14 @@ function bindTopNavHandlers() {
   builderLink.addEventListener('click', () => {
     setTopNavActive('builder');
   });
+
+  latexLink.addEventListener('click', () => {
+    setTopNavActive('latex');
+  });
+
+  autoApplyLink.addEventListener('click', () => {
+    setTopNavActive('auto');
+  });
 }
 
 function getPageModeFromHash() {
@@ -121,12 +178,20 @@ function getPageModeFromHash() {
   if (hash === '#inputsection' || hash === '#resumebuildersection') {
     return 'builder';
   }
+  if (hash === '#latexresumesection' || hash === '#latexresume' || hash === '#latex') {
+    return 'latex';
+  }
+  if (hash === '#autoapplysection' || hash === '#autoapply') {
+    return 'auto';
+  }
   return 'home';
 }
 
 function applyPageModeFromHash() {
   const mode = getPageModeFromHash();
   const homeSection = document.getElementById('homeSection');
+  const latexSection = document.getElementById('latexResumeSection');
+  const autoSection = document.getElementById('autoApplySection');
   const inputSection = document.getElementById('inputSection');
   const resultsSection = document.getElementById('resultsSection');
   const standaloneSection = document.getElementById('coverLetterStandaloneSection');
@@ -135,6 +200,8 @@ function applyPageModeFromHash() {
 
   if (mode === 'home') {
     if (homeSection) homeSection.style.display = 'block';
+    if (latexSection) latexSection.style.display = 'none';
+    if (autoSection) autoSection.style.display = 'none';
     if (inputSection) inputSection.style.display = 'none';
     if (resultsSection) resultsSection.style.display = 'none';
     if (standaloneSection) standaloneSection.style.display = 'none';
@@ -142,16 +209,437 @@ function applyPageModeFromHash() {
   }
 
   if (homeSection) homeSection.style.display = 'none';
+  if (latexSection) latexSection.style.display = mode === 'latex' ? 'block' : 'none';
+  if (autoSection) autoSection.style.display = mode === 'auto' ? 'block' : 'none';
+  if (inputSection && mode === 'latex') inputSection.style.display = 'none';
+  if (inputSection && mode === 'auto') inputSection.style.display = 'none';
+  if (resultsSection && mode === 'latex') resultsSection.style.display = 'none';
+  if (standaloneSection && mode === 'latex') standaloneSection.style.display = 'none';
+
+  if (mode === 'latex') {
+    loadLatexEngineStatus();
+    return;
+  }
 
   restoreBuilderState();
+  renderAutoQueue();
 
   const inputVisible = inputSection && inputSection.style.display !== 'none';
   const resultsVisible = resultsSection && resultsSection.style.display !== 'none';
   const standaloneVisible = standaloneSection && standaloneSection.style.display !== 'none';
+  const autoVisible = autoSection && autoSection.style.display !== 'none';
 
-  if (!inputVisible && !resultsVisible && !standaloneVisible && inputSection) {
+  if (!inputVisible && !resultsVisible && !standaloneVisible && !autoVisible && inputSection) {
     inputSection.style.display = 'block';
   }
+}
+
+async function loadLatexEngineStatus() {
+  const badge = document.getElementById('latexEngineStatus');
+  if (!badge) return;
+
+  badge.classList.remove('ready', 'missing');
+  badge.textContent = 'Checking PDF engine...';
+
+  try {
+    const response = await fetch('/latex-engine-status');
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Status unavailable');
+    }
+
+    if (data.available) {
+      badge.classList.add('ready');
+      badge.textContent = `PDF engine ready: ${data.engine}`;
+      return;
+    }
+
+    badge.classList.add('missing');
+    badge.textContent = 'PDF engine missing: install MiKTeX or TeX Live';
+  } catch (error) {
+    badge.classList.add('missing');
+    badge.textContent = 'PDF engine status unavailable';
+  }
+}
+
+function loadAutoQueue() {
+  try {
+    const raw = localStorage.getItem(AUTO_QUEUE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveAutoQueue(queue) {
+  try {
+    localStorage.setItem(AUTO_QUEUE_KEY, JSON.stringify(queue || []));
+  } catch (error) {
+    // Ignore storage errors.
+  }
+}
+
+function renderAutoQueue() {
+  const listEl = document.getElementById('autoQueueList');
+  if (!listEl) return;
+
+  const queue = loadAutoQueue();
+  if (!queue.length) {
+    listEl.innerHTML = '<div class="auto-empty-state">No queued roles yet.</div>';
+    return;
+  }
+
+  listEl.innerHTML = queue.slice(0, 6).map((item) => `
+    <div class="auto-queue-item">
+      <strong>${escapeHtml(item.company || 'Company')} — ${escapeHtml(item.title || 'Role')}</strong>
+      <div>Status: ${escapeHtml(item.status || 'saved')}</div>
+      <div>Source: ${escapeHtml(item.source || 'Browser')}</div>
+      <div>Date: ${escapeHtml(item.applied_date || '')}</div>
+    </div>
+  `).join('');
+}
+
+function getAutoFormData() {
+  const title = document.getElementById('autoTitle')?.value.trim() || '';
+  const company = document.getElementById('autoCompany')?.value.trim() || '';
+  const location = document.getElementById('autoLocation')?.value.trim() || '';
+  const source = document.getElementById('autoSource')?.value.trim() || 'Auto Apply Assistant';
+  const jobUrl = document.getElementById('autoJobUrl')?.value.trim() || '';
+  const notes = document.getElementById('autoNotes')?.value.trim() || '';
+  const jobDescription = document.getElementById('autoJobDescription')?.value.trim() || '';
+  const resumeInput = document.getElementById('resumeInput')?.value.trim() || '';
+  const builderJdInput = document.getElementById('jdInput')?.value.trim() || '';
+
+  // Fallback to persisted builder state if fields are currently empty.
+  const resume = resumeInput || String(currentOriginalResumeText || '').trim();
+  const builderJd = builderJdInput || String(lastOptimizeResponse?.keyword_analysis?.jd_text || '').trim();
+
+  return {
+    title,
+    company,
+    location,
+    source,
+    job_url: jobUrl,
+    notes,
+    job_description: jobDescription || builderJd,
+    resume,
+    builderJd,
+  };
+}
+
+function buildAutoPacketSummary(packet, formData) {
+  const matched = packet?.keyword_analysis?.matched_in_resume || [];
+  const missing = packet?.keyword_analysis?.missing_keywords || [];
+  const score = Number(packet?.ats_score?.total ?? packet?.ats_score_total ?? 0);
+  const lines = [
+    `Role: ${formData.title} @ ${formData.company}`,
+    `Packet status: ready for review`,
+    `ATS score: ${score}%`,
+    `Matched keywords: ${matched.slice(0, 8).join(', ') || 'None detected yet'}`,
+    `Missing keywords: ${missing.slice(0, 8).join(', ') || 'None'}`,
+    '',
+    'This packet is prepared for queueing in the tracker.',
+    'Final submission should still be reviewed and confirmed by you.'
+  ];
+  return lines.join('\n');
+}
+
+function sanitizeLatexText(value) {
+  return String(value || '')
+    .replace(/\\/g, '\\textbackslash{}')
+    .replace(/([#$%&_{}])/g, '\\$1')
+    .replace(/\^/g, '\\textasciicircum{}')
+    .replace(/~/g, '\\textasciitilde{}');
+}
+
+function parseLines(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+async function fetchLatexSourceFromBackend() {
+  const response = await fetch('/render-latex-source', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ latex_data: getLatexFormData() }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Could not render LaTeX source');
+  }
+
+  return String(data.source || '');
+}
+
+function getLatexFormData() {
+  return {
+    full_name: document.getElementById('latexName')?.value.trim() || '',
+    email: document.getElementById('latexEmail')?.value.trim() || '',
+    phone: document.getElementById('latexPhone')?.value.trim() || '',
+    location: document.getElementById('latexLocation')?.value.trim() || '',
+    linkedin: document.getElementById('latexLinkedin')?.value.trim() || '',
+    github: document.getElementById('latexGithub')?.value.trim() || '',
+    headline: document.getElementById('latexHeadline')?.value.trim() || '',
+    summary: document.getElementById('latexSummary')?.value.trim() || '',
+    skills: parseLines(document.getElementById('latexSkills')?.value || ''),
+    experience: parseLines(document.getElementById('latexExperience')?.value || ''),
+    projects: parseLines(document.getElementById('latexProjects')?.value || ''),
+    education: parseLines(document.getElementById('latexEducation')?.value || ''),
+    certifications: parseLines(document.getElementById('latexCertifications')?.value || ''),
+  };
+}
+
+function renderLatexOutput(source) {
+  const card = document.getElementById('latexOutputCard');
+  const output = document.getElementById('latexOutput');
+  if (!card || !output) return;
+
+  card.style.display = 'block';
+  output.innerHTML = `<pre class="latex-source">${escapeHtml(source)}</pre>`;
+}
+
+async function generateLatexResume() {
+  try {
+    const source = await fetchLatexSourceFromBackend();
+    currentLatexSource = source;
+    renderLatexOutput(source);
+    showToast('LaTeX source generated from template.', '#22c55e');
+  } catch (error) {
+    showError(error.message || 'Could not render LaTeX source');
+  }
+}
+
+async function copyLatexSource() {
+  if (!currentLatexSource) {
+    await generateLatexResume();
+  }
+  if (!currentLatexSource) return;
+
+  navigator.clipboard.writeText(currentLatexSource).then(() => {
+    showToast('LaTeX copied to clipboard.', '#22c55e');
+  });
+}
+
+async function downloadLatexSource() {
+  if (!currentLatexSource) {
+    await generateLatexResume();
+  }
+  if (!currentLatexSource) return;
+
+  const blob = new Blob([currentLatexSource], { type: 'text/x-tex;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'resume.tex';
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadLatexPdf() {
+  if (!currentLatexSource) {
+    await generateLatexResume();
+  }
+  if (!currentLatexSource) return;
+
+  try {
+    const response = await fetch('/export-latex-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        latex_data: getLatexFormData(),
+      }),
+    });
+
+    if (!response.ok) {
+      let message = 'PDF generation failed.';
+      try {
+        const errorData = await response.json();
+        message = errorData.error || message;
+      } catch (parseError) {
+        // Ignore JSON parse errors and keep default message.
+      }
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'resume.pdf';
+    link.click();
+    URL.revokeObjectURL(url);
+
+    const fallbackMode = response.headers.get('X-Latex-Fallback');
+    if (fallbackMode === 'plain-text') {
+      showToast('PDF generated in fallback mode (plain-text layout).', '#f59e0b');
+    } else {
+      showToast('PDF generated successfully.', '#22c55e');
+    }
+  } catch (error) {
+    showError(error.message || 'Could not generate PDF from LaTeX source.');
+  }
+}
+
+async function downloadLatexDocx() {
+  try {
+    const response = await fetch('/export-latex-docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        latex_data: getLatexFormData(),
+      }),
+    });
+
+    if (!response.ok) {
+      let message = 'Word generation failed.';
+      try {
+        const errorData = await response.json();
+        message = errorData.error || message;
+      } catch (parseError) {
+        // Ignore JSON parse errors and keep default message.
+      }
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'resume.docx';
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('Word file generated successfully.', '#22c55e');
+  } catch (error) {
+    showError(error.message || 'Could not generate Word file.');
+  }
+}
+
+async function generateAutoPacket() {
+  const formData = getAutoFormData();
+  if (!formData.title) return showError('Please enter a job title.');
+  if (!formData.company) return showError('Please enter a company name.');
+  if (!formData.resume) return showError('Please use the Resume Builder section first.');
+  if (!formData.job_description) return showError('Please paste the job description or use the builder JD.');
+
+  const msgEl = document.getElementById('autoApplyMessage');
+  const summaryEl = document.getElementById('autoPacketSummary');
+  const btn = document.getElementById('generatePacketBtn');
+  const lowCreditMode = document.getElementById('lowCreditMode')?.checked || false;
+
+  btn.disabled = true;
+  msgEl.textContent = 'Generating application packet...';
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+    const response = await fetch('/optimize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resume: formData.resume,
+        jd: formData.job_description,
+        low_credit_mode: lowCreditMode,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    const rawText = await response.text();
+    let data = {};
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch (parseError) {
+      throw new Error('Server returned an invalid response format. Please retry.');
+    }
+
+    if (!response.ok || data.error) {
+      throw new Error(data.error || 'Could not generate packet');
+    }
+
+    currentAutoPacket = {
+      generated_at: new Date().toISOString(),
+      formData,
+      optimization: data,
+    };
+
+    summaryEl.textContent = buildAutoPacketSummary(data, formData);
+    msgEl.textContent = 'Packet ready. You can queue it in the tracker now.';
+    showToast('Application packet generated.', '#22c55e');
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      msgEl.textContent = 'Packet generation timed out. Try a shorter JD or enable Low Credit Mode.';
+      showError('Packet generation timed out after 120s. Try again with a shorter JD.');
+      return;
+    }
+    msgEl.textContent = 'Could not generate packet.';
+    showError(error.message || 'Could not generate packet');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function queueAutoJob() {
+  const formData = getAutoFormData();
+  if (!formData.title) return showError('Please enter a job title.');
+  if (!formData.company) return showError('Please enter a company name.');
+
+  if (!currentAutoPacket || currentAutoPacket.formData.title !== formData.title || currentAutoPacket.formData.company !== formData.company) {
+    await generateAutoPacket();
+  }
+
+  const payload = {
+    title: formData.title,
+    company: formData.company,
+    location: formData.location,
+    source: formData.source,
+    job_url: formData.job_url,
+    applied_date: new Date().toISOString().slice(0, 10),
+    notes: [
+      formData.notes,
+      `Auto Apply Assistant prepared a packet for review.`,
+      currentAutoPacket?.optimization?.notice || ''
+    ].filter(Boolean).join(' '),
+    status: 'saved',
+    confirmed_by_user: false,
+    apply_signal: 'queued_review',
+  };
+
+  const response = await fetchTrackerWrite('/tracker/api/applications', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok || data.error) {
+    throw new Error(data.error || 'Could not queue application');
+  }
+
+  const queue = loadAutoQueue();
+  queue.unshift({
+    title: payload.title,
+    company: payload.company,
+    source: payload.source,
+    status: payload.status,
+    applied_date: payload.applied_date,
+  });
+  saveAutoQueue(queue);
+  renderAutoQueue();
+  showToast('Queued in tracker as saved.', '#22c55e');
+  document.getElementById('autoApplyMessage').textContent = 'Queued in tracker. Review before final submission.';
+}
+
+function copyAutoPacketNotes() {
+  const summary = document.getElementById('autoPacketSummary');
+  if (!summary || !summary.textContent.trim()) return;
+  navigator.clipboard.writeText(summary.textContent.trim()).then(() => {
+    showToast('Packet notes copied.', '#22c55e');
+  });
 }
 
 function getHomeEl(id) {
@@ -168,10 +656,22 @@ function renderHomeMetrics(applications, counts) {
   const offer = Number(counts.offer || 0);
 
   statEl.innerHTML = `
-    <div class="overview-metric">Total Applications<strong>${total}</strong></div>
-    <div class="overview-metric">Applied<strong>${applied}</strong></div>
-    <div class="overview-metric">Interview<strong>${interview}</strong></div>
-    <div class="overview-metric">Offers<strong>${offer}</strong></div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col items-center justify-center text-center">
+      <span class="text-slate-400 text-sm uppercase tracking-wider mb-1">Total</span>
+      <strong class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-electricBlue to-blue-400">${total}</strong>
+    </div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col items-center justify-center text-center">
+      <span class="text-slate-400 text-sm uppercase tracking-wider mb-1">Applied</span>
+      <strong class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">${applied}</strong>
+    </div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col items-center justify-center text-center">
+      <span class="text-slate-400 text-sm uppercase tracking-wider mb-1">Interview</span>
+      <strong class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">${interview}</strong>
+    </div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col items-center justify-center text-center">
+      <span class="text-slate-400 text-sm uppercase tracking-wider mb-1">Offers</span>
+      <strong class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-energeticOrange to-yellow-400">${offer}</strong>
+    </div>
   `;
 }
 
@@ -190,7 +690,7 @@ function renderHomeSourceViz(applications) {
     .slice(0, 6);
 
   if (!entries.length) {
-    vizEl.innerHTML = '<div class="overview-metric">No application data yet. Add your first tracked job to see source insights.</div>';
+    vizEl.innerHTML = '<div class="text-slate-400 p-4 bg-white/5 border border-white/10 rounded-xl text-center">No application data yet. Add your first tracked job to see source insights.</div>';
     return;
   }
 
@@ -198,12 +698,12 @@ function renderHomeSourceViz(applications) {
   vizEl.innerHTML = entries.map(([source, value]) => {
     const width = Math.max(8, Math.round((value / maxValue) * 100));
     return `
-      <div class="source-row">
-        <span class="source-name">${source}</span>
-        <div class="source-bar-track">
-          <div class="source-bar-fill" style="width:${width}%"></div>
+      <div class="flex items-center gap-4 group mb-3">
+        <span class="w-24 truncate text-slate-300 text-sm font-medium" title="${escapeHtml(source)}">${escapeHtml(source)}</span>
+        <div class="flex-1 h-3 bg-white/10 rounded-full overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-electricBlue to-energeticOrange rounded-full transition-all duration-1000 ease-out group-hover:opacity-80" style="width:${width}%"></div>
         </div>
-        <span class="source-value">${value}</span>
+        <span class="w-8 text-right font-bold text-white">${value}</span>
       </div>
     `;
   }).join('');
@@ -223,10 +723,10 @@ async function loadHomeOverview() {
     renderHomeMetrics(data.applications || [], data.counts || {});
     renderHomeSourceViz(data.applications || []);
   } catch (error) {
-    statEl.innerHTML = '<div class="overview-metric">Tracker metrics unavailable right now.</div>';
+    statEl.innerHTML = '<div class="col-span-2 text-center text-slate-400 p-4 bg-white/5 border border-white/10 rounded-xl">Tracker metrics unavailable right now.</div>';
     const vizEl = getHomeEl('homeSourceViz');
     if (vizEl) {
-      vizEl.innerHTML = '<div class="overview-metric">Could not load source distribution.</div>';
+      vizEl.innerHTML = '<div class="text-center text-slate-400 p-4 bg-white/5 border border-white/10 rounded-xl">Could not load source distribution.</div>';
     }
   }
 }
@@ -247,6 +747,16 @@ resumeFileInput.addEventListener('change', async (e) => {
   e.target.value = '';
 });
 
+const latexResumeFileInput = document.getElementById('latexResumeFile');
+if (latexResumeFileInput) {
+  latexResumeFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    await uploadLatexResumeFile(file);
+    e.target.value = '';
+  });
+}
+
 // Character counters
 document.getElementById('resumeInput').addEventListener('input', e => {
   document.getElementById('resumeCount').textContent = e.target.value.length.toLocaleString() + ' characters';
@@ -258,11 +768,22 @@ document.getElementById('jdInput').addEventListener('input', e => {
 });
 
 async function uploadResumeFile(file) {
+  const extractedText = await extractResumeTextFromFile(file);
+  if (!extractedText) return;
+
+  const textarea = document.getElementById('resumeInput');
+  textarea.value = extractedText;
+  document.getElementById('resumeCount').textContent = textarea.value.length.toLocaleString() + ' characters';
+  persistBuilderState();
+  showToast('Resume text loaded from file.', '#22c55e');
+}
+
+async function extractResumeTextFromFile(file) {
   const allowed = ['pdf', 'doc', 'docx', 'txt'];
   const ext = file.name.split('.').pop().toLowerCase();
   if (!allowed.includes(ext)) {
     showError('Unsupported file type. Use PDF, DOC, DOCX, or TXT.');
-    return;
+    return '';
   }
 
   const formData = new FormData();
@@ -279,14 +800,279 @@ async function uploadResumeFile(file) {
       throw new Error(data.error || 'Failed to parse file');
     }
 
-    const textarea = document.getElementById('resumeInput');
-    textarea.value = data.text || '';
-    document.getElementById('resumeCount').textContent = textarea.value.length.toLocaleString() + ' characters';
-    persistBuilderState();
-    showToast('Resume text loaded from file.', '#22c55e');
+    return String(data.text || '');
   } catch (err) {
     showError(err.message || 'Could not read uploaded file.');
+    return '';
   }
+}
+
+function cleanResumeLine(line) {
+  return String(line || '')
+    .replace(/^[-*\u2022\s]+/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseResumeSections(text) {
+  const sections = {
+    header: [],
+    summary: [],
+    skills: [],
+    experience: [],
+    projects: [],
+    education: [],
+    certifications: [],
+  };
+
+  const headingMap = [
+    { key: 'summary', re: /^(professional\s+summary|summary|profile)$/i },
+    { key: 'skills', re: /^(skills|technical\s+skills|core\s+skills)$/i },
+    { key: 'experience', re: /^(experience|work\s+experience|professional\s+experience|employment)$/i },
+    { key: 'projects', re: /^(projects|personal\s+projects|key\s+projects)$/i },
+    { key: 'education', re: /^(education|academic\s+background|qualifications)$/i },
+    { key: 'certifications', re: /^(certifications?|certifications?\s*[&/]\s*courses?|courses|licenses?)$/i },
+  ];
+
+  const lines = String(text || '')
+    .split(/\r?\n/)
+    .map((line) => cleanResumeLine(line))
+    .filter(Boolean);
+
+  let current = 'header';
+  for (const line of lines) {
+    const mapped = headingMap.find((item) => item.re.test(line));
+    if (mapped) {
+      current = mapped.key;
+      continue;
+    }
+    sections[current].push(line);
+  }
+
+  return sections;
+}
+
+function limitImportedLines(lines, maxLines, maxLen) {
+  return (lines || [])
+    .map((line) => String(line || '').trim())
+    .filter(Boolean)
+    .slice(0, maxLines)
+    .map((line) => (line.length > maxLen ? `${line.slice(0, maxLen - 1)}…` : line));
+}
+
+function parseHeaderDetails(lines) {
+  const headerLines = (lines || []).map((line) => String(line || '').trim()).filter(Boolean);
+  const joined = String(headerLines.join(' '));
+
+  const emailMatch = joined.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  const phoneMatch = joined.match(/(?:\+?\d[\d\s().-]{6,}\d)/);
+  const linkedinMatch = joined.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/[\S]+/i) || joined.match(/linkedin[:\s\/]*([A-Za-z0-9\-_.]+)/i);
+  const githubMatch = joined.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/[\S]+/i) || joined.match(/github[:\s\/]*([A-Za-z0-9\-_.]+)/i);
+
+  const looksLikeContact = (value) => /@|linkedin|github|http|www|\d{4,}/i.test(value);
+  const looksLikeRoleLine = (value) => /(engineer|scientist|manager|developer|analyst|data|ml|machine|learning|designer|architect|consultant)/i.test(value);
+  const looksLikeLocation = (value) => {
+    const cleaned = String(value || '').trim();
+    if (!cleaned) return false;
+    if (looksLikeContact(cleaned)) return false;
+    if (looksLikeRoleLine(cleaned)) return false;
+    if (cleaned.length > 60) return false;
+    if (/\b(?:summary|skills|experience|education|projects|certifications?)\b/i.test(cleaned)) return false;
+    if (cleaned.includes(',')) return true;
+    return /^[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2}$/.test(cleaned);
+  };
+
+  let name = '';
+  let headline = '';
+  let location = '';
+
+  for (const line of headerLines) {
+    if (!name && !looksLikeContact(line) && !looksLikeRoleLine(line)) {
+      const words = line.split(/\s+/).filter(Boolean);
+      if (words.length >= 1 && words.length <= 6) {
+        name = line;
+        continue;
+      }
+    }
+
+    const segments = line.split(/[|•·—–\/\u2022]/).map((segment) => segment.trim()).filter(Boolean);
+    for (const segment of segments) {
+      if (!location && segment !== name && segment !== headline && looksLikeLocation(segment)) {
+        location = segment;
+      }
+    }
+
+    if (!headline && line !== name) {
+      const headlineCandidate = segments.find((segment) => looksLikeRoleLine(segment) || segment.includes('|')) || '';
+      if (headlineCandidate && !looksLikeContact(headlineCandidate)) {
+        headline = headlineCandidate;
+        continue;
+      }
+      if (!looksLikeContact(line) && looksLikeRoleLine(line)) {
+        headline = line;
+      }
+    }
+  }
+
+  if (!headline) {
+    const fallbackHeadline = headerLines.find((line) => line !== name && !looksLikeContact(line) && (line.includes('|') || looksLikeRoleLine(line)));
+    if (fallbackHeadline) headline = fallbackHeadline;
+  }
+
+  if (!location) {
+    const fallbackLocation = headerLines
+      .flatMap((line) => line.split(/[|•·—–\/\u2022]/).map((segment) => segment.trim()))
+      .find((segment) => segment !== name && segment !== headline && looksLikeLocation(segment));
+    if (fallbackLocation) location = fallbackLocation;
+  }
+
+  // Normalize detected social handles/urls
+  let linkedin = '';
+  if (linkedinMatch) {
+    linkedin = linkedinMatch[0] || (linkedinMatch[1] ? `https://www.linkedin.com/in/${linkedinMatch[1]}` : '');
+  }
+
+  let github = '';
+  if (githubMatch) {
+    github = githubMatch[0] || (githubMatch[1] ? `https://github.com/${githubMatch[1]}` : '');
+  }
+
+  return {
+    name,
+    headline,
+    email: emailMatch ? emailMatch[0] : '',
+    phone: phoneMatch ? phoneMatch[0] : '',
+    location: location || '',
+    linkedin: linkedin || '',
+    github: github || '',
+  };
+}
+
+function extractSocialLinksFromText(text) {
+  const value = String(text || '');
+  const headerBlock = value
+    .split(/\r?\n/)
+    .slice(0, 8)
+    .join(' ');
+
+  const linkedinMatch = headerBlock.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in|company|school)\/[A-Za-z0-9\-_.%/]+/i)
+    || headerBlock.match(/linkedin[:\s\/]*((?:in|company|school)\/[A-Za-z0-9\-_.%/]+)/i);
+
+  const githubMatch = headerBlock.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/[A-Za-z0-9\-_.%]+\/?(?![A-Za-z0-9\-_.%/])/i)
+    || headerBlock.match(/github[:\s\/]*([A-Za-z0-9\-_.%]+)\/?(?![A-Za-z0-9\-_.%/])/i);
+
+  const normalize = (match, provider) => {
+    if (!match) return '';
+    const raw = String(match[0] || match[1] || '').trim().replace(/[.,;]+$/g, '');
+    if (!raw) return '';
+    const candidate = /^https?:\/\//i.test(raw)
+      ? raw
+      : raw.toLowerCase().startsWith('www.')
+        ? `https://${raw}`
+        : raw.toLowerCase().startsWith(`${provider}.com`)
+          ? `https://${raw}`
+          : raw.toLowerCase().startsWith(provider)
+            ? `https://www.${provider}.com/${raw.replace(new RegExp(`^${provider}[:\s\/]*`, 'i'), '').replace(/^\/+/, '')}`
+            : '';
+
+    if (!candidate) return '';
+
+    try {
+      const url = new URL(candidate);
+      const segments = url.pathname.split('/').filter(Boolean);
+      if (provider === 'github') {
+        if (segments.length !== 1) return '';
+      } else if (provider === 'linkedin') {
+        if (segments.length < 2 || !['in', 'company', 'school'].includes(segments[0])) return '';
+        if (segments.length !== 2) return '';
+      }
+      return url.toString().replace(/[.,;]+$/g, '');
+    } catch (error) {
+      return '';
+    }
+  };
+
+  return {
+    linkedin: normalize(linkedinMatch, 'linkedin'),
+    github: normalize(githubMatch, 'github'),
+  };
+}
+
+function setLatexFieldValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.value = value || '';
+  }
+}
+
+function populateLatexFieldsFromResumeText(text) {
+  const sections = parseResumeSections(text);
+  const header = parseHeaderDetails(sections.header);
+
+  setLatexFieldValue('latexName', header.name);
+  setLatexFieldValue('latexEmail', header.email);
+  setLatexFieldValue('latexPhone', header.phone);
+  setLatexFieldValue('latexLocation', header.location);
+  setLatexFieldValue('latexLinkedin', header.linkedin);
+  setLatexFieldValue('latexGithub', header.github);
+  setLatexFieldValue('latexHeadline', header.headline);
+
+  const inferredSummary = sections.summary.length
+    ? sections.summary.join(' ').slice(0, 550)
+    : sections.header.slice(2, 5).join(' ');
+  setLatexFieldValue('latexSummary', inferredSummary);
+
+  const skillLines = sections.skills.length
+    ? sections.skills
+    : ['Core Skills: Add your main skills here'];
+  setLatexFieldValue('latexSkills', limitImportedLines(skillLines, 8, 150).join('\n'));
+
+  const experienceLines = sections.experience.length
+    ? sections.experience
+    : ['Role | Company | Duration | Add impact-focused bullet'];
+  setLatexFieldValue('latexExperience', limitImportedLines(experienceLines, 28, 220).join('\n'));
+
+  const projectLines = sections.projects.length
+    ? sections.projects
+    : ['Project Name | Tech Stack | Add measurable outcome'];
+  setLatexFieldValue('latexProjects', limitImportedLines(projectLines, 20, 220).join('\n'));
+
+  const educationLines = sections.education.length
+    ? sections.education
+    : ['Degree | University | Year'];
+  setLatexFieldValue('latexEducation', limitImportedLines(educationLines, 6, 180).join('\n'));
+
+  const certificationLines = sections.certifications.length
+    ? sections.certifications
+    : [];
+  setLatexFieldValue('latexCertifications', limitImportedLines(certificationLines, 10, 180).join('\n'));
+}
+
+async function uploadLatexResumeFile(file) {
+  const statusEl = document.getElementById('latexUploadStatus');
+  if (statusEl) {
+    statusEl.textContent = 'Reading resume file and preparing editable fields...';
+  }
+
+  const extractedText = await extractResumeTextFromFile(file);
+  if (!extractedText) {
+    if (statusEl) {
+      statusEl.textContent = 'Could not read this file. Try PDF, DOC, DOCX, or TXT.';
+    }
+    return;
+  }
+
+  populateLatexFieldsFromResumeText(extractedText);
+  currentLatexSource = '';
+  const card = document.getElementById('latexOutputCard');
+  if (card) {
+    card.style.display = 'none';
+  }
+
+  if (statusEl) {
+    statusEl.textContent = `Imported ${extractedText.length.toLocaleString()} characters. Edit fields and click Generate LaTeX.`;
+  }
+  showToast('Resume imported into editable LaTeX fields.', '#22c55e');
 }
 
 // Animate loading steps
@@ -451,7 +1237,7 @@ function renderResults(data, options = {}) {
   const missing = data.missing_keywords || (data.keyword_analysis && data.keyword_analysis.missing_keywords) || [];
   const missingEl = document.getElementById('missingKeywords');
   missingEl.innerHTML = missing.length
-    ? missing.map(k => `<span class="tag tag-red">${k}</span>`).join('')
+    ? missing.map(k => `<span class="tag tag-red">${escapeHtml(k)}</span>`).join('')
     : '<span style="color:var(--green);font-size:13px">✓ No critical keywords missing</span>';
 
   // Matched keywords
@@ -460,13 +1246,13 @@ function renderResults(data, options = {}) {
     (data.keyword_analysis && data.keyword_analysis.matched_in_resume) ||
     [];
   document.getElementById('matchedKeywords').innerHTML = matched.length
-    ? matched.slice(0, 12).map(k => `<span class="tag tag-green">${k}</span>`).join('')
+    ? matched.slice(0, 12).map(k => `<span class="tag tag-green">${escapeHtml(k)}</span>`).join('')
     : '<span style="color:var(--text-muted);font-size:13px">—</span>';
 
   // Improvements
   const improvements = data.improvements || [];
   document.getElementById('improvementsList').innerHTML =
-    improvements.map(i => `<li>${i}</li>`).join('');
+    improvements.map(i => `<li>${escapeHtml(i)}</li>`).join('');
 
   // Resume Content
   renderResumeHTML(resume);
@@ -501,13 +1287,32 @@ function animateScore(score) {
 }
 
 function renderResumeHTML(resume) {
+  resume = {
+    ...(resume || {}),
+    education: (resume?.education || []).map((edu) => ({
+      ...edu,
+      degree: escapeHtml(edu?.degree || ''),
+      institution: escapeHtml(edu?.institution || ''),
+      year: escapeHtml(edu?.year || ''),
+      details: escapeHtml(edu?.details || ''),
+    })),
+    certifications: (resume?.certifications || []).map((cert) => {
+      if (typeof cert === 'string') return cert;
+      return {
+        ...cert,
+        name: escapeHtml(cert?.name || ''),
+        issuer: escapeHtml(cert?.issuer || ''),
+        year: escapeHtml(cert?.year || ''),
+      };
+    }),
+  };
   let html = '';
 
   // Summary
   if (resume.summary) {
     html += `<div class="r-section">
       <div class="r-section-title">Professional Summary</div>
-      <div class="r-summary">${resume.summary}</div>
+      <div class="r-summary">${escapeHtml(resume.summary)}</div>
     </div>`;
   }
 
@@ -519,8 +1324,8 @@ function renderResumeHTML(resume) {
     for (const [cat, list] of Object.entries(skills)) {
       if (list && list.length > 0) {
         html += `<div class="r-skill-row">
-          <span class="r-skill-cat">${cat}</span>
-          <div class="r-skill-tags">${list.map(s => `<span class="r-skill-tag">${s}</span>`).join('')}</div>
+          <span class="r-skill-cat">${escapeHtml(cat)}</span>
+          <div class="r-skill-tags">${list.map(s => `<span class="r-skill-tag">${escapeHtml(s)}</span>`).join('')}</div>
         </div>`;
       }
     }
@@ -534,11 +1339,11 @@ function renderResumeHTML(resume) {
     for (const exp of experience) {
       html += `<div class="r-exp-item">
         <div class="r-exp-header">
-          <span class="r-exp-title">${exp.title || ''}</span>
-          <span class="r-exp-duration">${exp.duration || ''}</span>
+          <span class="r-exp-title">${escapeHtml(exp.title || '')}</span>
+          <span class="r-exp-duration">${escapeHtml(exp.duration || '')}</span>
         </div>
-        <div class="r-exp-company">${exp.company || ''}</div>
-        <ul class="r-bullets">${(exp.bullets || []).map(b => `<li>${b}</li>`).join('')}</ul>
+        <div class="r-exp-company">${escapeHtml(exp.company || '')}</div>
+        <ul class="r-bullets">${(exp.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>
       </div>`;
     }
     html += `</div>`;
@@ -550,9 +1355,9 @@ function renderResumeHTML(resume) {
     html += `<div class="r-section"><div class="r-section-title">Projects</div>`;
     for (const proj of projects) {
       html += `<div class="r-proj-item">
-        <div class="r-proj-name">${proj.name || ''}</div>
-        <div class="r-proj-tech">${proj.tech || ''}</div>
-        <ul class="r-bullets">${(proj.bullets || []).map(b => `<li>${b}</li>`).join('')}</ul>
+        <div class="r-proj-name">${escapeHtml(proj.name || '')}</div>
+        <div class="r-proj-tech">${escapeHtml(proj.tech || '')}</div>
+        <ul class="r-bullets">${(proj.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>
       </div>`;
     }
     html += `</div>`;
@@ -578,7 +1383,7 @@ function renderResumeHTML(resume) {
     html += `<div class="r-section"><div class="r-section-title">Certifications</div>`;
     for (const cert of certifications) {
       if (typeof cert === 'string') {
-        html += `<div class="r-edu-item"><div class="r-edu-degree">${cert}</div></div>`;
+        html += `<div class="r-edu-item"><div class="r-edu-degree">${escapeHtml(cert)}</div></div>`;
         continue;
       }
       html += `<div class="r-edu-item">
@@ -834,6 +1639,58 @@ if (lowCreditModeEl) {
     persistBuilderState();
   });
 }
+
+const generatePacketBtn = document.getElementById('generatePacketBtn');
+if (generatePacketBtn) {
+  generatePacketBtn.addEventListener('click', () => {
+    generateAutoPacket();
+  });
+}
+
+const queueJobBtn = document.getElementById('queueJobBtn');
+if (queueJobBtn) {
+  queueJobBtn.addEventListener('click', () => {
+    queueAutoJob().catch((error) => showError(error.message || 'Could not queue job'));
+  });
+}
+
+const copyPacketBtn = document.getElementById('copyPacketBtn');
+if (copyPacketBtn) {
+  copyPacketBtn.addEventListener('click', copyAutoPacketNotes);
+}
+
+const generateLatexBtn = document.getElementById('generateLatexBtn');
+if (generateLatexBtn) {
+  generateLatexBtn.addEventListener('click', generateLatexResume);
+}
+
+const copyLatexBtn = document.getElementById('copyLatexBtn');
+if (copyLatexBtn) {
+  copyLatexBtn.addEventListener('click', copyLatexSource);
+}
+
+const downloadLatexBtn = document.getElementById('downloadLatexBtn');
+if (downloadLatexBtn) {
+  downloadLatexBtn.addEventListener('click', downloadLatexSource);
+}
+
+const downloadLatexPdfBtn = document.getElementById('downloadLatexPdfBtn');
+if (downloadLatexPdfBtn) {
+  downloadLatexPdfBtn.addEventListener('click', downloadLatexPdf);
+}
+
+const downloadLatexDocxBtn = document.getElementById('downloadLatexDocxBtn');
+if (downloadLatexDocxBtn) {
+  downloadLatexDocxBtn.addEventListener('click', downloadLatexDocx);
+}
+
+const autoJobFields = ['autoTitle', 'autoCompany', 'autoLocation', 'autoSource', 'autoJobUrl', 'autoNotes', 'autoJobDescription'];
+autoJobFields.forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('input', renderAutoQueue);
+  }
+});
 
 loadHomeOverview();
 bindTopNavHandlers();

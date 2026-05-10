@@ -7,58 +7,330 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      corePlugins: {
+        preflight: false,
+      },
+      theme: {
+        extend: {
+          colors: {
+            midnight: '#0f172a',
+            electricBlue: '#3b82f6',
+            energeticOrange: '#f59e0b',
+          },
+          fontFamily: {
+            sans: ['"Space Grotesk"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
 </head>
-<body>
-  <div class="bg-grid"></div>
+<body class="bg-midnight text-slate-200">
+  <div class="bg-grid opacity-10 mix-blend-screen pointer-events-none"></div>
 
-  <header class="app-topbar">
-    <a class="brand" href="/">
+  <header class="app-topbar w-full !bg-midnight/90 !border-white/10 !backdrop-blur-md">
+    <a class="brand !text-white" href="/">
       <span class="brand-icon">⚡</span>
-      <span>ATS<strong>Optimizer</strong></span>
+      <span>ATS<strong class="!text-electricBlue">Optimizer</strong></span>
     </a>
 
     <nav class="top-nav" aria-label="Primary">
-      <a class="top-link" id="homeNavLink" href="/#homeSection">Home</a>
-      <a class="top-link" id="builderNavLink" href="/#inputSection">Resume Builder</a>
-      <a class="top-link" href="/tracker">Job Tracker</a>
+      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" id="homeNavLink" href="/#homeSection">Home</a>
+      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" id="builderNavLink" href="/#inputSection">Resume Builder</a>
+      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" id="latexNavLink" href="/#latexResumeSection">LaTeX Resume Maker</a>
+      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" id="autoApplyNavLink" href="/#autoApplySection">Auto Apply</a>
+      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" href="/tracker">Job Tracker</a>
     </nav>
 
     <div class="top-actions">
-      <a class="top-btn" href="/tracker">Open Tracker</a>
-      <div class="header-badge" id="providerBadge">Provider: Auto</div>
+      <a class="top-btn !text-white !border-white/20 !bg-white/5 hover:!bg-white/10" href="/tracker">Open Tracker</a>
+      <div class="header-badge !text-slate-300 !bg-white/5 !border-white/20" id="providerBadge">Provider: Auto</div>
     </div>
   </header>
+  <section id="homeSection" class="bg-midnight min-h-screen w-full text-white font-sans overflow-hidden relative">
+    <!-- Background Ambient Glow -->
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[400px] bg-electricBlue/20 rounded-full blur-[120px] pointer-events-none"></div>
 
-  <main>
-    <section class="home-overview" id="homeSection">
-      <div class="overview-grid">
-        <article class="overview-card overview-hero">
-          <p class="kicker">Your Career Command Center</p>
-          <h1>One Place For Resume Building And Job Tracking</h1>
-          <p>
-            ATSOptimizer helps you tailor resumes quickly, track every application stage,
-            and measure progress with real funnel analytics.
-          </p>
-          <div class="overview-cta-row">
-            <a class="overview-cta primary" href="#inputSection">Go To Resume Builder</a>
-            <a class="overview-cta" href="/tracker">Open Job Tracker</a>
-          </div>
-        </article>
+    <!-- Section 1: Hero Area -->
+    <div class="relative max-w-6xl mx-auto px-6 pt-32 pb-24 text-center">
+      <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6 text-transparent bg-clip-text bg-gradient-to-r from-electricBlue to-energeticOrange">
+        One Place For Resume Building And Job Tracking
+      </h1>
+      <p class="text-xl md:text-2xl text-slate-400 max-w-3xl mx-auto mb-12">
+        Tailor resumes instantly, manage your entire application pipeline, and land your dream job faster with AI-powered optimization.
+      </p>
+      
+      <div class="flex flex-wrap justify-center gap-4">
+        <a href="#inputSection" class="px-8 py-4 bg-gradient-to-r from-electricBlue to-blue-600 hover:to-blue-500 text-white rounded-xl font-semibold shadow-[0_0_20px_rgba(59,130,246,0.5)] hover:shadow-[0_0_30px_rgba(59,130,246,0.8)] transition-all duration-300 transform hover:-translate-y-1">
+          Go To Resume Builder
+        </a>
+        <a href="#latexResumeSection" class="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold backdrop-blur-sm transition-all duration-300 transform hover:-translate-y-1">
+          Open LaTeX Maker
+        </a>
+        <a href="#autoApplySection" class="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold backdrop-blur-sm transition-all duration-300 transform hover:-translate-y-1">
+          Open Auto Apply
+        </a>
+        <a href="/tracker" class="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold backdrop-blur-sm transition-all duration-300 transform hover:-translate-y-1">
+          Open Job Tracker
+        </a>
+      </div>
+    </div>
 
-        <article class="overview-card">
-          <h3>Tracker Snapshot</h3>
-          <div class="overview-metric-grid" id="homeStatCards">
-            <div class="overview-metric">Loading metrics...</div>
+    <!-- Section 2: Dashboard Preview (Command Center) -->
+    <div class="relative max-w-6xl mx-auto px-6 pb-32">
+      <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-electricBlue to-energeticOrange"></div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          <!-- Tracker Snapshot -->
+          <div>
+            <h3 class="text-2xl font-bold mb-6 flex items-center gap-2">
+              <span class="text-energeticOrange">⚡</span> Tracker Snapshot
+            </h3>
+            <div id="homeStatCards" class="grid grid-cols-2 gap-4">
+              <div class="text-slate-400">Loading metrics...</div>
+            </div>
           </div>
-        </article>
 
-        <article class="overview-card overview-wide">
-          <div class="overview-wide-head">
-            <h3>Top Sources</h3>
-            <span>Recent application distribution</span>
+          <!-- Top Sources -->
+          <div>
+            <div class="flex justify-between items-end mb-6">
+              <h3 class="text-2xl font-bold">Top Sources</h3>
+              <span class="text-sm text-slate-400">Recent application distribution</span>
+            </div>
+            <div id="homeSourceViz" class="space-y-4">
+              <div class="text-slate-400">Loading distribution...</div>
+            </div>
           </div>
-          <div id="homeSourceViz" class="source-viz"></div>
-        </article>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Feature Deep-Dive -->
+    <div class="relative max-w-6xl mx-auto px-6 py-24 space-y-32">
+      
+      <!-- Block A -->
+      <div class="flex flex-col md:flex-row items-center gap-12">
+        <div class="flex-1 space-y-6">
+          <h2 class="text-4xl font-bold text-white">Craft the <span class="text-electricBlue">Perfect Resume</span></h2>
+          <p class="text-xl text-slate-400">Whether you need an AI-optimized standard PDF/Word doc or a pristine LaTeX template, we've got you covered. Score your resume against the JD and fill the gaps instantly.</p>
+          <ul class="space-y-3 text-slate-300">
+            <li class="flex items-center gap-3"><span class="text-energeticOrange">✓</span> Smart Keyword Matching</li>
+            <li class="flex items-center gap-3"><span class="text-energeticOrange">✓</span> LaTeX Compilation Engine</li>
+            <li class="flex items-center gap-3"><span class="text-energeticOrange">✓</span> Export to multiple formats</li>
+          </ul>
+        </div>
+        <div class="flex-1 w-full">
+          <div class="aspect-video bg-gradient-to-br from-white/5 to-white/0 border border-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-xl">
+            <span class="text-slate-500 text-lg">Resume Builder UI Mockup</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Block B -->
+      <div class="flex flex-col md:flex-row-reverse items-center gap-12">
+        <div class="flex-1 space-y-6">
+          <h2 class="text-4xl font-bold text-white">Automate <span class="text-energeticOrange">Your Grind</span></h2>
+          <p class="text-xl text-slate-400">Use the Auto Apply assistant to prepare role-specific packets and cover letters. Queue them up in your tracker seamlessly.</p>
+          <ul class="space-y-3 text-slate-300">
+            <li class="flex items-center gap-3"><span class="text-electricBlue">✓</span> Generate tailored Cover Letters</li>
+            <li class="flex items-center gap-3"><span class="text-electricBlue">✓</span> Pre-fill application details</li>
+            <li class="flex items-center gap-3"><span class="text-electricBlue">✓</span> 1-click Queueing</li>
+          </ul>
+        </div>
+        <div class="flex-1 w-full">
+          <div class="aspect-video bg-gradient-to-br from-white/5 to-white/0 border border-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-xl">
+            <span class="text-slate-500 text-lg">Auto Apply UI Mockup</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Block C -->
+      <div class="flex flex-col md:flex-row items-center gap-12">
+        <div class="flex-1 space-y-6">
+          <h2 class="text-4xl font-bold text-white">Track <span class="text-electricBlue">Every Move</span></h2>
+          <p class="text-xl text-slate-400">Visualize your job search funnel. Know exactly what's converting, where you're being ghosted, and which sources yield the most interviews.</p>
+          <ul class="space-y-3 text-slate-300">
+            <li class="flex items-center gap-3"><span class="text-energeticOrange">✓</span> Kanban Board Tracking</li>
+            <li class="flex items-center gap-3"><span class="text-energeticOrange">✓</span> Sankey Flow Analytics</li>
+            <li class="flex items-center gap-3"><span class="text-energeticOrange">✓</span> Browser Extension Integrations</li>
+          </ul>
+        </div>
+        <div class="flex-1 w-full">
+          <div class="aspect-video bg-gradient-to-br from-white/5 to-white/0 border border-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-xl">
+            <span class="text-slate-500 text-lg">Job Tracker UI Mockup</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Final CTA & Footer -->
+    <div class="mt-24 border-t border-white/10 bg-black/20 backdrop-blur-sm">
+      <div class="max-w-4xl mx-auto px-6 py-24 text-center">
+        <h2 class="text-4xl md:text-5xl font-bold mb-8 text-white">Ready to land your dream job?</h2>
+        <a href="#inputSection" class="inline-block px-10 py-5 bg-gradient-to-r from-electricBlue to-energeticOrange text-white rounded-xl font-bold text-xl shadow-xl hover:shadow-[0_0_40px_rgba(59,130,246,0.6)] transition-all duration-300 transform hover:-translate-y-1">
+          Start Optimizing Now
+        </a>
+      </div>
+      <footer class="py-8 text-center text-slate-500 text-sm border-t border-white/5">
+        <p>© 2026 ATSOptimizer. Empowering your career journey.</p>
+      </footer>
+    </div>
+  </section>
+
+  <main class="w-full">
+    <section class="latex-section" id="latexResumeSection" style="display:none">
+      <div class="hero">
+        <h1>LaTeX <span class="gradient-text">Resume Maker</span></h1>
+        <p class="subtitle">Fill a few fields and instantly generate ATS-safe LaTeX source you can compile on Overleaf or TeXLive.</p>
+        <div class="latex-engine-badge" id="latexEngineStatus">Checking PDF engine...</div>
+      </div>
+
+      <div class="input-grid">
+        <div class="input-card">
+          <div class="card-label">
+            <span class="label-icon">📂</span>
+            Import Existing Resume
+          </div>
+          <div class="upload-row">
+            <label for="latexResumeFile" class="upload-btn">Upload Resume</label>
+            <input id="latexResumeFile" type="file" accept=".pdf,.doc,.docx,.txt" />
+            <span class="upload-hint">PDF, DOC, DOCX, TXT</span>
+          </div>
+          <div class="char-count" id="latexUploadStatus">Upload your current resume to auto-fill fields, then edit as needed.</div>
+
+          <div class="card-label">
+            <span class="label-icon">👤</span>
+            Candidate Details
+          </div>
+          <input id="latexName" class="latex-input" type="text" placeholder="Full name" />
+          <input id="latexEmail" class="latex-input" type="email" placeholder="Email" />
+          <input id="latexPhone" class="latex-input" type="text" placeholder="Phone" />
+          <input id="latexLocation" class="latex-input" type="text" placeholder="Location (City, Country)" />
+          <input id="latexLinkedin" class="latex-input" type="text" placeholder="LinkedIn URL (optional)" />
+          <input id="latexGithub" class="latex-input" type="text" placeholder="GitHub URL (optional)" />
+          <input id="latexHeadline" class="latex-input" type="text" placeholder="Professional headline (e.g., ML Engineer | AI Systems)" />
+
+          <div class="card-label" style="margin-top: 8px;">
+            <span class="label-icon">🧠</span>
+            Summary
+          </div>
+          <textarea id="latexSummary" placeholder="2-4 line professional summary"></textarea>
+        </div>
+
+        <div class="input-card">
+          <div class="card-label">
+            <span class="label-icon">🛠️</span>
+            Skills (One category per line)
+          </div>
+          <textarea id="latexSkills" placeholder="Programming: Python, Java, SQL&#10;Frameworks: Flask, FastAPI, React&#10;Tools: Git, Docker, Linux"></textarea>
+
+          <div class="card-label">
+            <span class="label-icon">💼</span>
+            Experience (Use | separator)
+          </div>
+          <textarea id="latexExperience" placeholder="Software Engineer | ABC Corp | Jan 2023 - Present | Built ATS parser improving keyword extraction by 28%&#10;Software Engineer | ABC Corp | Jan 2023 - Present | Automated resume scoring workflow for 10k+ profiles"></textarea>
+
+          <div class="card-label">
+            <span class="label-icon">🚀</span>
+            Projects (Use | separator)
+          </div>
+          <textarea id="latexProjects" placeholder="ATS Optimizer | Flask, JS, PostgreSQL | Built role-aware resume optimization with recruiter-focused sections"></textarea>
+
+          <div class="card-label">
+            <span class="label-icon">🎓</span>
+            Education (One per line)
+          </div>
+          <textarea id="latexEducation" placeholder="B.Tech in Computer Science | XYZ University | 2022"></textarea>
+
+          <div class="card-label">
+            <span class="label-icon">🏅</span>
+            Certifications (One per line)
+          </div>
+          <textarea id="latexCertifications" placeholder="AWS Cloud Practitioner | 2026&#10;Google AI-ML Virtual Internship | 2025"></textarea>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <div class="action-buttons">
+          <button class="optimize-btn" id="generateLatexBtn" type="button">
+            <span class="btn-icon">🧾</span>
+            Generate LaTeX
+          </button>
+        </div>
+      </div>
+
+      <div class="resume-output" id="latexOutputCard" style="display:none">
+        <div class="output-header">
+          <h2>LaTeX Source</h2>
+          <div class="export-btns">
+            <button class="export-btn" id="copyLatexBtn" type="button">Copy LaTeX</button>
+            <button class="export-btn primary" id="downloadLatexBtn" type="button">Download .tex</button>
+            <button class="export-btn primary" id="downloadLatexPdfBtn" type="button">Download PDF</button>
+            <button class="export-btn primary" id="downloadLatexDocxBtn" type="button">Download Word</button>
+          </div>
+        </div>
+        <div class="cover-letter-content" id="latexOutput"></div>
+      </div>
+    </section>
+    <!-- AUTO APPLY ASSISTANT -->
+    <section class="auto-apply-section" id="autoApplySection" style="display:none">
+      <div class="hero">
+        <h1>Auto Apply <span class="gradient-text">Assistant</span></h1>
+        <p class="subtitle">Prepare a role-specific application packet, queue it in the tracker, and review before any final submission.</p>
+      </div>
+
+      <div class="auto-grid">
+        <div class="auto-card">
+          <div class="card-label">
+            <span class="label-icon">🎯</span>
+            Target Role Details
+          </div>
+          <div class="auto-help">This uses your current resume and JD inputs from the Resume Builder section to generate the packet.</div>
+          <form id="autoApplyForm">
+            <div class="auto-form-grid">
+              <input id="autoTitle" name="title" placeholder="Job title" required />
+              <input id="autoCompany" name="company" placeholder="Company" required />
+              <input id="autoLocation" name="location" placeholder="Location" />
+              <input id="autoSource" name="source" placeholder="Source (LinkedIn, Naukri, Indeed...)" />
+              <input id="autoJobUrl" name="job_url" placeholder="Job URL" />
+            </div>
+            <textarea id="autoJobDescription" name="job_description" placeholder="Paste the job description here to create a more relevant packet..."></textarea>
+            <textarea id="autoNotes" name="notes" placeholder="Notes for this application (optional)"></textarea>
+            <div class="auto-actions">
+              <button type="button" class="optimize-btn auto-btn" id="generatePacketBtn">Generate Packet</button>
+              <button type="button" class="optimize-btn auto-btn secondary" id="queueJobBtn">Queue in Tracker</button>
+            </div>
+          </form>
+          <div class="char-count" id="autoApplyMessage">Ready to build an application packet.</div>
+        </div>
+
+        <div class="auto-card auto-preview-card">
+          <div class="card-label">
+            <span class="label-icon">📦</span>
+            Packet Preview
+          </div>
+          <div id="autoPacketSummary" class="auto-packet-summary">
+            No packet generated yet. Fill the role details and click Generate Packet.
+          </div>
+          <div class="auto-mini-actions">
+            <a class="top-btn" href="/tracker">Open Tracker</a>
+            <button type="button" class="top-btn" id="copyPacketBtn">Copy Packet Notes</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="auto-card auto-queue-card">
+        <div class="card-label">
+          <span class="label-icon">🗂️</span>
+          Queued Roles
+        </div>
+        <div id="autoQueueList" class="auto-queue-list">
+          <div class="auto-empty-state">No queued roles yet.</div>
+        </div>
       </div>
     </section>
 

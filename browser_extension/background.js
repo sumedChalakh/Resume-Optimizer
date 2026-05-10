@@ -94,6 +94,45 @@ async function pushToTracker(payload) {
   };
 }
 
+async function queueReviewToTracker(payload) {
+  const config = await getConfig();
+  await appendDebugEvent("queue_review_start", {
+    apiBaseUrl: config.apiBaseUrl,
+    title: payload?.title || "",
+    company: payload?.company || "",
+    source: payload?.source || "Unknown",
+  });
+
+  const endpoint = `${config.apiBaseUrl}/tracker/api/applications`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.ingestToken}`,
+    },
+    body: JSON.stringify({
+      ...payload,
+      status: "saved",
+      confirmed_by_user: false,
+      apply_signal: payload?.apply_signal || "review_queue",
+      confidence: Number(payload?.confidence || 0.5),
+    }),
+  });
+
+  let data = {};
+  try {
+    data = await response.json();
+  } catch (error) {
+    data = { error: "Invalid JSON response from server." };
+  }
+
+  return {
+    ok: response.ok,
+    code: response.status,
+    data,
+  };
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
   await chrome.storage.sync.set(DEFAULT_CONFIG);
 });
@@ -110,7 +149,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.type !== "AUTO_TRACK_APPLICATION") {
+  if (message.type !== "AUTO_TRACK_APPLICATION" && message.type !== "QUEUE_APPLICATION_REVIEW") {
     return;
   }
 
@@ -120,9 +159,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     confidence: Number(message.payload?.confidence || 0),
   };
 
-  pushToTracker(payload)
+  const runner = message.type === "QUEUE_APPLICATION_REVIEW" ? queueReviewToTracker : pushToTracker;
+
+  runner(payload)
     .then(async (result) => {
-      await appendDebugEvent("push_result", {
+      await appendDebugEvent(message.type === "QUEUE_APPLICATION_REVIEW" ? "queue_review_result" : "push_result", {
         ok: result.ok,
         code: result.code,
         status: result.data?.status || result.status || "",
@@ -131,7 +172,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       await setLastResult(result);
 
-      if (result.status === "disabled") {
+      if (message.type === "QUEUE_APPLICATION_REVIEW" && result.code === 201) {
+        notify("ATS Tracker", "Application queued for review in tracker.");
+      } else if (result.status === "disabled") {
         notify("ATS Tracker", "Auto add is disabled.");
       } else if (result.status === "error") {
         notify("ATS Tracker", result.message);

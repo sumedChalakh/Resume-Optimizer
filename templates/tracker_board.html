@@ -7,29 +7,43 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/tracker.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      corePlugins: { preflight: false },
+      theme: {
+        extend: {
+          colors: { midnight: '#0f172a', electricBlue: '#3b82f6', energeticOrange: '#f59e0b' },
+          fontFamily: { sans: ['Space Grotesk', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
 </head>
-<body>
-  <header class="app-topbar">
-    <a class="brand" href="/">
+<body class="bg-midnight text-slate-200">
+  <div class="bg-grid opacity-10 mix-blend-screen pointer-events-none" style="position: fixed; inset: 0; background-image: linear-gradient(rgba(20, 86, 212, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(20, 86, 212, 0.035) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0;"></div>
+
+  <header class="app-topbar w-full !bg-midnight/90 !border-white/10 !backdrop-blur-md">
+    <a class="brand !text-white" href="/">
       <span class="brand-icon">⚡</span>
-      <span>ATS<strong>Optimizer</strong></span>
+      <span>ATS<strong class="!text-electricBlue">Optimizer</strong></span>
     </a>
 
     <nav class="top-nav" aria-label="Primary">
-      <a class="top-link" href="/#homeSection">Home</a>
-      <a class="top-link" href="/#inputSection">Resume Builder</a>
-      <a class="top-link active" href="/tracker">Job Tracker</a>
+      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" href="/#homeSection">Home</a>
+      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" href="/#inputSection">Resume Builder</a>
+      <a class="top-link active !text-white !bg-white/10" href="/tracker">Job Tracker</a>
     </nav>
 
     <div class="top-actions">
-      <a class="top-btn" href="/#inputSection">Resume Builder</a>
+      <a class="top-btn !text-white !border-white/20 !bg-white/5 hover:!bg-white/10" href="/#inputSection">Resume Builder</a>
     </div>
   </header>
 
   <main class="tracker-shell">
-    <section class="tracker-header">
-      <h1>Application Tracker</h1>
-      <p>Track applications end-to-end with analytics, flow visualization, filters, and exports.</p>
+    <section class="tracker-header text-center py-12">
+      <h1 class="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-transparent bg-clip-text bg-gradient-to-r from-electricBlue to-energeticOrange">Application Tracker</h1>
+      <p class="text-lg text-slate-400 max-w-2xl mx-auto">Track applications end-to-end with analytics, flow visualization, filters, and exports.</p>
     </section>
 
     <section id="persistenceWarning" class="system-warning hidden" role="status" aria-live="polite"></section>

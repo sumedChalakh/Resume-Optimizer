@@ -5,6 +5,8 @@ const DEFAULTS = {
   minConfidence: 0.7,
 };
 
+let currentPreviewPayload = null;
+
 const SUPPORTED_JOB_HOSTS = [
   "linkedin.com",
   "naukri.com",
@@ -208,6 +210,73 @@ function setMessage(text, isError = false) {
   el.style.color = isError ? "#b42318" : "#0f7a4b";
 }
 
+function renderPacketPreview(payload) {
+  const previewEl = getEl("packetPreview");
+  if (!previewEl) {
+    return;
+  }
+
+  if (!payload) {
+    previewEl.textContent = "No preview yet. Open a supported job page and click Preview Current Job Packet.";
+    return;
+  }
+
+  previewEl.textContent = JSON.stringify(
+    {
+      title: payload.title,
+      company: payload.company,
+      location: payload.location,
+      source: payload.source,
+      job_url: payload.job_url,
+      applied_date: payload.applied_date,
+      apply_signal: payload.apply_signal,
+      confidence: payload.confidence,
+      confirmed_by_user: payload.confirmed_by_user,
+      notes: payload.notes,
+    },
+    null,
+    2
+  );
+}
+
+async function extractCurrentJobPayload({
+  sourceSuffix,
+  applySignal,
+  confidence,
+  confirmedByUser,
+  notes,
+}) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab) {
+    throw new Error("No active tab found.");
+  }
+
+  if (!isSupportedJobHost(tab.url)) {
+    throw new Error("Open a LinkedIn, Naukri, Indeed, or Workday job page first.");
+  }
+
+  const response = await chrome.tabs.sendMessage(tab.id, {
+    type: "EXTRACT_VISIBLE_JOB",
+  });
+
+  if (!response || !response.title) {
+    throw new Error("Could not extract job info from this page. Check the job is visible.");
+  }
+
+  return {
+    title: response.title || "Unknown Position",
+    company: response.company || "Unknown Company",
+    location: response.location || "",
+    job_url: tab.url,
+    source: `${response.source || "Job Board"}${sourceSuffix ? ` (${sourceSuffix})` : ""}`,
+    applied_date: new Date().toISOString().slice(0, 10),
+    apply_signal: applySignal,
+    confidence,
+    confirmed_by_user: confirmedByUser,
+    notes,
+  };
+}
+
 async function loadConfig() {
   const syncData = await chrome.storage.sync.get(DEFAULTS);
   const localData = await chrome.storage.local.get(["lastIngestResult", "lastIngestAt", "debugEvents"]);
@@ -283,41 +352,14 @@ async function testConnectionAndIngest() {
 }
 
 async function forceAddCurrentJob() {
-  // Get current active tab
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) {
-    setMessage("No active tab found.", true);
-    return;
-  }
-
-  if (!isSupportedJobHost(tab.url)) {
-    setMessage("Open a LinkedIn, Naukri, Indeed, or Workday job page first.", true);
-    return;
-  }
-
   try {
-    // Ask content script to extract visible job details
-    const response = await chrome.tabs.sendMessage(tab.id, {
-      type: "EXTRACT_VISIBLE_JOB",
-    });
-
-    if (!response || !response.title) {
-      setMessage("Could not extract job info from this page. Check the job is visible.", true);
-      return;
-    }
-
-    // Submit extracted job to tracker
-    const payload = {
-      title: response.title || "Unknown Position",
-      company: response.company || "Unknown Company",
-      location: response.location || "",
-      job_url: tab.url,
-      source: `${response.source || "Job Board"} (Manual Add)`,
-      applied_date: new Date().toISOString().slice(0, 10),
-      apply_signal: "manual_force_add",
+    const payload = await extractCurrentJobPayload({
+      sourceSuffix: "Manual Add",
+      applySignal: "manual_force_add",
       confidence: 0.95,
-      confirmed_by_user: true,
-    };
+      confirmedByUser: true,
+      notes: "Manual add from extension popup.",
+    });
 
     const result = await chrome.runtime.sendMessage({
       type: "AUTO_TRACK_APPLICATION",
@@ -328,6 +370,50 @@ async function forceAddCurrentJob() {
       setMessage(`✓ Added: "${payload.title}" @ ${payload.company} (HTTP ${result.code})`);
     } else {
       const msg = result?.data?.error || result?.message || "Failed to add job";
+      setMessage(msg, true);
+    }
+
+    await loadConfig();
+  } catch (error) {
+    setMessage(`Error: ${error.message}`, true);
+  }
+}
+
+async function previewCurrentJobPacket() {
+  try {
+    currentPreviewPayload = await extractCurrentJobPayload({
+      sourceSuffix: "Review Queue",
+      applySignal: "review_queue",
+      confidence: 0.6,
+      confirmedByUser: false,
+      notes: "Queued for review. Open ATSOptimizer to generate the application packet before submitting.",
+    });
+
+    renderPacketPreview(currentPreviewPayload);
+    setMessage(`Preview ready: "${currentPreviewPayload.title}" @ ${currentPreviewPayload.company}`);
+  } catch (error) {
+    setMessage(`Error: ${error.message}`, true);
+  }
+}
+
+async function queueCurrentJobForReview() {
+  try {
+    if (!currentPreviewPayload) {
+      await previewCurrentJobPacket();
+      if (!currentPreviewPayload) {
+        return;
+      }
+    }
+
+    const result = await chrome.runtime.sendMessage({
+      type: "QUEUE_APPLICATION_REVIEW",
+      payload: currentPreviewPayload,
+    });
+
+    if (result && result.ok) {
+      setMessage(`✓ Queued for review: "${currentPreviewPayload.title}" @ ${currentPreviewPayload.company} (HTTP ${result.code})`);
+    } else {
+      const msg = result?.data?.error || result?.message || "Failed to queue job";
       setMessage(msg, true);
     }
 
@@ -349,4 +435,13 @@ getEl("forceAddBtn").addEventListener("click", () => {
   forceAddCurrentJob().catch((error) => setMessage(String(error.message || error), true));
 });
 
+getEl("previewPacketBtn").addEventListener("click", () => {
+  previewCurrentJobPacket().catch((error) => setMessage(String(error.message || error), true));
+});
+
+getEl("queueReviewBtn").addEventListener("click", () => {
+  queueCurrentJobForReview().catch((error) => setMessage(String(error.message || error), true));
+});
+
+renderPacketPreview(null);
 loadConfig().catch((error) => setMessage(String(error.message || error), true));

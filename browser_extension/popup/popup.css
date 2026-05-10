@@ -60,6 +60,11 @@ button {
   cursor: pointer;
 }
 
+#previewPacketBtn {
+  background: #eef4ff;
+  color: #1a56db;
+}
+
 .status-box {
   margin-top: 10px;
   background: #fff;

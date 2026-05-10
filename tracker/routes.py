@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from hmac import compare_digest
 
 from flask import Blueprint, jsonify, make_response, render_template, request
 
@@ -64,6 +65,18 @@ def _extract_bearer_token():
     return auth_header[7:].strip()
   fallback = (request.headers.get("X-Tracker-Token") or "").strip()
   return fallback
+
+
+def _require_tracker_write_auth():
+  configured_token = get_extension_token()
+  if not configured_token:
+    return None
+
+  request_token = _extract_bearer_token()
+  if request_token and compare_digest(request_token, configured_token):
+    return None
+
+  return jsonify({"error": "Unauthorized tracker write token"}), 401
 
 
 @tracker_blueprint.get("/tracker")
@@ -143,6 +156,10 @@ def tracker_flow_data():
 
 @tracker_blueprint.post("/tracker/api/applications")
 def tracker_create_application():
+  auth_error = _require_tracker_write_auth()
+  if auth_error:
+    return auth_error
+
   ensure_database()
   payload = request.get_json(silent=True) or {}
 
@@ -161,6 +178,10 @@ def tracker_create_application():
 
 @tracker_blueprint.patch("/tracker/api/applications/<int:application_id>/status")
 def tracker_patch_status(application_id):
+  auth_error = _require_tracker_write_auth()
+  if auth_error:
+    return auth_error
+
   ensure_database()
   payload = request.get_json(silent=True) or {}
   status = str(payload.get("status", "")).strip().lower()
@@ -177,6 +198,10 @@ def tracker_patch_status(application_id):
 
 @tracker_blueprint.delete("/tracker/api/applications/<int:application_id>")
 def tracker_delete_application(application_id):
+  auth_error = _require_tracker_write_auth()
+  if auth_error:
+    return auth_error
+
   ensure_database()
   deleted = delete_application(application_id)
 
@@ -201,7 +226,7 @@ def tracker_ingest_application():
     return _corsify(response), 503
 
   request_token = _extract_bearer_token()
-  if not request_token or request_token != configured_token:
+  if not request_token or not compare_digest(request_token, configured_token):
     response = jsonify({"error": "Unauthorized ingest token"})
     return _corsify(response), 401
 

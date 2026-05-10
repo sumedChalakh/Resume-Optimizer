@@ -34,6 +34,7 @@ const sourceBreakdownEl = document.getElementById("sourceBreakdown");
 
 let lastApplications = [];
 let sourceOptions = [];
+const TRACKER_WRITE_TOKEN_KEY = "ats_tracker_write_token";
 
 async function readApiJson(response, fallbackMessage) {
   const bodyText = await response.text();
@@ -56,6 +57,44 @@ async function readApiJson(response, fallbackMessage) {
   }
 
   return data || {};
+}
+
+function getTrackerWriteHeaders() {
+  const token = String(localStorage.getItem(TRACKER_WRITE_TOKEN_KEY) || "").trim();
+  const headers = { "Content-Type": "application/json" };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+async function fetchTrackerWrite(url, options = {}) {
+  let response = await fetch(url, {
+    ...options,
+    headers: {
+      ...getTrackerWriteHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const token = window.prompt("Tracker write token is required.");
+  if (!token) {
+    return response;
+  }
+
+  localStorage.setItem(TRACKER_WRITE_TOKEN_KEY, token.trim());
+  response = await fetch(url, {
+    ...options,
+    headers: {
+      ...getTrackerWriteHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+  return response;
 }
 
 function renderPersistenceWarning(healthData) {
@@ -381,6 +420,14 @@ function buildStatusOptions(current) {
     .join("");
 }
 
+function appendTextNode(parent, className, text) {
+  const el = document.createElement("div");
+  el.className = className;
+  el.textContent = text;
+  parent.appendChild(el);
+  return el;
+}
+
 function renderBoard(applications) {
   boardEl.innerHTML = "";
 
@@ -399,16 +446,23 @@ function renderBoard(applications) {
     apps.forEach((app) => {
       const card = document.createElement("div");
       card.className = "app-card";
-      card.innerHTML = `
-        <div class="app-title">${app.title}</div>
-        <div class="app-company">${app.company}</div>
-        <div class="meta">${app.location || "No location"}</div>
-        <div class="meta">Applied: ${app.applied_date || "N/A"}</div>
-        <select class="status-select" data-id="${app.id}">
-          ${buildStatusOptions(app.status)}
-        </select>
-        <button class="delete-btn" type="button" data-id="${app.id}">Delete</button>
-      `;
+      appendTextNode(card, "app-title", app.title || "");
+      appendTextNode(card, "app-company", app.company || "");
+      appendTextNode(card, "meta", app.location || "No location");
+      appendTextNode(card, "meta", `Applied: ${app.applied_date || "N/A"}`);
+
+      const statusSelect = document.createElement("select");
+      statusSelect.className = "status-select";
+      statusSelect.dataset.id = app.id;
+      statusSelect.innerHTML = buildStatusOptions(app.status);
+      card.appendChild(statusSelect);
+
+      const deleteButton = document.createElement("button");
+      deleteButton.className = "delete-btn";
+      deleteButton.type = "button";
+      deleteButton.dataset.id = app.id;
+      deleteButton.textContent = "Delete";
+      card.appendChild(deleteButton);
       list.appendChild(card);
     });
 
@@ -598,18 +652,16 @@ async function fetchApplications() {
 }
 
 async function addApplication(payload) {
-  const response = await fetch("/tracker/api/applications", {
+  const response = await fetchTrackerWrite("/tracker/api/applications", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   await readApiJson(response, "Could not add application");
 }
 
 async function updateStatus(id, status) {
-  const response = await fetch(`/tracker/api/applications/${id}/status`, {
+  const response = await fetchTrackerWrite(`/tracker/api/applications/${id}/status`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
   });
   await readApiJson(response, "Could not update status");
@@ -618,7 +670,7 @@ async function updateStatus(id, status) {
 }
 
 async function deleteApplication(id) {
-  const response = await fetch(`/tracker/api/applications/${id}`, {
+  const response = await fetchTrackerWrite(`/tracker/api/applications/${id}`, {
     method: "DELETE",
   });
   await readApiJson(response, "Could not delete application");

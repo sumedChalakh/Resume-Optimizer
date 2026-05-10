@@ -15,11 +15,13 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from tracker import tracker_blueprint, ensure_database
+from latex_resume import latex_blueprint
 import io
 
 app = Flask(__name__)
 ensure_database()
 app.register_blueprint(tracker_blueprint)
+app.register_blueprint(latex_blueprint)
 
 
 def load_env_file(path=".env"):
@@ -40,6 +42,12 @@ def load_env_file(path=".env"):
 
 
 load_env_file()
+
+try:
+  MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(8 * 1024 * 1024)))
+except ValueError:
+  MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 GITHUB_PAT = os.getenv("GITHUB_PAT", "").strip()
@@ -89,8 +97,8 @@ CORE RULES:
 6. ATS format: use standard sections and plain ATS-readable wording.
 
 OUTPUT REQUIREMENTS:
-- Respond ONLY with valid JSON (no markdown or extra text).
-- Keep the schema below exactly.
+-- Respond ONLY with valid JSON (no markdown or extra text).
+-- Keep the schema below exactly.
 
 {
   "optimized_resume": {
@@ -205,11 +213,11 @@ COVER_LETTER_PROMPT = """You are an expert cover letter writer.
 Write a professional, ATS-friendly cover letter based on the resume and job description provided.
 
 STRICT RULES:
-- Maximum 4 paragraphs
-- Para 1: Hook — why THIS company + role excites you (mention company name)
-- Para 2: Your strongest 2-3 achievements relevant to THIS JD
-- Para 3: What unique value you bring (domain + tech stack match)
-- Para 4: Call to action — confident closing
+-- Maximum 4 paragraphs
+-- Para 1: Hook — why THIS company + role excites you (mention company name)
+-- Para 2: Your strongest 2-3 achievements relevant to THIS JD
+-- Para 3: What unique value you bring (domain + tech stack match)
+-- Para 4: Call to action — confident closing
 
 TONE: Professional but human. Not robotic. Not over-formal.
 LENGTH: 250-320 words max — recruiters don't read long letters
@@ -228,77 +236,13 @@ Respond ONLY in this JSON:
   ]
 }"""
 
-def normalize_cover_letter_shape(cover_letter, resume_text="", jd_text=""):
-  """Normalize cover-letter output into the app's internal shape."""
-  if not isinstance(cover_letter, dict):
-    return cover_letter
-
-  body_text = cover_letter.get("body", "")
-  if not body_text and cover_letter.get("body_paragraphs"):
-    body_text = "\n\n".join(str(p).strip() for p in cover_letter.get("body_paragraphs", []) if str(p).strip())
-
-  header = extract_header_from_resume_text(resume_text)
-  company_name = guess_company_name(jd_text)
-  subject_line = normalize_space(cover_letter.get("subject_line") or cover_letter.get("subject") or "")
-
-  if not subject_line:
-    subject_line = f"Application for the advertised role — {header.get('name', 'Candidate').title()}"
-
-  normalized = {
-    "subject_line": subject_line,
-    "body": body_text.strip(),
-    "word_count": int(cover_letter.get("word_count") or len(re.findall(r"\b\w+\b", body_text))),
-    "personalization_score": int(cover_letter.get("personalization_score") or 0),
-    "tips": cover_letter.get("tips") if isinstance(cover_letter.get("tips"), list) else [],
-    "company_name": company_name,
-    "hiring_manager": "Hiring Manager",
-    "subject": subject_line,
-    "body_paragraphs": [p.strip() for p in re.split(r"\n\s*\n", body_text.strip()) if p.strip()],
-    "closing": "Sincerely",
-    "signature_name": header.get("name", "Candidate"),
-  }
-  return normalized
-
-
-def normalize_response_shape(result):
-  """Keep API response backward-compatible with frontend expectations."""
-  if not isinstance(result, dict):
-    return result
-
-  ats_score = result.get("ats_score")
-  if isinstance(ats_score, dict):
-    total = ats_score.get("total", 0)
-    result["ats_score_total"] = total
-    result["ats_score"] = total
-
-  keyword_analysis = result.get("keyword_analysis", {})
-  if isinstance(keyword_analysis, dict):
-    if "missing_keywords" not in result:
-      result["missing_keywords"] = keyword_analysis.get("missing_keywords", [])
-
-    analysis = result.get("analysis")
-    if not isinstance(analysis, dict):
-      analysis = {}
-    if "matched_keywords" not in analysis:
-      analysis["matched_keywords"] = keyword_analysis.get("matched_in_resume", [])
-    result["analysis"] = analysis
-
-  cover_letter = result.get("cover_letter")
-  if isinstance(cover_letter, str):
-    result["cover_letter"] = normalize_cover_letter_shape({"body": cover_letter}, "", "")
-
-  if isinstance(result.get("cover_letter"), dict):
-    result["cover_letter"] = normalize_cover_letter_shape(result["cover_letter"], "", "")
-
-  return result
-
 
 def extract_certifications_from_resume_text(resume_text):
   """Best-effort extraction of certification lines from original resume text."""
   if not resume_text:
     return []
 
-  lines = [line.strip(" -•\t") for line in resume_text.splitlines() if line.strip()]
+  lines = [line.strip(" -•\t") for line in str(resume_text).splitlines() if line.strip()]
   certs = []
   in_cert_section = False
 
@@ -308,14 +252,7 @@ def extract_certifications_from_resume_text(resume_text):
       in_cert_section = True
       continue
 
-    if in_cert_section and low in {
-      "education",
-      "projects",
-      "experience",
-      "skills",
-      "summary",
-      "professional summary",
-    }:
+    if in_cert_section and low in {"education", "projects", "experience", "skills", "summary", "professional summary"}:
       break
 
     if in_cert_section or any(k in low for k in ["certification", "certified", "course", "nptel", "aws", "azure", "google ai"]):
@@ -1544,6 +1481,9 @@ def extract_resume_text(file_storage):
   file_bytes = file_storage.read()
   if not file_bytes:
     raise ValueError("Uploaded file is empty")
+  if len(file_bytes) > MAX_UPLOAD_BYTES:
+    max_mb = max(1, MAX_UPLOAD_BYTES // (1024 * 1024))
+    raise ValueError(f"Uploaded file is too large. Maximum size is {max_mb} MB")
 
   if lower_name.endswith(".txt"):
     return file_bytes.decode("utf-8", errors="ignore").strip()
@@ -2107,7 +2047,7 @@ def export_docx():
                 add_text_with_links_styled(details_para, details, size=12)
 
         certifications = resume_data.get("certifications", [])
-        if certifications:
+        if False and certifications:
           add_section_heading_exact(doc, "Certifications")
           for cert in certifications:
             if isinstance(cert, str):
@@ -2128,6 +2068,29 @@ def export_docx():
               p_cert = doc.add_paragraph()
               style_paragraph(p_cert, spacing_before=1, spacing_after=0, line_spacing=1.0)
               add_text_with_links_styled(p_cert, line, size=12)
+
+    certifications = resume_data.get("certifications", [])
+    if certifications:
+        add_section_heading_exact(doc, "Certifications")
+        for cert in certifications:
+            if isinstance(cert, str):
+                p_cert = doc.add_paragraph()
+                style_paragraph(p_cert, spacing_before=1, spacing_after=0, line_spacing=1.0)
+                add_text_with_links_styled(p_cert, cert, size=12)
+                continue
+
+            name = normalize_space(cert.get("name", ""))
+            issuer = normalize_space(cert.get("issuer", ""))
+            year = normalize_space(cert.get("year", ""))
+            line = name
+            if issuer:
+                line += f" - {issuer}"
+            if year:
+                line += f" ({year})"
+            if line:
+                p_cert = doc.add_paragraph()
+                style_paragraph(p_cert, spacing_before=1, spacing_after=0, line_spacing=1.0)
+                add_text_with_links_styled(p_cert, line, size=12)
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -2217,8 +2180,6 @@ def export_cover_letter_docx():
         download_name="cover_letter.docx",
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
-
-
 if __name__ == "__main__":
   debug_raw = os.getenv("FLASK_DEBUG", "0").strip().lower()
   debug_enabled = debug_raw in {"1", "true", "yes", "on"}
