@@ -1385,6 +1385,17 @@ function renderResults(data, options = {}) {
   );
   animateScore(score);
 
+  const breakdownEl = document.getElementById('scoreBreakdown');
+  if (breakdownEl) {
+    if (data.ats_score && data.ats_score.breakdown) {
+      const local = data.ats_score.breakdown.local_technical_match || 0;
+      const ai = data.ats_score.breakdown.ai_alignment_score || 0;
+      breakdownEl.innerHTML = `Local Match: ${local}/70 &nbsp;|&nbsp; AI Alignment: ${ai}/30`;
+    } else {
+      breakdownEl.innerHTML = '';
+    }
+  }
+
   // Missing keywords
   const missing = data.missing_keywords || (data.keyword_analysis && data.keyword_analysis.missing_keywords) || [];
   const missingEl = document.getElementById('missingKeywords');

@@ -247,8 +247,19 @@ Respond ONLY in this JSON:
   "personalization_score": 87,
   "tips": [
     "tip 1 to make it stronger",
-    "tip 2"
   ]
+}"""
+
+
+ALIGNMENT_PROMPT = """You are an expert technical recruiter and ATS systems evaluator.
+Perform a high-speed domain alignment check between the job title/description and the candidate's professional summary.
+Your goal is to determine if the overall professional profile is heavily misaligned with the target job domain (e.g., applying for a Data Science role with a pure Nursing background).
+
+Respond ONLY in this JSON format:
+{
+  "misaligned": true_or_false,
+  "penalty": integer_between_0_and_30,
+  "reasoning": "Brief explanation of the penalty."
 }"""
 
 
@@ -1756,6 +1767,110 @@ def add_text_with_links_styled(paragraph, text, size=12, bold=False, italic=Fals
   add_plain_segment(text[cursor:])
 
 
+def check_domain_alignment(resume_summary, jd_text, low_credit_mode=False):
+    job_title = jd_text[:200] if jd_text else "Unknown Job"
+    user_message = f"""Job Context:
+{job_title}
+
+Resume Summary:
+{resume_summary}
+
+Determine the domain alignment penalty."""
+    try:
+        raw, _ = generate_model_response(user_message, low_credit_mode=low_credit_mode, system_prompt=ALIGNMENT_PROMPT)
+        res = parse_ai_json(raw)
+        if isinstance(res, dict) and "penalty" in res:
+            return min(30, max(0, int(res["penalty"])))
+    except Exception:
+        pass
+    return 0
+
+
+def compute_hybrid_score(result, jd_text, low_credit_mode=False):
+    if not isinstance(result, dict):
+        return result
+    optimized = result.get("optimized_resume")
+    if not isinstance(optimized, dict):
+        return result
+    
+    # 1. Extract JD Keywords
+    jd_keywords = extract_keywords_from_jd(jd_text, limit=40)
+    
+    # 2. Local Code Calculation (Max 70 points)
+    # Check for keywords in Skills vs Experience/Projects (3x weight for latter)
+    local_points = 0
+    
+    # Flatten projects and experience
+    rich_text = []
+    for exp in optimized.get("experience", []):
+        if isinstance(exp, dict):
+            rich_text.append(normalize_space(exp.get("title", "")))
+            rich_text.append(normalize_space(exp.get("company", "")))
+            for b in exp.get("bullets", []):
+                rich_text.append(normalize_space(b))
+            
+    for proj in optimized.get("projects", []):
+        if isinstance(proj, dict):
+            rich_text.append(normalize_space(proj.get("name", "")))
+            rich_text.append(normalize_space(proj.get("tech", "")))
+            for b in proj.get("bullets", []):
+                rich_text.append(normalize_space(b))
+            
+    rich_corpus = " ".join(rich_text).lower()
+    
+    skills_text = []
+    if isinstance(optimized.get("skills"), dict):
+        for cat, items in optimized.get("skills", {}).items():
+            if isinstance(items, list):
+                skills_text.extend([normalize_space(str(i)) for i in items])
+    skills_corpus = " ".join(skills_text).lower()
+    
+    for kw in jd_keywords:
+        if not kw:
+            continue
+        if kw in rich_corpus:
+            local_points += 3
+        elif kw in skills_corpus:
+            local_points += 1
+            
+    # Normalize local score to a max of 70
+    local_score = (local_points / 40) * 70
+    
+    # Penalize heavily for missing keywords
+    missing_keywords = result.get("missing_keywords", [])
+    if not missing_keywords and isinstance(result.get("keyword_analysis"), dict):
+        missing_keywords = result["keyword_analysis"].get("missing_keywords", [])
+        
+    if isinstance(missing_keywords, list) and len(missing_keywords) > 0:
+        missing_penalty = len(missing_keywords) * 8
+        local_score -= missing_penalty
+
+    local_score = max(0, min(70, local_score))
+    
+    if local_points == 0 and not jd_keywords:
+        local_score = 50
+        
+    local_score_int = int(round(local_score))
+    
+    # 3. AI Contextual Validation (Max 30 points)
+    resume_summary = optimized.get("summary", "")
+    penalty = check_domain_alignment(resume_summary, jd_text, low_credit_mode=low_credit_mode)
+    ai_score = max(0, 30 - penalty)
+    
+    total = max(0, min(100, local_score_int + ai_score))
+    
+    result["ats_score"] = {
+        "total": total,
+        "breakdown": {
+            "local_technical_match": local_score_int,
+            "ai_alignment_score": ai_score,
+            "final_computed_weight": "70% Local / 30% AI"
+        },
+        "score_reasoning": f"Local Technical Match calculated at {local_score_int}/70 based on weighted keyword density (3x for experience/projects) with missing keyword penalties. AI domain alignment check provided {ai_score}/30 points (penalty applied: {penalty})."
+    }
+    return result
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -1793,6 +1908,7 @@ Preserve all projects and all certifications from the original resume."""
       result = ensure_certifications_present(result, resume_text)
       result = ensure_projects_present(result, resume_text)
       result = apply_role_based_ordering(result, jd_text)
+      result = compute_hybrid_score(result, jd_text, low_credit_mode=low_credit_mode)
       if resume_trimmed or jd_trimmed:
         result["notice"] = "Input was trimmed for speed. If you need full-context optimization, split JD into essentials and rerun."
       if low_credit_mode:
@@ -1811,6 +1927,7 @@ Preserve all projects and all certifications from the original resume."""
         fallback = ensure_certifications_present(fallback, resume_text)
         fallback = ensure_projects_present(fallback, resume_text)
         fallback = apply_role_based_ordering(fallback, jd_text)
+        fallback = compute_hybrid_score(fallback, jd_text, low_credit_mode=low_credit_mode)
         return jsonify(fallback)
 
     except json.JSONDecodeError as e:
@@ -1822,6 +1939,7 @@ Preserve all projects and all certifications from the original resume."""
           retry_result = ensure_certifications_present(retry_result, resume_text)
           retry_result = ensure_projects_present(retry_result, resume_text)
           retry_result = apply_role_based_ordering(retry_result, jd_text)
+          retry_result = compute_hybrid_score(retry_result, jd_text, low_credit_mode=low_credit_mode)
           if resume_trimmed or jd_trimmed:
             retry_result["notice"] = "Input was trimmed for speed. If you need full-context optimization, split JD into essentials and rerun."
           if low_credit_mode:
