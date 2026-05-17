@@ -34,7 +34,7 @@ const sourceBreakdownEl = document.getElementById("sourceBreakdown");
 
 let lastApplications = [];
 let sourceOptions = [];
-const TRACKER_WRITE_TOKEN_KEY = "ats_tracker_write_token";
+const TRACKER_WRITE_TOKEN_KEY = "tracker_write_token";
 
 async function readApiJson(response, fallbackMessage) {
   const bodyText = await response.text();

@@ -6,7 +6,7 @@ let currentAutoPacket = null;
 let currentLatexSource = '';
 const BUILDER_STATE_KEY = 'ats_optimizer_builder_state_v1';
 const AUTO_QUEUE_KEY = 'ats_optimizer_auto_queue_v1';
-const TRACKER_WRITE_TOKEN_KEY = 'ats_tracker_write_token';
+const TRACKER_WRITE_TOKEN_KEY = 'tracker_write_token';
 
 function getTrackerWriteHeaders() {
   const token = String(localStorage.getItem(TRACKER_WRITE_TOKEN_KEY) || '').trim();
@@ -71,7 +71,7 @@ function getBuilderStateSnapshot() {
 function persistBuilderState() {
   try {
     const snapshot = getBuilderStateSnapshot();
-    localStorage.setItem(BUILDER_STATE_KEY, JSON.stringify(snapshot));
+    sessionStorage.setItem(BUILDER_STATE_KEY, JSON.stringify(snapshot));
   } catch (error) {
     // Ignore storage errors.
   }
@@ -79,7 +79,7 @@ function persistBuilderState() {
 
 function clearBuilderState() {
   try {
-    localStorage.removeItem(BUILDER_STATE_KEY);
+    sessionStorage.removeItem(BUILDER_STATE_KEY);
   } catch (error) {
     // Ignore storage errors.
   }
@@ -87,7 +87,7 @@ function clearBuilderState() {
 
 function restoreBuilderState() {
   try {
-    const raw = localStorage.getItem(BUILDER_STATE_KEY);
+    const raw = sessionStorage.getItem(BUILDER_STATE_KEY);
     if (!raw) {
       return;
     }
@@ -132,46 +132,83 @@ function setProviderBadge(label) {
   badge.textContent = label || 'Provider: Auto';
 }
 
-function setTopNavActive(mode) {
+function setSidebarActive(mode) {
   const homeLink = document.getElementById('homeNavLink');
   const builderLink = document.getElementById('builderNavLink');
   const latexLink = document.getElementById('latexNavLink');
   const autoApplyLink = document.getElementById('autoApplyNavLink');
+  const salaryLink = document.getElementById('salaryNavLink');
   if (!homeLink || !builderLink || !latexLink || !autoApplyLink) return;
 
   homeLink.classList.toggle('active', mode === 'home');
   builderLink.classList.toggle('active', mode === 'builder');
   latexLink.classList.toggle('active', mode === 'latex');
   autoApplyLink.classList.toggle('active', mode === 'auto');
+  if (salaryLink) salaryLink.classList.toggle('active', mode === 'salary');
+  
   homeLink.setAttribute('aria-current', mode === 'home' ? 'page' : 'false');
   builderLink.setAttribute('aria-current', mode === 'builder' ? 'page' : 'false');
   latexLink.setAttribute('aria-current', mode === 'latex' ? 'page' : 'false');
   autoApplyLink.setAttribute('aria-current', mode === 'auto' ? 'page' : 'false');
+  if (salaryLink) salaryLink.setAttribute('aria-current', mode === 'salary' ? 'page' : 'false');
 }
 
-function bindTopNavHandlers() {
-  const homeLink = document.getElementById('homeNavLink');
-  const builderLink = document.getElementById('builderNavLink');
-  const latexLink = document.getElementById('latexNavLink');
-  const autoApplyLink = document.getElementById('autoApplyNavLink');
-  if (!homeLink || !builderLink || !latexLink || !autoApplyLink) return;
+function bindSidebarHandlers() {
+  const links = document.querySelectorAll('.sidebar-link');
+  const descBox = document.getElementById('productDescriptionBox');
 
-  homeLink.addEventListener('click', () => {
-    setTopNavActive('home');
+  links.forEach(link => {
+    // Contextual Hint Engine
+    link.addEventListener('mouseenter', () => {
+      const desc = link.getAttribute('data-desc');
+      if (desc && descBox) {
+        descBox.textContent = desc;
+      }
+    });
+
+    link.addEventListener('click', (e) => {
+      // Mobile menu closing
+      const sidebar = document.getElementById('leftSidebar');
+      if (sidebar && !sidebar.classList.contains('hidden') && window.innerWidth < 1024) {
+        sidebar.classList.add('hidden');
+      }
+      
+      const targetHash = new URL(link.href).hash;
+      if (targetHash === '#homeSection') setSidebarActive('home');
+      else if (targetHash === '#inputSection') setSidebarActive('builder');
+      else if (targetHash === '#latexResumeSection') setSidebarActive('latex');
+      else if (targetHash === '#autoApplySection') setSidebarActive('auto');
+      else if (targetHash === '#salarySection') setSidebarActive('salary');
+    });
   });
 
-  builderLink.addEventListener('click', () => {
-    setTopNavActive('builder');
-  });
+  // Mobile menu toggle
+  const mobileBtn = document.getElementById('mobileMenuBtn');
+  if (mobileBtn) {
+    mobileBtn.addEventListener('click', () => {
+      const sidebar = document.getElementById('leftSidebar');
+      if (sidebar) sidebar.classList.toggle('hidden');
+    });
+  }
 
-  latexLink.addEventListener('click', () => {
-    setTopNavActive('latex');
-  });
-
-  autoApplyLink.addEventListener('click', () => {
-    setTopNavActive('auto');
-  });
+  // Token Persistence
+  const tokenInput = document.getElementById('rightSidebarTokenInput');
+  const saveBtn = document.getElementById('saveTokenBtn');
+  if (tokenInput && saveBtn) {
+    tokenInput.value = localStorage.getItem(TRACKER_WRITE_TOKEN_KEY) || '';
+    saveBtn.addEventListener('click', () => {
+      const val = tokenInput.value.trim();
+      if (val) {
+        localStorage.setItem(TRACKER_WRITE_TOKEN_KEY, val);
+        showToast('Token saved successfully', '#22c55e');
+      } else {
+        localStorage.removeItem(TRACKER_WRITE_TOKEN_KEY);
+        showToast('Token cleared', '#f59e0b');
+      }
+    });
+  }
 }
+
 
 function getPageModeFromHash() {
   const hash = String(window.location.hash || '').toLowerCase();
@@ -184,6 +221,9 @@ function getPageModeFromHash() {
   if (hash === '#autoapplysection' || hash === '#autoapply') {
     return 'auto';
   }
+  if (hash === '#salarysection' || hash === '#salary') {
+    return 'salary';
+  }
   return 'home';
 }
 
@@ -192,16 +232,18 @@ function applyPageModeFromHash() {
   const homeSection = document.getElementById('homeSection');
   const latexSection = document.getElementById('latexResumeSection');
   const autoSection = document.getElementById('autoApplySection');
+  const salarySection = document.getElementById('salarySection');
   const inputSection = document.getElementById('inputSection');
   const resultsSection = document.getElementById('resultsSection');
   const standaloneSection = document.getElementById('coverLetterStandaloneSection');
 
-  setTopNavActive(mode);
+  setSidebarActive(mode);
 
   if (mode === 'home') {
     if (homeSection) homeSection.style.display = 'block';
     if (latexSection) latexSection.style.display = 'none';
     if (autoSection) autoSection.style.display = 'none';
+    if (salarySection) salarySection.style.display = 'none';
     if (inputSection) inputSection.style.display = 'none';
     if (resultsSection) resultsSection.style.display = 'none';
     if (standaloneSection) standaloneSection.style.display = 'none';
@@ -211,10 +253,13 @@ function applyPageModeFromHash() {
   if (homeSection) homeSection.style.display = 'none';
   if (latexSection) latexSection.style.display = mode === 'latex' ? 'block' : 'none';
   if (autoSection) autoSection.style.display = mode === 'auto' ? 'block' : 'none';
-  if (inputSection && mode === 'latex') inputSection.style.display = 'none';
-  if (inputSection && mode === 'auto') inputSection.style.display = 'none';
-  if (resultsSection && mode === 'latex') resultsSection.style.display = 'none';
-  if (standaloneSection && mode === 'latex') standaloneSection.style.display = 'none';
+  if (salarySection) salarySection.style.display = mode === 'salary' ? 'block' : 'none';
+  
+  const hideInputAndResults = ['latex', 'auto', 'salary'].includes(mode);
+  
+  if (inputSection && hideInputAndResults) inputSection.style.display = 'none';
+  if (resultsSection && hideInputAndResults) resultsSection.style.display = 'none';
+  if (standaloneSection && hideInputAndResults) standaloneSection.style.display = 'none';
 
   if (mode === 'latex') {
     loadLatexEngineStatus();
@@ -228,9 +273,56 @@ function applyPageModeFromHash() {
   const resultsVisible = resultsSection && resultsSection.style.display !== 'none';
   const standaloneVisible = standaloneSection && standaloneSection.style.display !== 'none';
   const autoVisible = autoSection && autoSection.style.display !== 'none';
+  const salaryVisible = salarySection && salarySection.style.display !== 'none';
 
-  if (!inputVisible && !resultsVisible && !standaloneVisible && !autoVisible && inputSection) {
+  if (!inputVisible && !resultsVisible && !standaloneVisible && !autoVisible && !salaryVisible && inputSection) {
     inputSection.style.display = 'block';
+  }
+}
+
+async function predictSalary() {
+  const btn = document.getElementById('predictSalaryBtn');
+  const jdText = document.getElementById('salaryJd')?.value.trim();
+  const location = document.getElementById('salaryLocation')?.value.trim() || 'Bangalore';
+  const yoe = document.getElementById('salaryYoe')?.value || 0;
+  const companySize = document.getElementById('salaryCompanySize')?.value || 'Scale-up';
+
+  if (!jdText) return showError('Please enter a job description to predict salary.');
+
+  btn.disabled = true;
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px;"></div> Predicting...';
+
+  try {
+    const response = await fetch('/api/predict_salary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jd_text: jdText, location, yoe, company_size: companySize })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Prediction failed');
+
+    document.getElementById('salaryOutputCard').style.display = 'block';
+    document.getElementById('salaryRangeOutput').textContent = `₹ ${data.salary_min_lpa} - ${data.salary_max_lpa} LPA`;
+    document.getElementById('salaryDetailsOutput').textContent = `Detected Role: ${data.detected_role} | Confidence: ${(data.confidence * 100).toFixed(0)}%`;
+    
+    // Update levels.fyi iframe track if applicable
+    const iframe = document.getElementById('levelsIframe');
+    if (iframe) {
+      let track = 'Software Engineer';
+      if (data.detected_role && data.detected_role.toLowerCase().includes('data scientist')) {
+        track = 'Data Scientist';
+      }
+      iframe.src = `https://www.levels.fyi/charts_embed.html?company=Google&track=${encodeURIComponent(track)}&hide_selector=false`;
+    }
+
+    showToast('Salary predicted successfully', '#22c55e');
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
   }
 }
 
@@ -714,8 +806,14 @@ async function loadHomeOverview() {
   if (!statEl) return;
 
   try {
-    const response = await fetch('/tracker/api/applications');
-    const data = await response.json();
+    const token = localStorage.getItem(TRACKER_WRITE_TOKEN_KEY) || '';
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const response = await fetch('/tracker/api/applications', { headers });
+    const text = await response.text();
+    let data = { applications: [], counts: {} };
+    if (text) {
+      try { data = JSON.parse(text); } catch(e) {}
+    }
     if (!response.ok) {
       throw new Error(data.error || 'Could not load tracker snapshot');
     }
@@ -1212,6 +1310,60 @@ async function generateCoverLetterOnly() {
   }
 }
 
+async function generateCoverLetterFromResults() {
+  const resume = currentOriginalResumeText || document.getElementById('resumeInput').value.trim();
+  const jd = document.getElementById('jdInput').value.trim();
+  const lowCreditMode = document.getElementById('lowCreditMode')?.checked || false;
+
+  const btn = document.getElementById('coverLetterBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-icon">⏳</span> Generating...';
+  }
+  setProviderBadge('Provider: Processing cover letter...');
+
+  try {
+    const response = await fetch('/generate-cover-letter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resume, jd, low_credit_mode: lowCreditMode })
+    });
+
+    const data = await response.json();
+    if (!response.ok || data.error) {
+      throw new Error(data.error || 'Unknown error');
+    }
+
+    currentCoverLetterData = data.cover_letter || data;
+    setProviderBadge(inferProviderLabel(data));
+
+    if (data.notice) {
+      showToast(data.notice, '#f59e0b');
+    }
+
+    const promptArea = document.getElementById('coverLetterPromptArea');
+    if (promptArea) promptArea.style.display = 'none';
+
+    renderCoverLetter(currentCoverLetterData);
+    
+    // Scroll down slightly so they see it
+    const outputArea = document.getElementById('coverLetterOutput');
+    if (outputArea) {
+      outputArea.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    persistBuilderState();
+  } catch (err) {
+    setProviderBadge('Provider: Error');
+    showError(err.message || 'Failed to generate cover letter.');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="btn-icon">📝</span> Yes, Generate Cover Letter';
+    }
+  }
+}
+
 function renderResults(data, options = {}) {
   const shouldScroll = options.scroll !== false;
   const shouldPersist = options.persist !== false;
@@ -1257,6 +1409,11 @@ function renderResults(data, options = {}) {
   // Resume Content
   renderResumeHTML(resume);
   renderCoverLetter(currentCoverLetterData);
+  
+  const promptArea = document.getElementById('coverLetterPromptArea');
+  if (promptArea) {
+    promptArea.style.display = currentCoverLetterData ? 'none' : 'block';
+  }
 
   if (shouldPersist) {
     persistBuilderState();
@@ -1692,8 +1849,14 @@ autoJobFields.forEach((id) => {
   }
 });
 
+const descBox = document.getElementById('autoJobDescription');
+if (descBox) {
+  descBox.addEventListener('mouseenter', () => document.getElementById('rightSidebarToken').classList.add('highlight'));
+  descBox.addEventListener('mouseleave', () => document.getElementById('rightSidebarToken').classList.remove('highlight'));
+}
+
 loadHomeOverview();
-bindTopNavHandlers();
+bindSidebarHandlers();
 applyPageModeFromHash();
 window.addEventListener('DOMContentLoaded', applyPageModeFromHash);
 window.addEventListener('hashchange', applyPageModeFromHash);

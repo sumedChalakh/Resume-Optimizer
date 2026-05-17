@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - ATS Optimizer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    /* Scoped styles for the login split screen to ensure we meet all layout requirements without breaking existing styles */
+    .login-wrapper {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+      background-color: var(--bg); /* #0f172a from style.css */
+    }
+    
+    .login-sidebar {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 1)), url('https://images.unsplash.com/photo-1550439062-609e1531270e?q=80&w=2000&auto=format&fit=crop');
+      background-size: cover;
+      background-position: center;
+      padding: 40px;
+      color: white;
+      text-align: center;
+      position: relative;
+    }
+    
+    .login-sidebar::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(59, 130, 246, 0.15); /* Subtle blue tint to match theme */
+    }
+    
+    .login-sidebar-content {
+      position: relative;
+      z-index: 1;
+      max-width: 400px;
+    }
+    
+    .login-sidebar h1 {
+      font-size: 36px;
+      margin-bottom: 16px;
+      font-weight: 700;
+    }
+    
+    .login-sidebar p {
+      font-size: 16px;
+      color: #e2e8f0;
+      line-height: 1.6;
+    }
+    
+    .login-main {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    .login-card {
+      background: #f8fafc; /* Light-grey accent inner card container */
+      border-radius: 24px;
+      padding: 48px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+    
+    .login-card-header {
+      margin-bottom: 32px;
+      text-align: left;
+    }
+    
+    .login-card-header h2 {
+      font-size: 28px;
+      color: #0f172a;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    
+    .login-card-header p {
+      color: #64748b;
+      font-size: 15px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    
+    .form-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 8px;
+    }
+    
+    .form-control {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 15px;
+      background: #ffffff;
+      color: #0f172a;
+      transition: all 0.2s;
+    }
+    
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+    
+    .forgot-link {
+      font-size: 13px;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2)); /* Theme accent gradients */
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 10px;
+    }
+    
+    .login-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    
+    .divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      margin: 24px 0;
+      color: #94a3b8;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .divider:not(:empty)::before {
+      margin-right: 15px;
+    }
+    
+    .divider:not(:empty)::after {
+      margin-left: 15px;
+    }
+    
+    .social-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .social-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 12px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      color: #334155;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .social-btn:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+    
+    .social-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+    
+    .register-link {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 14px;
+      color: #64748b;
+    }
+    
+    .register-link a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    
+    .register-link a:hover {
+      text-decoration: underline;
+    }
+    
+    @media (max-width: 900px) {
+      .login-sidebar {
+        display: none; /* hidden side panel on mobile devices */
+      }
+      .login-card {
+        padding: 32px 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="login-sidebar">
+      <div class="login-sidebar-content">
+        <h1>ATS Optimizer</h1>
+        <p>Optimize your resume. Land your dream job.</p>
+      </div>
+    </div>
+    
+    <div class="login-main">
+      <div class="login-card">
+        <div class="login-card-header">
+          <h2>Welcome Back</h2>
+          <p>Sign in to your account to continue.</p>
+        </div>
+        
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" class="form-control" placeholder="name@example.com" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="password">
+              Password
+              <a href="#" class="forgot-link">Forgot password?</a>
+            </label>
+            <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+          </div>
+          
+          <button type="submit" class="login-btn">Sign In</button>
+        </form>
+        
+        <div class="divider">Or continue with</div>
+        
+        <div class="social-btns">
+          <button type="button" class="social-btn">
+            <!-- Google SVG Icon -->
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Continue with Google
+          </button>
+          <button type="button" class="social-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+            </svg>
+            Continue with Phone
+          </button>
+        </div>
+        
+        <div class="register-link">
+          Don't have an account? <a href="#">Register Now</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const loginForm = document.getElementById('loginForm');
+      
+      if (loginForm) {
+        loginForm.addEventListener('submit', (e) => {
+          e.preventDefault(); // Prevent default events
+          
+          const email = document.getElementById('email').value;
+          const password = document.getElementById('password').value;
+          
+          // Print console validation checkpoints
+          console.log('[Validation Checkpoint] Form submission intercepted.');
+          console.log('[Validation Checkpoint] Email:', email);
+          console.log('[Validation Checkpoint] Password length:', password.length);
+          
+          if (!email || !password) {
+            console.error('[Validation Checkpoint] Validation failed: Missing credentials.');
+            return;
+          }
+          
+          console.log('[Validation Checkpoint] Validation passed. Proceeding with authentication logic...');
+          // Authentication logic bridge placeholder
+        });
+      }
+      
+      const socialBtns = document.querySelectorAll('.social-btn');
+      socialBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          console.log('[Validation Checkpoint] Social authentication triggered:', btn.textContent.trim());
+        });
+      });
+    });
+  </script>
+</body>
+</html>

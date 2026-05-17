@@ -30,57 +30,103 @@
 </head>
 <body class="bg-midnight text-slate-200">
   <div class="bg-grid opacity-10 mix-blend-screen pointer-events-none"></div>
+  
+  <div class="app-workspace flex h-screen w-screen overflow-hidden bg-[#0a0f1d] text-slate-200">
+    <!-- Left Sidebar -->
+    <aside class="w-64 flex flex-col justify-between border-r border-slate-800 bg-[#0d1527] hidden lg:flex shrink-0 z-50 transition-all duration-300" id="leftSidebar">
+      <div>
+        <div class="p-6">
+          <a class="brand !text-white flex items-center gap-2 text-xl font-bold" href="/">
+            <span class="brand-icon">⚡</span>
+            <span>ATS<strong class="!text-electricBlue">Optimizer</strong></span>
+          </a>
+        </div>
+        <div class="px-4 pb-4">
+          <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-2">Products</h3>
+          <nav class="flex flex-col gap-2 sidebar-nav relative" aria-label="Primary">
+            <a class="sidebar-link active flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="homeNavLink" href="/#homeSection" data-desc="Dashboard overview of your ATS Optimizer usage and recent activity.">
+              <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+              <span class="font-medium">Home</span>
+            </a>
+            <a class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="builderNavLink" href="/#inputSection" data-desc="Analyze your resume against a Job Description, score it, and instantly add missing keywords.">
+              <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+              <span class="font-medium">Resume Builder</span>
+            </a>
+            <a class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="latexNavLink" href="/#latexResumeSection" data-desc="Compile your resume into a beautiful PDF using professional LaTeX templates.">
+              <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              <span class="font-medium">LaTeX Maker</span>
+            </a>
+            <a class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="autoApplyNavLink" href="/#autoApplySection" data-desc="Automatically generate cover letters and format packets tailored to a specific job.">
+              <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              <span class="font-medium">Auto Apply</span>
+            </a>
+            <a class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" href="/tracker" data-desc="Kanban board to track your job applications, interviews, and offers in one place.">
+              <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+              <span class="font-medium">Job Tracker</span>
+            </a>
+            <a class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="salaryNavLink" href="/#salarySection" data-desc="Estimate your market value based on job requirements and experience.">
+              <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span class="font-medium">Salary Predictor</span>
+            </a>
+          </nav>
+        </div>
+      </div>
+      
+      <div class="px-6 py-4">
+        <div class="bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-slate-400 min-h-[100px]" id="productDescriptionBox">
+          Dashboard overview of your ATS Optimizer usage and recent activity.
+        </div>
+      </div>
 
-  <header class="app-topbar w-full !bg-midnight/90 !border-white/10 !backdrop-blur-md">
-    <a class="brand !text-white" href="/">
-      <span class="brand-icon">⚡</span>
-      <span>ATS<strong class="!text-electricBlue">Optimizer</strong></span>
-    </a>
+      <div class="p-6 border-t border-slate-800 flex items-center gap-3 mt-auto">
+        <div class="w-10 h-10 rounded-full bg-electricBlue/20 border border-electricBlue flex items-center justify-center text-electricBlue font-bold text-lg">
+          SC
+        </div>
+        <div>
+          <div class="font-bold text-sm text-white">Sumed Chalakh</div>
+          <div class="text-xs text-slate-400">Free Tier</div>
+        </div>
+      </div>
+    </aside>
 
-    <nav class="top-nav" aria-label="Primary">
-      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" id="homeNavLink" href="/#homeSection">Home</a>
-      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" id="builderNavLink" href="/#inputSection">Resume Builder</a>
-      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" id="latexNavLink" href="/#latexResumeSection">LaTeX Resume Maker</a>
-      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" id="autoApplyNavLink" href="/#autoApplySection">Auto Apply</a>
-      <a class="top-link !text-slate-300 hover:!text-white hover:!bg-white/10 hover:!border-transparent" href="/tracker">Job Tracker</a>
-    </nav>
-
-    <div class="top-actions">
-      <a class="top-btn !text-white !border-white/20 !bg-white/5 hover:!bg-white/10" href="/tracker">Open Tracker</a>
-      <div class="header-badge !text-slate-300 !bg-white/5 !border-white/20" id="providerBadge">Provider: Auto</div>
-    </div>
-  </header>
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-8 relative custom-scrollbar" id="mainContentArea">
+      <!-- Mobile header fallback -->
+      <div class="lg:hidden flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
+        <a class="brand !text-white flex items-center gap-2 text-xl font-bold" href="/">
+          <span class="brand-icon">⚡</span>
+          <span>ATS<strong class="!text-electricBlue">Optimizer</strong></span>
+        </a>
+        <div class="header-badge text-xs !text-slate-300 !bg-white/5 !border-white/20 px-2 py-1 rounded" id="providerBadgeMobile">Provider: Auto</div>
+      </div>
   <section id="homeSection" class="bg-midnight min-h-screen w-full text-white font-sans overflow-hidden relative">
     <!-- Background Ambient Glow -->
     <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[400px] bg-electricBlue/20 rounded-full blur-[120px] pointer-events-none"></div>
 
     <!-- Section 1: Hero Area -->
-    <div class="relative max-w-6xl mx-auto px-6 pt-32 pb-24 text-center">
-      <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6 text-transparent bg-clip-text bg-gradient-to-r from-electricBlue to-energeticOrange">
+    <div class="relative max-w-6xl mx-auto px-6 pt-24 pb-20 text-center bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl shadow-2xl mb-12 mt-8">
+      <h1 class="text-4xl md:text-6xl font-bold tracking-tight mb-6 text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-electricBlue drop-shadow-sm">
         One Place For Resume Building And Job Tracking
       </h1>
-      <p class="text-xl md:text-2xl text-slate-400 max-w-3xl mx-auto mb-12">
+      <p class="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
         Tailor resumes instantly, manage your entire application pipeline, and land your dream job faster with AI-powered optimization.
       </p>
       
       <div class="flex flex-wrap justify-center gap-4">
-        <a href="#inputSection" class="px-8 py-4 bg-gradient-to-r from-electricBlue to-blue-600 hover:to-blue-500 text-white rounded-xl font-semibold shadow-[0_0_20px_rgba(59,130,246,0.5)] hover:shadow-[0_0_30px_rgba(59,130,246,0.8)] transition-all duration-300 transform hover:-translate-y-1">
+        <a href="#inputSection" class="px-8 py-3.5 bg-gradient-to-r from-electricBlue to-blue-600 hover:to-blue-500 text-white rounded-xl font-semibold shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)] transition-all duration-300 transform hover:-translate-y-0.5">
           Go To Resume Builder
         </a>
-        <a href="#latexResumeSection" class="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold backdrop-blur-sm transition-all duration-300 transform hover:-translate-y-1">
+        <a href="#latexResumeSection" class="px-8 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold backdrop-blur-sm transition-all duration-300 transform hover:-translate-y-0.5">
           Open LaTeX Maker
         </a>
-        <a href="#autoApplySection" class="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold backdrop-blur-sm transition-all duration-300 transform hover:-translate-y-1">
+        <a href="#autoApplySection" class="px-8 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold backdrop-blur-sm transition-all duration-300 transform hover:-translate-y-0.5">
           Open Auto Apply
-        </a>
-        <a href="/tracker" class="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold backdrop-blur-sm transition-all duration-300 transform hover:-translate-y-1">
-          Open Job Tracker
         </a>
       </div>
     </div>
 
     <!-- Section 2: Dashboard Preview (Command Center) -->
-    <div class="relative max-w-6xl mx-auto px-6 pb-32">
+    <div class="relative max-w-6xl mx-auto px-6 pb-24">
       <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
         <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-electricBlue to-energeticOrange"></div>
         
@@ -182,6 +228,63 @@
   </section>
 
   <main class="w-full">
+    <!-- SALARY PREDICTOR SECTION -->
+    <section class="salary-section" id="salarySection" style="display:none; padding-top: 4rem;">
+      <div class="hero">
+        <h1>Salary <span class="gradient-text">Predictor</span></h1>
+        <p class="subtitle">Estimate your market value based on JD skills, location, and experience.</p>
+      </div>
+      
+      <div class="input-grid">
+        <div class="input-card">
+          <div class="card-label">
+            <span class="label-icon">💼</span>
+            Role Details
+          </div>
+          <input id="salaryLocation" class="latex-input" type="text" placeholder="Location (e.g. Bangalore, Remote)" value="Bangalore" />
+          <input id="salaryYoe" class="latex-input" type="number" placeholder="Years of Experience" value="0" />
+          <select id="salaryCompanySize" class="latex-input" style="appearance:none; background:rgba(255,255,255,0.05); color:white; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); width:100%; margin-bottom:12px;">
+            <option value="Startup">Startup</option>
+            <option value="Scale-up" selected>Scale-up</option>
+            <option value="MNC">MNC</option>
+          </select>
+        </div>
+        <div class="input-card">
+          <div class="card-label">
+            <span class="label-icon">🎯</span>
+            Job Description
+          </div>
+          <textarea id="salaryJd" placeholder="Paste the job description here..."></textarea>
+        </div>
+      </div>
+      
+      <div class="action-row">
+        <div class="action-buttons">
+          <button class="optimize-btn" id="predictSalaryBtn" onclick="predictSalary()">
+            <span class="btn-icon">💰</span>
+            Predict Salary
+          </button>
+        </div>
+      </div>
+      
+      <div class="resume-output" id="salaryOutputCard" style="display:none; margin-top:24px; max-width:800px; margin-left:auto; margin-right:auto;">
+        <div class="output-header">
+          <h2>Prediction Results</h2>
+        </div>
+        <div class="cover-letter-content" style="padding:24px; text-align:center;">
+          <div style="font-size:32px; font-weight:bold; color:#3b82f6; margin-bottom:12px;" id="salaryRangeOutput">₹ -- LPA</div>
+          <p id="salaryDetailsOutput" style="color:#94a3b8; margin-bottom: 32px;"></p>
+          
+          <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; text-align: left;">
+            <h3 style="margin-bottom: 16px; font-size: 1.25rem; font-weight: 600; color: white;">Real Market Data Reference</h3>
+            <!-- Salary Range Chart for Google Software Engineer -->
+            <iframe id="levelsIframe" src="https://www.levels.fyi/charts_embed.html?company=Google&track=Software%20Engineer&hide_selector=false" 
+                    height="500" style="width: 100%; border:none; border-radius: 8px;" scrolling="auto"></iframe>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="latex-section" id="latexResumeSection" style="display:none">
       <div class="hero">
         <h1>LaTeX <span class="gradient-text">Resume Maker</span></h1>
@@ -439,6 +542,16 @@
         <div class="resume-content" id="resumeContent"></div>
       </div>
 
+      <!-- Cover letter prompt area -->
+      <div class="cover-letter-prompt" id="coverLetterPromptArea" style="margin-top: 24px; text-align: center; background: rgba(255,255,255,0.02); padding: 24px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+        <h3 style="font-size: 1.2rem; font-weight: 600; color: white; margin-bottom: 12px;">Do you want a cover letter?</h3>
+        <p style="color: var(--text-muted); margin-bottom: 16px;">We can generate a customized cover letter for this role using your optimized resume.</p>
+        <button class="optimize-btn" id="coverLetterBtn" onclick="generateCoverLetterFromResults()" style="width: auto; padding: 12px 24px; margin: 0 auto;">
+          <span class="btn-icon">📝</span>
+          Yes, Generate Cover Letter
+        </button>
+      </div>
+
       <div class="resume-output" id="coverLetterOutput" style="display:none">
         <div class="output-header">
           <h2>📝 Cover Letter (Company-Specific)</h2>
@@ -472,6 +585,28 @@
     </section>
   </main>
 
+    <!-- Right Sidebar -->
+    <aside class="w-72 border-l border-slate-800 bg-[#0d1527] p-6 flex flex-col gap-6 hidden xl:flex shrink-0 overflow-y-auto custom-scrollbar">
+      <div class="space-y-2">
+        <h3 class="text-sm font-bold text-white">System Status</h3>
+        <div class="header-badge inline-block text-xs !text-electricBlue !bg-electricBlue/10 !border-electricBlue/20 px-3 py-1.5 rounded-full" id="providerBadge">Provider: Auto</div>
+      </div>
+
+      <div class="space-y-2 pt-4 border-t border-slate-800">
+        <h3 class="text-sm font-bold text-white">Account sync</h3>
+        <p id="accountSyncDesc" class="text-xs text-slate-400">Sign in to sync your job tracker and save resumes securely across devices.</p>
+        <button id="authSignInBtn" class="w-full py-2.5 mt-2 bg-gradient-to-r from-electricBlue to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-sm">Sign In</button>
+        <button id="authSignUpBtn" class="w-full py-2.5 bg-white/5 border border-slate-700 text-white rounded-lg font-semibold hover:bg-white/10 transition-all text-sm mt-2">Create Account</button>
+      </div>
+
+      <div class="space-y-3 pt-4 border-t border-slate-800">
+        <h3 class="text-sm font-bold text-white">Job Tracker Token</h3>
+        <p class="text-xs text-slate-400">Enter your secure token to write to the job tracker database.</p>
+        <input type="password" id="rightSidebarTokenInput" class="w-full bg-[#0a0f1d] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-electricBlue focus:outline-none" placeholder="Enter Tracker Token">
+        <button id="saveTokenBtn" class="w-full py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition-all">Save Token</button>
+      </div>
+    </aside>
+  </div>
   <script src="/static/js/main.js"></script>
 </body>
 </html>
