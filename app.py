@@ -6,6 +6,7 @@ import urllib.error
 from datetime import date
 from collections import Counter
 from flask import Flask, render_template, request, jsonify, send_file
+from flask_sqlalchemy import SQLAlchemy
 from anthropic import Anthropic
 from docx import Document
 from pypdf import PdfReader
@@ -19,6 +20,24 @@ from latex_resume import latex_blueprint
 import io
 
 app = Flask(__name__)
+
+db_url = os.environ.get('DATABASE_URL')
+if db_url:
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300
+    }
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///local_tracker.db'
+
+db = SQLAlchemy(app)
+
+with app.app_context():
+    db.create_all()
+
 ensure_database()
 app.register_blueprint(tracker_blueprint)
 app.register_blueprint(latex_blueprint)
@@ -190,16 +209,6 @@ OUTPUT REQUIREMENTS:
     "Best project to lead with",
     "Optional cover letter angle"
   ],
-  "cover_letter": {
-    "subject_line": "Application for [exact job title] — [Your Name]",
-    "body": "Full cover letter text here",
-    "word_count": 285,
-    "personalization_score": 87,
-    "tips": [
-      "tip 1 to make it stronger",
-      "tip 2"
-    ]
-  },
   "analysis": {
     "role_fit_score": "Strong",
     "top_strengths": ["Strength 1", "Strength 2"],
@@ -218,6 +227,7 @@ STRICT RULES:
 -- Para 2: Your strongest 2-3 achievements relevant to THIS JD
 -- Para 3: What unique value you bring (domain + tech stack match)
 -- Para 4: Call to action — confident closing
+-- IMPORTANT: DO NOT include the greeting ("Dear Hiring Manager,") or sign-off ("Sincerely, [Name]") in the text. Return ONLY the actual paragraphs.
 
 TONE: Professional but human. Not robotic. Not over-formal.
 LENGTH: 250-320 words max — recruiters don't read long letters
@@ -226,7 +236,12 @@ Respond ONLY in this JSON:
 {
   "cover_letter": {
     "subject_line": "Application for [exact job title] — [Your Name]",
-    "body": "Full cover letter text here",
+    "body_paragraphs": [
+      "First paragraph here...",
+      "Second paragraph here...",
+      "Third paragraph here...",
+      "Fourth paragraph here..."
+    ],
     "word_count": 285
   },
   "personalization_score": 87,
@@ -1438,7 +1453,7 @@ Write the cover letter now and return only the JSON object defined in the prompt
   else:
     cover_letter = result if isinstance(result, dict) else {}
 
-  normalized_cover = normalize_cover_letter_shape(cover_letter, resume_text, jd_text)
+  normalized_cover = cover_letter
   if provider == "github":
     normalized_cover["notice"] = "GitHub Models was used via GITHUB_PAT."
   elif provider == "huggingface":
@@ -1775,11 +1790,9 @@ Preserve all projects and all certifications from the original resume."""
     try:
       raw, provider = generate_model_response(user_message, low_credit_mode=low_credit_mode)
       result = parse_ai_json(raw)
-      result = normalize_response_shape(result)
       result = ensure_certifications_present(result, resume_text)
       result = ensure_projects_present(result, resume_text)
       result = apply_role_based_ordering(result, jd_text)
-      result = attach_cover_letter(result, resume_text, jd_text, low_credit_mode=low_credit_mode)
       if resume_trimmed or jd_trimmed:
         result["notice"] = "Input was trimmed for speed. If you need full-context optimization, split JD into essentials and rerun."
       if low_credit_mode:
@@ -1795,7 +1808,6 @@ Preserve all projects and all certifications from the original resume."""
 
     except RuntimeError:
         fallback = build_local_fallback_result(resume_text, jd_text)
-        fallback = normalize_response_shape(fallback)
         fallback = ensure_certifications_present(fallback, resume_text)
         fallback = ensure_projects_present(fallback, resume_text)
         fallback = apply_role_based_ordering(fallback, jd_text)
@@ -1807,11 +1819,9 @@ Preserve all projects and all certifications from the original resume."""
           retry_message = user_message + "\n\nIMPORTANT: Your previous response was invalid/truncated. Return compact valid JSON only."
           retry_raw, retry_provider = generate_model_response(retry_message, low_credit_mode=low_credit_mode)
           retry_result = parse_ai_json(retry_raw)
-          retry_result = normalize_response_shape(retry_result)
           retry_result = ensure_certifications_present(retry_result, resume_text)
           retry_result = ensure_projects_present(retry_result, resume_text)
           retry_result = apply_role_based_ordering(retry_result, jd_text)
-          retry_result = attach_cover_letter(retry_result, resume_text, jd_text, low_credit_mode=low_credit_mode)
           if resume_trimmed or jd_trimmed:
             retry_result["notice"] = "Input was trimmed for speed. If you need full-context optimization, split JD into essentials and rerun."
           if low_credit_mode:
@@ -2127,7 +2137,10 @@ def export_cover_letter_docx():
     subject = normalize_space(cover_letter.get("subject", ""))
     closing = normalize_space(cover_letter.get("closing") or "Sincerely")
 
-    body_paragraphs = cover_letter.get("body_paragraphs", [])
+    body_paragraphs = cover_letter.get("body_paragraphs")
+    if not body_paragraphs:
+        body_paragraphs = cover_letter.get("body", [])
+        
     if isinstance(body_paragraphs, str):
         body_paragraphs = [p.strip() for p in re.split(r"\n\s*\n", body_paragraphs) if p.strip()]
     if not isinstance(body_paragraphs, list):
@@ -2180,6 +2193,12 @@ def export_cover_letter_docx():
         download_name="cover_letter.docx",
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
+
+@app.route("/login")
+def login():
+    return render_template("login.html")
+
+
 if __name__ == "__main__":
   debug_raw = os.getenv("FLASK_DEBUG", "0").strip().lower()
   debug_enabled = debug_raw in {"1", "true", "yes", "on"}
