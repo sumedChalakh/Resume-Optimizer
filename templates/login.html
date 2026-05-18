@@ -252,6 +252,11 @@
         </div>
         
         <form id="loginForm">
+          <div class="form-group hidden" id="nameGroup" style="display: none;">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" class="form-control" placeholder="John Doe">
+          </div>
+          
           <div class="form-group">
             <label for="email">Email Address</label>
             <input type="email" id="email" class="form-control" placeholder="name@example.com" required>
@@ -290,7 +295,7 @@
         </div>
         
         <div class="register-link">
-          Don't have an account? <a href="#">Register Now</a>
+          <span id="toggleText">Don't have an account? </span><a href="#" id="toggleModeLink">Register Now</a>
         </div>
       </div>
     </div>
@@ -300,49 +305,76 @@
     document.addEventListener('DOMContentLoaded', () => {
       const loginForm = document.getElementById('loginForm');
       
+      let isRegisterMode = false;
+      const toggleLink = document.getElementById('toggleModeLink');
+      const toggleText = document.getElementById('toggleText');
+      const nameGroup = document.getElementById('nameGroup');
+      const nameInput = document.getElementById('name');
+      const submitBtn = document.querySelector('.login-btn');
+      const forgotLink = document.querySelector('.forgot-link');
+      const titleEl = document.querySelector('.login-card-header h2');
+      const subtitleEl = document.querySelector('.login-card-header p');
+      
+      if (toggleLink) {
+        toggleLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          isRegisterMode = !isRegisterMode;
+          if (isRegisterMode) {
+            nameGroup.style.display = 'block';
+            nameInput.required = true;
+            submitBtn.textContent = 'Create Account';
+            titleEl.textContent = 'Create Account';
+            subtitleEl.textContent = 'Sign up to start tracking jobs.';
+            toggleText.textContent = 'Already have an account? ';
+            toggleLink.textContent = 'Sign In';
+            if (forgotLink) forgotLink.style.display = 'none';
+          } else {
+            nameGroup.style.display = 'none';
+            nameInput.required = false;
+            submitBtn.textContent = 'Sign In';
+            titleEl.textContent = 'Welcome Back';
+            subtitleEl.textContent = 'Sign in to your account to continue.';
+            toggleText.textContent = "Don't have an account? ";
+            toggleLink.textContent = 'Register Now';
+            if (forgotLink) forgotLink.style.display = 'inline';
+          }
+        });
+      }
+      
       if (loginForm) {
         loginForm.addEventListener('submit', (e) => {
           e.preventDefault(); // Prevent default events
           
           const email = document.getElementById('email').value;
           const password = document.getElementById('password').value;
+          const name = nameInput ? nameInput.value : '';
           
           // Print console validation checkpoints
           console.log('[Validation Checkpoint] Form submission intercepted.');
           console.log('[Validation Checkpoint] Email:', email);
           console.log('[Validation Checkpoint] Password length:', password.length);
           
-          if (!email || !password) {
+          if (!email || !password || (isRegisterMode && !name)) {
             console.error('[Validation Checkpoint] Validation failed: Missing credentials.');
             return;
           }
           
           console.log('[Validation Checkpoint] Validation passed. Proceeding with authentication logic...');
           
-          fetch('/auth/login', {
+          const endpoint = isRegisterMode ? '/auth/signup' : '/auth/login';
+          const payload = isRegisterMode ? { email, password, name } : { email, password };
+          
+          fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify(payload)
           })
           .then(res => res.json())
           .then(data => {
             if (data.ok) {
               window.location.href = '/';
             } else {
-              console.log('Login failed, attempting signup...');
-              fetch('/auth/signup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, name: email.split('@')[0] })
-              })
-              .then(res2 => res2.json())
-              .then(data2 => {
-                 if (data2.ok) {
-                   window.location.href = '/';
-                 } else {
-                   alert(data2.error || 'Authentication failed');
-                 }
-              });
+              alert(data.error || 'Authentication failed');
             }
           })
           .catch(err => {

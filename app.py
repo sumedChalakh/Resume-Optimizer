@@ -75,9 +75,6 @@ class TrackerApplicationEvent(db.Model):
 with app.app_context():
     db.create_all()
 
-from tracker import tracker_blueprint
-app.register_blueprint(tracker_blueprint)
-app.register_blueprint(latex_blueprint)
 
 @app.post('/auth/signup')
 def auth_signup():

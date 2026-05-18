@@ -79,11 +79,11 @@
       </div>
 
       <div class="p-6 border-t border-slate-800 flex items-center gap-3 mt-auto">
-        <div class="w-10 h-10 rounded-full bg-electricBlue/20 border border-electricBlue flex items-center justify-center text-electricBlue font-bold text-lg">
-          SC
+        <div class="w-10 h-10 rounded-full bg-electricBlue/20 border border-electricBlue flex items-center justify-center text-electricBlue font-bold text-lg" id="sidebar-user-initial">
+          G
         </div>
         <div>
-          <div class="font-bold text-sm text-white">Sumed Chalakh</div>
+          <div class="font-bold text-sm text-white"><span id="sidebar-username">Guest</span></div>
           <div class="text-xs text-slate-400">Free Tier</div>
         </div>
       </div>
@@ -593,18 +593,22 @@
         <div class="header-badge inline-block text-xs !text-electricBlue !bg-electricBlue/10 !border-electricBlue/20 px-3 py-1.5 rounded-full" id="providerBadge">Provider: Auto</div>
       </div>
 
-      <div class="space-y-2 pt-4 border-t border-slate-800">
-        <h3 class="text-sm font-bold text-white">Account sync</h3>
-        <p id="accountSyncDesc" class="text-xs text-slate-400">Sign in to sync your job tracker and save resumes securely across devices.</p>
-        <button id="authSignInBtn" class="w-full py-2.5 mt-2 bg-gradient-to-r from-electricBlue to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-sm">Sign In</button>
-        <button id="authSignUpBtn" class="w-full py-2.5 bg-white/5 border border-slate-700 text-white rounded-lg font-semibold hover:bg-white/10 transition-all text-sm mt-2">Create Account</button>
-      </div>
-
-      <div class="space-y-3 pt-4 border-t border-slate-800">
-        <h3 class="text-sm font-bold text-white">Job Tracker Token</h3>
-        <p class="text-xs text-slate-400">Enter your secure token to write to the job tracker database.</p>
-        <input type="password" id="rightSidebarTokenInput" class="w-full bg-[#0a0f1d] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-electricBlue focus:outline-none" placeholder="Enter Tracker Token">
-        <button id="saveTokenBtn" class="w-full py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition-all">Save Token</button>
+      <div class="space-y-4 pt-4 border-t border-slate-800">
+        <h3 class="text-sm font-bold text-white">Account Status</h3>
+        <div id="rightSidebarAuthArea" class="bg-white/5 border border-white/10 rounded-xl p-4">
+          <div id="rightSidebarLoggedOut">
+            <p class="text-xs text-slate-400 mb-3">Sign in to sync your job tracker and save resumes securely across devices.</p>
+            <a href="/login" class="block text-center w-full py-2 bg-gradient-to-r from-electricBlue to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-sm">Sign In / Register</a>
+          </div>
+          <div id="rightSidebarLoggedIn" style="display: none;">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="w-2 h-2 rounded-full bg-green-500"></span>
+              <span class="text-sm font-bold text-white">Sync Status: Active</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-3 truncate" id="rightSidebarEmail">user@example.com</p>
+            <button id="authSignOutBtn" class="w-full py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition-all">Sign Out</button>
+          </div>
+        </div>
       </div>
     </aside>
   </div>

@@ -1872,44 +1872,36 @@ async function checkSessionStatus() {
     if (!response.ok) return;
     const data = await response.json();
 
+    const loggedOutDiv = document.getElementById('rightSidebarLoggedOut');
+    const loggedInDiv = document.getElementById('rightSidebarLoggedIn');
+
     if (data.authenticated && data.user) {
-      const accountSyncDesc = document.getElementById('accountSyncDesc');
-      const signInBtn = document.getElementById('authSignInBtn');
-      const signUpBtn = document.getElementById('authSignUpBtn');
-
-      if (accountSyncDesc) {
-        accountSyncDesc.innerHTML = `<span class="text-electricBlue font-bold">Connected as ${escapeHtml(data.user.name)}</span><br><span class="text-xs text-slate-400">${escapeHtml(data.user.email)}</span>`;
-      }
-      if (signInBtn) {
-        signInBtn.textContent = 'Sign Out';
-        signInBtn.id = 'authSignOutBtn';
-        signInBtn.onclick = async () => {
-          await fetch('/auth/logout', { method: 'POST' });
-          window.location.reload();
-        };
-      }
-      if (signUpBtn) {
-        signUpBtn.style.display = 'none';
+      if (loggedOutDiv) loggedOutDiv.style.display = 'none';
+      if (loggedInDiv) {
+        loggedInDiv.style.display = 'block';
+        const emailEl = document.getElementById('rightSidebarEmail');
+        if (emailEl) emailEl.textContent = data.user.email;
+        
+        const signOutBtn = document.getElementById('authSignOutBtn');
+        if (signOutBtn) {
+          signOutBtn.onclick = async () => {
+            await fetch('/auth/logout', { method: 'POST' });
+            window.location.reload();
+          };
+        }
       }
 
-      const leftSidebarName = document.querySelector('.p-6.border-t.border-slate-800 .font-bold.text-sm.text-white');
+      const leftSidebarName = document.getElementById('sidebar-username');
       if (leftSidebarName) {
         leftSidebarName.textContent = data.user.name;
       }
-      const leftSidebarInitial = document.querySelector('.p-6.border-t.border-slate-800 .w-10.h-10');
+      const leftSidebarInitial = document.getElementById('sidebar-user-initial');
       if (leftSidebarInitial) {
-        leftSidebarInitial.textContent = data.user.name.substring(0, 2).toUpperCase();
+        leftSidebarInitial.textContent = String(data.user.name).substring(0, 1).toUpperCase();
       }
     } else {
-      const signInBtn = document.getElementById('authSignInBtn');
-      const signUpBtn = document.getElementById('authSignUpBtn');
-      
-      if (signInBtn) {
-        signInBtn.onclick = () => window.location.href = '/login';
-      }
-      if (signUpBtn) {
-        signUpBtn.onclick = () => window.location.href = '/login';
-      }
+      if (loggedOutDiv) loggedOutDiv.style.display = 'block';
+      if (loggedInDiv) loggedInDiv.style.display = 'none';
     }
   } catch (error) {
     console.error('Session check failed', error);
