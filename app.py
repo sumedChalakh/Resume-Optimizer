@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from anthropic import Anthropic
 from docx import Document
 from pypdf import PdfReader
-from docx.shared import Pt, Inches
+from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -1815,8 +1815,9 @@ def style_paragraph(paragraph, spacing_before=0, spacing_after=0, line_spacing=1
 
 def add_section_heading_exact(doc, title):
   p = doc.add_paragraph()
-  style_paragraph(p, spacing_before=8, spacing_after=2, line_spacing=1.0)
+  style_paragraph(p, spacing_before=4, spacing_after=2, line_spacing=1.0)
   run = p.add_run(title.upper())
+  run.font.color.rgb = RGBColor(0x1A, 0x56, 0xDB)
   set_run_font(run, size=13, bold=True)
 
   p_pr = p._p.get_or_add_pPr()
@@ -1825,7 +1826,7 @@ def add_section_heading_exact(doc, title):
   bottom.set(qn("w:val"), "single")
   bottom.set(qn("w:sz"), "6")
   bottom.set(qn("w:space"), "1")
-  bottom.set(qn("w:color"), "000000")
+  bottom.set(qn("w:color"), "1A56DB")
   p_bdr.append(bottom)
   p_pr.append(p_bdr)
 
@@ -2109,10 +2110,62 @@ def export_docx():
     section.top_margin = Inches(0.55)
     section.bottom_margin = Inches(0.55)
 
-    # Strict serif template to match reference screenshot.
+    # Strict serif template to match 10pt letterpaper layout.
     style = doc.styles["Normal"]
     style.font.name = "Times New Roman"
-    style.font.size = Pt(12)
+    style.font.size = Pt(10)
+    style.paragraph_format.space_before = Pt(0)
+    style.paragraph_format.space_after = Pt(0)
+    style.paragraph_format.line_spacing = 1.0
+
+    try:
+        list_style = doc.styles["List Bullet"]
+        list_style.font.name = "Times New Roman"
+        list_style.font.size = Pt(10)
+        list_style.paragraph_format.space_before = Pt(0)
+        list_style.paragraph_format.space_after = Pt(0)
+        list_style.paragraph_format.line_spacing = 1.0
+    except KeyError:
+        pass
+        
+    def add_entry_table(doc, title_text, company_text, right_top, right_bottom=""):
+        table = doc.add_table(rows=1, cols=2)
+        table.autofit = False
+        tblPr = table._tbl.tblPr
+        tblW = OxmlElement('w:tblW')
+        tblW.set(qn('w:w'), '5000')
+        tblW.set(qn('w:type'), 'pct')
+        tblPr.append(tblW)
+        
+        c_left = table.cell(0,0)
+        c_right = table.cell(0,1)
+        
+        p_title = c_left.paragraphs[0]
+        style_paragraph(p_title, spacing_before=0, spacing_after=0, line_spacing=1.0)
+        if title_text:
+            add_text_with_links_styled(p_title, title_text, size=10, bold=True)
+            
+        if company_text:
+            p_comp = c_left.add_paragraph()
+            style_paragraph(p_comp, spacing_before=0, spacing_after=0, line_spacing=1.0)
+            add_text_with_links_styled(p_comp, company_text, size=10, italic=True)
+            
+        p_right_top = c_right.paragraphs[0]
+        style_paragraph(p_right_top, spacing_before=0, spacing_after=0, line_spacing=1.0)
+        p_right_top.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        if right_top:
+            add_text_with_links_styled(p_right_top, right_top, size=10)
+            
+        if right_bottom:
+            p_right_bot = c_right.add_paragraph()
+            style_paragraph(p_right_bot, spacing_before=0, spacing_after=0, line_spacing=1.0)
+            p_right_bot.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            add_text_with_links_styled(p_right_bot, right_bottom, size=10, italic=True)
+            
+        if len(c_left.paragraphs) > 0:
+            c_left.paragraphs[-1].paragraph_format.space_after = Pt(2)
+        if len(c_right.paragraphs) > 0:
+            c_right.paragraphs[-1].paragraph_format.space_after = Pt(2)
 
     header_from_raw = extract_header_from_resume_text(original_resume)
     contact = resume_data.get("contact", {}) if isinstance(resume_data.get("contact"), dict) else {}
@@ -2157,8 +2210,8 @@ def export_docx():
 
     add_section_heading_exact(doc, "Professional Summary")
     summary_para = doc.add_paragraph()
-    style_paragraph(summary_para, spacing_before=1, spacing_after=4, line_spacing=1.1)
-    add_text_with_links_styled(summary_para, resume_data.get("summary", ""), size=12)
+    style_paragraph(summary_para, spacing_before=1, spacing_after=4, line_spacing=1.0)
+    add_text_with_links_styled(summary_para, resume_data.get("summary", ""), size=10)
 
     add_section_heading_exact(doc, "Skills")
     skills = resume_data.get("skills", {})
@@ -2178,8 +2231,8 @@ def export_docx():
             p = doc.add_paragraph()
             style_paragraph(p, spacing_before=0, spacing_after=2, line_spacing=1.0)
             label = p.add_run(f"{category}: ")
-            set_run_font(label, size=12, bold=True)
-            add_text_with_links_styled(p, ", ".join(skill_list), size=12)
+            set_run_font(label, size=10, bold=True)
+            add_text_with_links_styled(p, ", ".join(skill_list), size=10)
             rendered.add(category)
 
     for category, skill_list in skills.items():
@@ -2188,8 +2241,8 @@ def export_docx():
         p = doc.add_paragraph()
         style_paragraph(p, spacing_before=0, spacing_after=2, line_spacing=1.0)
         label = p.add_run(f"{category}: ")
-        set_run_font(label, size=12, bold=True)
-        add_text_with_links_styled(p, ", ".join(skill_list), size=12)
+        set_run_font(label, size=10, bold=True)
+        add_text_with_links_styled(p, ", ".join(skill_list), size=10)
 
     experience = resume_data.get("experience", [])
     if experience:
@@ -2199,25 +2252,14 @@ def export_docx():
             title = normalize_space(exp.get("title", ""))
             duration = normalize_space(exp.get("duration", ""))
 
-            if company:
-                p_company = doc.add_paragraph()
-                style_paragraph(p_company, spacing_before=2, spacing_after=0, line_spacing=1.0)
-                add_text_with_links_styled(p_company, company, size=12)
-
-            if title:
-                p_title = doc.add_paragraph()
-                style_paragraph(p_title, spacing_before=0, spacing_after=0, line_spacing=1.0)
-                add_text_with_links_styled(p_title, title, size=12, italic=True)
-
-            if duration:
-                p_duration = doc.add_paragraph()
-                style_paragraph(p_duration, spacing_before=0, spacing_after=1, line_spacing=1.0)
-                add_text_with_links_styled(p_duration, duration, size=12, italic=True)
+            location = normalize_space(exp.get("location", ""))
+            
+            add_entry_table(doc, title_text=title, company_text=company, right_top=duration, right_bottom=location)
 
             for bullet in exp.get("bullets", []):
                 bullet_para = doc.add_paragraph(style="List Bullet")
                 style_paragraph(bullet_para, spacing_before=0, spacing_after=0, line_spacing=1.0)
-                add_text_with_links_styled(bullet_para, bullet, size=12)
+                add_text_with_links_styled(bullet_para, bullet, size=10)
 
     projects = resume_data.get("projects", [])
     if projects:
@@ -2227,23 +2269,21 @@ def export_docx():
             tech = normalize_space(proj.get("tech", ""))
             project_url = normalize_space(proj.get("github") or proj.get("url") or proj.get("link") or "")
 
-            p = doc.add_paragraph()
-            style_paragraph(p, spacing_before=2, spacing_after=0, line_spacing=1.0)
-            add_text_with_links_styled(p, project_name, size=12, bold=True)
-            if project_url:
-                pipe = p.add_run(" | ")
-                set_run_font(pipe, size=12)
-                add_text_with_links_styled(p, project_url, size=12)
-
-            if tech:
-                p_tech = doc.add_paragraph()
-                style_paragraph(p_tech, spacing_before=0, spacing_after=0, line_spacing=1.0)
-                add_text_with_links_styled(p_tech, tech, size=12, italic=True)
+            duration = normalize_space(proj.get("duration", "") or proj.get("date", ""))
+            
+            # Use link if tech is missing, else merge
+            company_str = tech
+            if project_url and not company_str:
+                company_str = project_url
+            elif project_url:
+                company_str += f" | {project_url}"
+                
+            add_entry_table(doc, title_text=project_name, company_text=company_str, right_top=duration)
 
             for bullet in proj.get("bullets", []):
                 bullet_para = doc.add_paragraph(style="List Bullet")
                 style_paragraph(bullet_para, spacing_before=0, spacing_after=0, line_spacing=1.0)
-                add_text_with_links_styled(bullet_para, bullet, size=12)
+                add_text_with_links_styled(bullet_para, bullet, size=10)
 
     education = resume_data.get("education", [])
     if education:
@@ -2253,21 +2293,14 @@ def export_docx():
             institution = normalize_space(edu.get("institution", ""))
             year = normalize_space(edu.get("year", ""))
 
-            main_line = degree
-            if institution:
-                main_line += f" — {institution}"
-            if year:
-                main_line += f" ({year})"
-
-            p = doc.add_paragraph()
-            style_paragraph(p, spacing_before=1, spacing_after=0, line_spacing=1.0)
-            add_text_with_links_styled(p, main_line, size=12)
+            location = normalize_space(edu.get("location", ""))
+            add_entry_table(doc, title_text=degree, company_text=institution, right_top=year, right_bottom=location)
 
             details = normalize_space(edu.get("details", ""))
             if details:
                 details_para = doc.add_paragraph()
                 style_paragraph(details_para, spacing_before=0, spacing_after=0, line_spacing=1.0)
-                add_text_with_links_styled(details_para, details, size=12)
+                add_text_with_links_styled(details_para, details, size=10)
 
         certifications = resume_data.get("certifications", [])
         if False and certifications:
@@ -2299,7 +2332,7 @@ def export_docx():
             if isinstance(cert, str):
                 p_cert = doc.add_paragraph()
                 style_paragraph(p_cert, spacing_before=1, spacing_after=0, line_spacing=1.0)
-                add_text_with_links_styled(p_cert, cert, size=12)
+                add_text_with_links_styled(p_cert, cert, size=10)
                 continue
 
             name = normalize_space(cert.get("name", ""))
@@ -2313,7 +2346,7 @@ def export_docx():
             if line:
                 p_cert = doc.add_paragraph()
                 style_paragraph(p_cert, spacing_before=1, spacing_after=0, line_spacing=1.0)
-                add_text_with_links_styled(p_cert, line, size=12)
+                add_text_with_links_styled(p_cert, line, size=10)
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -2410,6 +2443,18 @@ def export_cover_letter_docx():
 @app.route("/login")
 def login():
     return render_template("login.html")
+
+try:
+    from tracker import tracker_blueprint
+    app.register_blueprint(tracker_blueprint)
+except ImportError:
+    pass
+
+try:
+    from latex_resume import latex_blueprint
+    app.register_blueprint(latex_blueprint)
+except ImportError:
+    pass
 
 
 if __name__ == "__main__":

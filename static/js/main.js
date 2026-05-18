@@ -133,24 +133,27 @@ function setProviderBadge(label) {
 }
 
 function setSidebarActive(mode) {
-  const homeLink = document.getElementById('homeNavLink');
-  const builderLink = document.getElementById('builderNavLink');
-  const latexLink = document.getElementById('latexNavLink');
-  const autoApplyLink = document.getElementById('autoApplyNavLink');
-  const salaryLink = document.getElementById('salaryNavLink');
-  if (!homeLink || !builderLink || !latexLink || !autoApplyLink) return;
+  const links = document.querySelectorAll('.sidebar-nav .sidebar-link');
+  links.forEach(link => {
+    link.classList.remove('active');
+    link.setAttribute('aria-current', 'false');
+  });
 
-  homeLink.classList.toggle('active', mode === 'home');
-  builderLink.classList.toggle('active', mode === 'builder');
-  latexLink.classList.toggle('active', mode === 'latex');
-  autoApplyLink.classList.toggle('active', mode === 'auto');
-  if (salaryLink) salaryLink.classList.toggle('active', mode === 'salary');
-  
-  homeLink.setAttribute('aria-current', mode === 'home' ? 'page' : 'false');
-  builderLink.setAttribute('aria-current', mode === 'builder' ? 'page' : 'false');
-  latexLink.setAttribute('aria-current', mode === 'latex' ? 'page' : 'false');
-  autoApplyLink.setAttribute('aria-current', mode === 'auto' ? 'page' : 'false');
-  if (salaryLink) salaryLink.setAttribute('aria-current', mode === 'salary' ? 'page' : 'false');
+  let activeId = '';
+  if (mode === 'home') activeId = 'homeNavLink';
+  else if (mode === 'builder') activeId = 'builderNavLink';
+  else if (mode === 'latex') activeId = 'latexNavLink';
+  else if (mode === 'auto') activeId = 'autoApplyNavLink';
+  else if (mode === 'salary') activeId = 'salaryNavLink';
+  else if (mode === 'tracker') activeId = 'trackerNavLink';
+
+  if (activeId) {
+    const activeLink = document.getElementById(activeId);
+    if (activeLink) {
+      activeLink.classList.add('active');
+      activeLink.setAttribute('aria-current', 'page');
+    }
+  }
 }
 
 function bindSidebarHandlers() {
@@ -179,6 +182,7 @@ function bindSidebarHandlers() {
       else if (targetHash === '#latexResumeSection') setSidebarActive('latex');
       else if (targetHash === '#autoApplySection') setSidebarActive('auto');
       else if (targetHash === '#salarySection') setSidebarActive('salary');
+      else if (targetHash === '#trackerSection') setSidebarActive('tracker');
     });
   });
 
@@ -224,59 +228,67 @@ function getPageModeFromHash() {
   if (hash === '#salarysection' || hash === '#salary') {
     return 'salary';
   }
+  if (hash === '#trackersection' || hash === '#tracker') {
+    return 'tracker';
+  }
   return 'home';
 }
 
 function applyPageModeFromHash() {
   const mode = getPageModeFromHash();
-  const homeSection = document.getElementById('homeSection');
-  const latexSection = document.getElementById('latexResumeSection');
-  const autoSection = document.getElementById('autoApplySection');
-  const salarySection = document.getElementById('salarySection');
-  const inputSection = document.getElementById('inputSection');
-  const resultsSection = document.getElementById('resultsSection');
-  const standaloneSection = document.getElementById('coverLetterStandaloneSection');
-
   setSidebarActive(mode);
-
-  if (mode === 'home') {
-    if (homeSection) homeSection.style.display = 'block';
-    if (latexSection) latexSection.style.display = 'none';
-    if (autoSection) autoSection.style.display = 'none';
-    if (salarySection) salarySection.style.display = 'none';
-    if (inputSection) inputSection.style.display = 'none';
-    if (resultsSection) resultsSection.style.display = 'none';
-    if (standaloneSection) standaloneSection.style.display = 'none';
-    return;
+  
+  // 1. Unified Section Toggling
+  const dashboardViews = document.querySelectorAll('.dashboard-view');
+  if (dashboardViews.length > 0) {
+    dashboardViews.forEach(el => el.classList.add('hidden'));
+  } else {
+    // Fallback if elements don't have .dashboard-view yet
+    ['homeSection', 'inputSection', 'latexResumeSection', 'autoApplySection', 'salarySection', 'trackerSection', 'resultsSection', 'coverLetterStandaloneSection'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.display = 'none';
+        el.classList.add('hidden');
+      }
+    });
   }
 
-  if (homeSection) homeSection.style.display = 'none';
-  if (latexSection) latexSection.style.display = mode === 'latex' ? 'block' : 'none';
-  if (autoSection) autoSection.style.display = mode === 'auto' ? 'block' : 'none';
-  if (salarySection) salarySection.style.display = mode === 'salary' ? 'block' : 'none';
-  
-  const hideInputAndResults = ['latex', 'auto', 'salary'].includes(mode);
-  
-  if (inputSection && hideInputAndResults) inputSection.style.display = 'none';
-  if (resultsSection && hideInputAndResults) resultsSection.style.display = 'none';
-  if (standaloneSection && hideInputAndResults) standaloneSection.style.display = 'none';
+  let targetId = null;
+  if (mode === 'home') targetId = 'homeSection';
+  else if (mode === 'builder') targetId = 'inputSection';
+  else if (mode === 'latex') targetId = 'latexResumeSection';
+  else if (mode === 'auto') targetId = 'autoApplySection';
+  else if (mode === 'salary') targetId = 'salarySection';
+  else if (mode === 'tracker') targetId = 'trackerSection';
 
+  // 2. Target Reveal
+  if (targetId) {
+    const targetEl = document.getElementById(targetId);
+    if (targetEl) {
+      targetEl.classList.remove('hidden');
+      targetEl.style.display = 'block'; // Ensure block display if legacy inline style was used
+    }
+  }
+
+  // Handle specific section initializations
   if (mode === 'latex') {
     loadLatexEngineStatus();
-    return;
-  }
-
-  restoreBuilderState();
-  renderAutoQueue();
-
-  const inputVisible = inputSection && inputSection.style.display !== 'none';
-  const resultsVisible = resultsSection && resultsSection.style.display !== 'none';
-  const standaloneVisible = standaloneSection && standaloneSection.style.display !== 'none';
-  const autoVisible = autoSection && autoSection.style.display !== 'none';
-  const salaryVisible = salarySection && salarySection.style.display !== 'none';
-
-  if (!inputVisible && !resultsVisible && !standaloneVisible && !autoVisible && !salaryVisible && inputSection) {
-    inputSection.style.display = 'block';
+  } else if (mode === 'builder') {
+    restoreBuilderState();
+    renderAutoQueue();
+    // Bring back results if they were visible
+    const resultsSection = document.getElementById('resultsSection');
+    const inputSection = document.getElementById('inputSection');
+    if (resultsSection && inputSection) {
+       // Only show inputSection for now, restoreBuilderState handles rendering results if needed
+       inputSection.classList.remove('hidden');
+       inputSection.style.display = 'block';
+    }
+  } else if (mode === 'tracker') {
+    // 4. Auto-Fetch Core Data
+    if (typeof fetchApplications === 'function') {
+      fetchApplications();
+    }
   }
 }
 
