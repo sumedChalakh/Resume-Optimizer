@@ -109,7 +109,7 @@ def auth_login():
 
     user = User.query.filter_by(email=email).first()
     if not user or not check_password_hash(user.password_hash, password):
-        return jsonify({"error": "Invalid email or password"}), 401
+        return jsonify({"error": "Invalid email or password. This account may not be registered."}), 401
 
     session['user_id'] = user.id
     return jsonify({"ok": True, "user": {"id": user.id, "name": user.name, "email": user.email}})

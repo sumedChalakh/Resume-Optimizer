@@ -265,12 +265,14 @@
           <div class="form-group">
             <label for="password">
               Password
-              <a href="#" class="forgot-link">Forgot password?</a>
+              <a href="#" class="forgot-link" id="forgotLink">Forgot password?</a>
             </label>
             <input type="password" id="password" class="form-control" placeholder="••••••••" required>
           </div>
           
-          <button type="submit" class="login-btn">Sign In</button>
+          <div id="login-error" class="hidden text-red-500 text-xs" style="display: none; color: #ef4444; margin-bottom: 1rem;"></div>
+          
+          <button type="submit" class="login-btn" id="submitBtn">Sign In</button>
         </form>
         
         <div class="divider">Or continue with</div>
@@ -361,6 +363,12 @@
           
           console.log('[Validation Checkpoint] Validation passed. Proceeding with authentication logic...');
           
+          const errorContainer = document.getElementById('login-error');
+          if (errorContainer) {
+            errorContainer.style.display = 'none';
+            errorContainer.textContent = '';
+          }
+          
           const endpoint = isRegisterMode ? '/auth/signup' : '/auth/login';
           const payload = isRegisterMode ? { email, password, name } : { email, password };
           
@@ -369,17 +377,29 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           })
-          .then(res => res.json())
-          .then(data => {
+          .then(async res => {
+            const data = await res.json();
             if (data.ok) {
               window.location.href = '/';
             } else {
-              alert(data.error || 'Authentication failed');
+              if (errorContainer) {
+                errorContainer.textContent = data.error || 'Authentication failed';
+                errorContainer.style.display = 'block';
+                errorContainer.classList.remove('hidden');
+              } else {
+                alert(data.error || 'Authentication failed');
+              }
             }
           })
           .catch(err => {
             console.error(err);
-            alert('Authentication error');
+            if (errorContainer) {
+                errorContainer.textContent = 'A network error occurred. Please try again.';
+                errorContainer.style.display = 'block';
+                errorContainer.classList.remove('hidden');
+            } else {
+                alert('Authentication error');
+            }
           });
         });
       }
