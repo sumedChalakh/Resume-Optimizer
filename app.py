@@ -5,8 +5,9 @@ import urllib.request
 import urllib.error
 from datetime import date
 from collections import Counter
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 from anthropic import Anthropic
 from docx import Document
 from pypdf import PdfReader
@@ -15,7 +16,6 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
-from tracker import tracker_blueprint, ensure_database
 from latex_resume import latex_blueprint
 import io
 
@@ -33,14 +33,112 @@ if db_url:
 else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///local_tracker.db'
 
+app.secret_key = os.environ.get("SECRET_KEY", "dev_fallback_secret_key_123")
 db = SQLAlchemy(app)
+
+class User(db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+
+class TrackerApplication(db.Model):
+    __tablename__ = 'applications'
+    __table_args__ = (db.UniqueConstraint('user_id', 'dedupe_key', name='_user_dedupe_uc'),)
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    company = db.Column(db.String(200), nullable=False)
+    location = db.Column(db.String(200), default='')
+    job_url = db.Column(db.String(500), default='')
+    source = db.Column(db.String(100), default='')
+    status = db.Column(db.String(50), nullable=False, default='applied')
+    applied_date = db.Column(db.String(50), nullable=False)
+    dedupe_key = db.Column(db.String(100), nullable=False)
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
+    updated_at = db.Column(db.DateTime, server_default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+
+    user = db.relationship('User', backref=db.backref('applications', lazy=True, cascade="all, delete-orphan"))
+
+class TrackerApplicationEvent(db.Model):
+    __tablename__ = 'application_events'
+    id = db.Column(db.Integer, primary_key=True)
+    application_id = db.Column(db.Integer, db.ForeignKey('applications.id', ondelete="CASCADE"), nullable=False)
+    event_type = db.Column(db.String(100), nullable=False)
+    event_note = db.Column(db.Text, default='')
+    event_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
+
+    application = db.relationship('TrackerApplication', backref=db.backref('events', lazy=True, cascade="all, delete-orphan"))
 
 with app.app_context():
     db.create_all()
 
-ensure_database()
+from tracker import tracker_blueprint
 app.register_blueprint(tracker_blueprint)
 app.register_blueprint(latex_blueprint)
+
+@app.post('/auth/signup')
+def auth_signup():
+    data = request.get_json(silent=True) or {}
+    name = data.get('name', '').strip()
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+
+    if not name or not email or not password:
+        return jsonify({"error": "Missing fields"}), 400
+
+    existing_user = User.query.filter_by(email=email).first()
+    if existing_user:
+        return jsonify({"error": "Email already registered"}), 409
+
+    new_user = User(
+        name=name,
+        email=email,
+        password_hash=generate_password_hash(password)
+    )
+    db.session.add(new_user)
+    db.session.commit()
+
+    session['user_id'] = new_user.id
+    return jsonify({"ok": True, "user": {"id": new_user.id, "name": new_user.name, "email": new_user.email}})
+
+@app.post('/auth/login')
+def auth_login():
+    data = request.get_json(silent=True) or {}
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+
+    user = User.query.filter_by(email=email).first()
+    if not user or not check_password_hash(user.password_hash, password):
+        return jsonify({"error": "Invalid email or password"}), 401
+
+    session['user_id'] = user.id
+    return jsonify({"ok": True, "user": {"id": user.id, "name": user.name, "email": user.email}})
+
+@app.post('/auth/logout')
+def auth_logout():
+    session.pop('user_id', None)
+    return jsonify({"ok": True})
+
+@app.get('/auth/session')
+def auth_session():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"authenticated": False})
+    
+    user = db.session.get(User, user_id)
+    if not user:
+        session.pop('user_id', None)
+        return jsonify({"authenticated": False})
+        
+    return jsonify({"authenticated": True, "user": {"id": user.id, "name": user.name, "email": user.email}})
+
+
+@app.get('/login')
+def login_page():
+    return render_template("login.html")
 
 
 def load_env_file(path=".env"):

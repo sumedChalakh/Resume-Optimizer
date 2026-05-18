@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from hmac import compare_digest
 
-from flask import Blueprint, jsonify, make_response, render_template, request
+from flask import Blueprint, jsonify, make_response, render_template, request, session
 
 from .config import (
   TRACKER_STATUSES,
@@ -10,7 +10,6 @@ from .config import (
   get_ingest_min_confidence,
   get_status_set,
 )
-from .database import ensure_database
 from .repository import (
   create_application,
   delete_application,
@@ -67,16 +66,8 @@ def _extract_bearer_token():
   return fallback
 
 
-def _require_tracker_write_auth():
-  configured_token = get_extension_token()
-  if not configured_token:
-    return None
-
-  request_token = _extract_bearer_token()
-  if request_token and compare_digest(request_token, configured_token):
-    return None
-
-  return jsonify({"error": "Unauthorized tracker write token"}), 401
+def _get_user_id():
+  return session.get('user_id')
 
 
 @tracker_blueprint.get("/tracker")
@@ -86,12 +77,11 @@ def tracker_board():
 
 @tracker_blueprint.get("/tracker/api/health")
 def tracker_health():
-  ensure_database()
   return jsonify({
     "ok": True,
     "module": "tracker",
-    "phase": 3,
-    "database_type": "sqlite",
+    "phase": 4,
+    "database_type": "sqlalchemy",
     "tracker_features": [
       "board",
       "ingest",
@@ -99,13 +89,17 @@ def tracker_health():
       "flow",
       "filters",
       "exports",
+      "auth"
     ],
   })
 
 
 @tracker_blueprint.get("/tracker/api/applications")
 def tracker_list_applications():
-  ensure_database()
+  user_id = _get_user_id()
+  if not user_id:
+    return jsonify({"error": "Unauthorized"}), 401
+
   status = (request.args.get("status") or "").strip().lower()
   search = (request.args.get("q") or "").strip()
   source = (request.args.get("source") or "").strip()
@@ -120,13 +114,14 @@ def tracker_list_applications():
     return jsonify({"error": str(exc)}), 400
 
   apps = list_applications(
+    user_id=user_id,
     status=status or None,
     search=search or None,
     source=source or None,
     applied_from=applied_from,
   )
   counts = _build_counts_from_apps(apps)
-  sources = list_sources()
+  sources = list_sources(user_id=user_id)
   return jsonify({
     "applications": apps,
     "counts": counts,
@@ -137,7 +132,10 @@ def tracker_list_applications():
 
 @tracker_blueprint.get("/tracker/api/flow")
 def tracker_flow_data():
-  ensure_database()
+  user_id = _get_user_id()
+  if not user_id:
+    return jsonify({"error": "Unauthorized"}), 401
+
   source = (request.args.get("source") or "").strip()
   days = (request.args.get("days") or "all").strip().lower()
 
@@ -148,6 +146,7 @@ def tracker_flow_data():
 
   flow_data = flow_overview(
     TRACKER_STATUSES,
+    user_id=user_id,
     source=source or None,
     applied_from=applied_from,
   )
@@ -156,11 +155,10 @@ def tracker_flow_data():
 
 @tracker_blueprint.post("/tracker/api/applications")
 def tracker_create_application():
-  auth_error = _require_tracker_write_auth()
-  if auth_error:
-    return auth_error
+  user_id = _get_user_id()
+  if not user_id:
+    return jsonify({"error": "Unauthorized"}), 401
 
-  ensure_database()
   payload = request.get_json(silent=True) or {}
 
   try:
@@ -168,28 +166,27 @@ def tracker_create_application():
   except ValueError as exc:
     return jsonify({"error": str(exc)}), 400
 
-  existing = get_application_by_dedupe_key(cleaned["dedupe_key"])
+  existing = get_application_by_dedupe_key(cleaned["dedupe_key"], user_id)
   if existing:
     return jsonify({"error": "Application already tracked", "application": existing}), 409
 
-  created = create_application(cleaned)
+  created = create_application(cleaned, user_id)
   return jsonify({"application": created}), 201
 
 
 @tracker_blueprint.patch("/tracker/api/applications/<int:application_id>/status")
 def tracker_patch_status(application_id):
-  auth_error = _require_tracker_write_auth()
-  if auth_error:
-    return auth_error
+  user_id = _get_user_id()
+  if not user_id:
+    return jsonify({"error": "Unauthorized"}), 401
 
-  ensure_database()
   payload = request.get_json(silent=True) or {}
   status = str(payload.get("status", "")).strip().lower()
 
   if status not in get_status_set():
     return jsonify({"error": "Invalid status"}), 400
 
-  updated = update_application_status(application_id, status)
+  updated = update_application_status(application_id, status, user_id)
   if not updated:
     return jsonify({"error": "Application not found"}), 404
 
@@ -198,12 +195,11 @@ def tracker_patch_status(application_id):
 
 @tracker_blueprint.delete("/tracker/api/applications/<int:application_id>")
 def tracker_delete_application(application_id):
-  auth_error = _require_tracker_write_auth()
-  if auth_error:
-    return auth_error
+  user_id = _get_user_id()
+  if not user_id:
+    return jsonify({"error": "Unauthorized"}), 401
 
-  ensure_database()
-  deleted = delete_application(application_id)
+  deleted = delete_application(application_id, user_id)
 
   if not deleted:
     return jsonify({"error": "Application not found"}), 404
@@ -218,7 +214,6 @@ def tracker_ingest_options():
 
 @tracker_blueprint.post("/tracker/api/ingest")
 def tracker_ingest_application():
-  ensure_database()
   configured_token = get_extension_token()
 
   if not configured_token:
@@ -229,6 +224,10 @@ def tracker_ingest_application():
   if not request_token or not compare_digest(request_token, configured_token):
     response = jsonify({"error": "Unauthorized ingest token"})
     return _corsify(response), 401
+
+  user_id = _get_user_id()
+  if not user_id:
+    user_id = 1 # Fallback to user 1 for extension payloads without session
 
   payload = request.get_json(silent=True) or {}
   try:
@@ -259,7 +258,7 @@ def tracker_ingest_application():
     })
     return _corsify(response), 202
 
-  existing = get_application_by_dedupe_key(application["dedupe_key"])
+  existing = get_application_by_dedupe_key(application["dedupe_key"], user_id)
   if existing:
     response = jsonify({
       "status": "duplicate",
@@ -271,6 +270,7 @@ def tracker_ingest_application():
   event_note = f"Auto-ingested from extension; signal={apply_signal or 'manual_confirmed'}; confidence={confidence:.2f}"
   created = create_application(
     application,
+    user_id,
     event_type="auto_ingest",
     event_note=event_note,
   )

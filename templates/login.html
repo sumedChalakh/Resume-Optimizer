@@ -318,7 +318,37 @@
           }
           
           console.log('[Validation Checkpoint] Validation passed. Proceeding with authentication logic...');
-          // Authentication logic bridge placeholder
+          
+          fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.ok) {
+              window.location.href = '/';
+            } else {
+              console.log('Login failed, attempting signup...');
+              fetch('/auth/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, name: email.split('@')[0] })
+              })
+              .then(res2 => res2.json())
+              .then(data2 => {
+                 if (data2.ok) {
+                   window.location.href = '/';
+                 } else {
+                   alert(data2.error || 'Authentication failed');
+                 }
+              });
+            }
+          })
+          .catch(err => {
+            console.error(err);
+            alert('Authentication error');
+          });
         });
       }
       

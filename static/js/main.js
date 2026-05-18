@@ -1866,8 +1866,59 @@ if (descBox) {
   descBox.addEventListener('mouseleave', () => document.getElementById('rightSidebarToken').classList.remove('highlight'));
 }
 
+async function checkSessionStatus() {
+  try {
+    const response = await fetch('/auth/session');
+    if (!response.ok) return;
+    const data = await response.json();
+
+    if (data.authenticated && data.user) {
+      const accountSyncDesc = document.getElementById('accountSyncDesc');
+      const signInBtn = document.getElementById('authSignInBtn');
+      const signUpBtn = document.getElementById('authSignUpBtn');
+
+      if (accountSyncDesc) {
+        accountSyncDesc.innerHTML = `<span class="text-electricBlue font-bold">Connected as ${escapeHtml(data.user.name)}</span><br><span class="text-xs text-slate-400">${escapeHtml(data.user.email)}</span>`;
+      }
+      if (signInBtn) {
+        signInBtn.textContent = 'Sign Out';
+        signInBtn.id = 'authSignOutBtn';
+        signInBtn.onclick = async () => {
+          await fetch('/auth/logout', { method: 'POST' });
+          window.location.reload();
+        };
+      }
+      if (signUpBtn) {
+        signUpBtn.style.display = 'none';
+      }
+
+      const leftSidebarName = document.querySelector('.p-6.border-t.border-slate-800 .font-bold.text-sm.text-white');
+      if (leftSidebarName) {
+        leftSidebarName.textContent = data.user.name;
+      }
+      const leftSidebarInitial = document.querySelector('.p-6.border-t.border-slate-800 .w-10.h-10');
+      if (leftSidebarInitial) {
+        leftSidebarInitial.textContent = data.user.name.substring(0, 2).toUpperCase();
+      }
+    } else {
+      const signInBtn = document.getElementById('authSignInBtn');
+      const signUpBtn = document.getElementById('authSignUpBtn');
+      
+      if (signInBtn) {
+        signInBtn.onclick = () => window.location.href = '/login';
+      }
+      if (signUpBtn) {
+        signUpBtn.onclick = () => window.location.href = '/login';
+      }
+    }
+  } catch (error) {
+    console.error('Session check failed', error);
+  }
+}
+
 loadHomeOverview();
 bindSidebarHandlers();
 applyPageModeFromHash();
+checkSessionStatus();
 window.addEventListener('DOMContentLoaded', applyPageModeFromHash);
 window.addEventListener('hashchange', applyPageModeFromHash);

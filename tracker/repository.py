@@ -1,244 +1,168 @@
-from .database import get_connection
+from app import db, TrackerApplication, TrackerApplicationEvent
+from sqlalchemy import func, or_
 
-
-def _build_application_filters(status=None, search=None, source=None, applied_from=None):
-  where = []
-  params = []
-
+def _build_application_filters(query, status=None, search=None, source=None, applied_from=None):
   if status:
-    where.append("status = ?")
-    params.append(status)
+    query = query.filter(TrackerApplication.status == status)
 
   if search:
-    where.append("(title LIKE ? OR company LIKE ? OR location LIKE ?)")
-    like_value = f"%{search}%"
-    params.extend([like_value, like_value, like_value])
+    search_term = f"%{search}%"
+    query = query.filter(or_(
+      TrackerApplication.title.ilike(search_term),
+      TrackerApplication.company.ilike(search_term),
+      TrackerApplication.location.ilike(search_term)
+    ))
 
   if source:
-    where.append("LOWER(source) = LOWER(?)")
-    params.append(source)
+    query = query.filter(func.lower(TrackerApplication.source) == func.lower(source))
 
   if applied_from:
-    where.append("applied_date >= ?")
-    params.append(applied_from)
+    query = query.filter(TrackerApplication.applied_date >= applied_from)
 
-  return where, params
+  return query
 
 
-def get_application_by_dedupe_key(dedupe_key, base_dir=None):
-  with get_connection(base_dir) as conn:
-    cursor = conn.cursor()
-    cursor.execute(
-      "SELECT * FROM applications WHERE dedupe_key = ?",
-      (dedupe_key,),
-    )
-    row = cursor.fetchone()
-    cursor.close()
-  return dict(row) if row else None
+def _to_dict(app_model):
+  if not app_model:
+    return None
+  return {
+    "id": app_model.id,
+    "user_id": app_model.user_id,
+    "title": app_model.title,
+    "company": app_model.company,
+    "location": app_model.location,
+    "job_url": app_model.job_url,
+    "source": app_model.source,
+    "status": app_model.status,
+    "applied_date": app_model.applied_date,
+    "dedupe_key": app_model.dedupe_key,
+    "notes": app_model.notes,
+    "created_at": app_model.created_at.isoformat() if app_model.created_at else None,
+    "updated_at": app_model.updated_at.isoformat() if app_model.updated_at else None,
+  }
+
+
+def get_application_by_dedupe_key(dedupe_key, user_id):
+  app_model = TrackerApplication.query.filter_by(dedupe_key=dedupe_key, user_id=user_id).first()
+  return _to_dict(app_model)
 
 
 def create_application(
   application,
-  base_dir=None,
+  user_id,
   event_type="created",
-  event_note="Application added to tracker",
+  event_note="Application added to tracker"
 ):
-  with get_connection(base_dir) as conn:
-    cursor = conn.cursor()
-    cursor.execute(
-      """
-      INSERT INTO applications (
-        title, company, location, job_url, source, status, applied_date, dedupe_key, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      """,
-      (
-        application["title"],
-        application["company"],
-        application.get("location", ""),
-        application.get("job_url", ""),
-        application.get("source", ""),
-        application["status"],
-        application["applied_date"],
-        application["dedupe_key"],
-        application.get("notes", ""),
-      ),
-    )
-
-    cursor.execute("SELECT id FROM applications WHERE dedupe_key = ?", (application["dedupe_key"],))
-    inserted_row = cursor.fetchone()
-    app_id = inserted_row["id"] if inserted_row else None
-
-    cursor.execute(
-      """
-      INSERT INTO application_events (application_id, event_type, event_note)
-      VALUES (?, ?, ?)
-      """,
-      (app_id, event_type, event_note),
-    )
-
-    cursor.execute("SELECT * FROM applications WHERE id = ?", (app_id,))
-    row = cursor.fetchone()
-    cursor.close()
-  return dict(row)
-
-
-def list_applications(status=None, search=None, source=None, applied_from=None, base_dir=None):
-  query = "SELECT * FROM applications"
-  where, params = _build_application_filters(
-    status=status,
-    search=search,
-    source=source,
-    applied_from=applied_from,
+  app_model = TrackerApplication(
+    user_id=user_id,
+    title=application["title"],
+    company=application["company"],
+    location=application.get("location", ""),
+    job_url=application.get("job_url", ""),
+    source=application.get("source", ""),
+    status=application["status"],
+    applied_date=application["applied_date"],
+    dedupe_key=application["dedupe_key"],
+    notes=application.get("notes", "")
   )
+  db.session.add(app_model)
+  db.session.flush()
 
-  if where:
-    query += " WHERE " + " AND ".join(where)
+  event = TrackerApplicationEvent(
+    application_id=app_model.id,
+    event_type=event_type,
+    event_note=event_note
+  )
+  db.session.add(event)
+  db.session.commit()
 
-  query += " ORDER BY created_at DESC, id DESC"
-
-  with get_connection(base_dir) as conn:
-    cursor = conn.cursor()
-    cursor.execute(query, tuple(params) if params else ())
-    rows = cursor.fetchall()
-    cursor.close()
-
-  return [dict(row) for row in rows]
-
-
-def list_sources(base_dir=None):
-  with get_connection(base_dir) as conn:
-    cursor = conn.cursor()
-    cursor.execute(
-      """
-      SELECT DISTINCT source
-      FROM applications
-      WHERE TRIM(COALESCE(source, '')) <> ''
-      ORDER BY LOWER(source) ASC
-      """
-    )
-    rows = cursor.fetchall()
-    cursor.close()
-
-  return [row["source"] for row in rows if row["source"]]
+  return _to_dict(app_model)
 
 
-def update_application_status(application_id, status, base_dir=None):
-  with get_connection(base_dir) as conn:
-    cursor = conn.cursor()
-    cursor.execute(
-      """
-      UPDATE applications
-      SET status = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-      """,
-      (status, application_id),
-    )
-
-    cursor.execute(
-      """
-      INSERT INTO application_events (application_id, event_type, event_note)
-      VALUES (?, ?, ?)
-      """,
-      (application_id, "status_changed", f"Moved to {status}"),
-    )
-
-    cursor.execute("SELECT * FROM applications WHERE id = ?", (application_id,))
-    row = cursor.fetchone()
-    cursor.close()
-
-  return dict(row) if row else None
+def list_applications(user_id, status=None, search=None, source=None, applied_from=None):
+  query = TrackerApplication.query.filter_by(user_id=user_id)
+  query = _build_application_filters(query, status, search, source, applied_from)
+  query = query.order_by(TrackerApplication.created_at.desc(), TrackerApplication.id.desc())
+  
+  apps = query.all()
+  return [_to_dict(a) for a in apps]
 
 
-def delete_application(application_id, base_dir=None):
-  with get_connection(base_dir) as conn:
-    cursor = conn.cursor()
-    cursor.execute(
-      "SELECT id FROM applications WHERE id = ?",
-      (application_id,),
-    )
-    existing = cursor.fetchone()
+def list_sources(user_id):
+  sources = db.session.query(TrackerApplication.source)\
+    .filter(TrackerApplication.user_id == user_id)\
+    .filter(TrackerApplication.source != None)\
+    .filter(func.trim(TrackerApplication.source) != '')\
+    .distinct()\
+    .order_by(func.lower(TrackerApplication.source).asc())\
+    .all()
+  return [s[0] for s in sources if s[0]]
 
-    if not existing:
-      cursor.close()
-      return False
 
-    cursor.execute(
-      "DELETE FROM application_events WHERE application_id = ?",
-      (application_id,),
-    )
-    cursor.execute(
-      "DELETE FROM applications WHERE id = ?",
-      (application_id,),
-    )
-    cursor.close()
+def update_application_status(application_id, status, user_id):
+  app_model = TrackerApplication.query.filter_by(id=application_id, user_id=user_id).first()
+  if not app_model:
+    return None
 
+  app_model.status = status
+  
+  event = TrackerApplicationEvent(
+    application_id=app_model.id,
+    event_type="status_changed",
+    event_note=f"Moved to {status}"
+  )
+  db.session.add(event)
+  db.session.commit()
+
+  return _to_dict(app_model)
+
+
+def delete_application(application_id, user_id):
+  app_model = TrackerApplication.query.filter_by(id=application_id, user_id=user_id).first()
+  if not app_model:
+    return False
+
+  db.session.delete(app_model)
+  db.session.commit()
   return True
 
 
-def dashboard_counts(base_dir=None):
-  with get_connection(base_dir) as conn:
-    cursor = conn.cursor()
-    cursor.execute(
-      """
-      SELECT status, COUNT(*) AS count
-      FROM applications
-      GROUP BY status
-      """
-    )
-    rows = cursor.fetchall()
-    cursor.close()
-
-  return {row["status"]: row["count"] for row in rows}
+def dashboard_counts(user_id):
+  counts = db.session.query(TrackerApplication.status, func.count(TrackerApplication.id))\
+    .filter(TrackerApplication.user_id == user_id)\
+    .group_by(TrackerApplication.status)\
+    .all()
+  return {row[0]: row[1] for row in counts}
 
 
-def flow_overview(statuses, source=None, applied_from=None, base_dir=None):
+def flow_overview(statuses, user_id, source=None, applied_from=None):
   node_counts = {status: 0 for status in statuses}
   links = {}
   status_order = {status: idx for idx, status in enumerate(statuses)}
 
-  where, params = _build_application_filters(
-    source=source,
-    applied_from=applied_from,
-  )
+  query = TrackerApplication.query.filter_by(user_id=user_id)
+  query = _build_application_filters(query, status=None, search=None, source=source, applied_from=applied_from)
+  
+  app_models = query.all()
+  app_ids = [a.id for a in app_models]
+  app_status_map = {a.id: a.status for a in app_models}
 
-  app_query = "SELECT id, status FROM applications"
-  if where:
-    app_query += " WHERE " + " AND ".join(where)
+  for a in app_models:
+    if a.status in node_counts:
+      node_counts[a.status] += 1
 
-  with get_connection(base_dir) as conn:
-    cursor = conn.cursor()
-    cursor.execute(app_query, tuple(params) if params else ())
-    app_rows = cursor.fetchall()
-
-    app_ids = [row["id"] for row in app_rows]
-    if app_ids:
-      placeholders = ",".join(["?"] * len(app_ids))
-      cursor.execute(
-        f"""
-        SELECT application_id, event_note
-        FROM application_events
-        WHERE event_type = 'status_changed'
-          AND application_id IN ({placeholders})
-        ORDER BY application_id ASC, id ASC
-        """,
-        tuple(app_ids),
-      )
-      event_rows = cursor.fetchall()
-    else:
-      event_rows = []
-    cursor.close()
-
-  app_status_map = {row["id"]: row["status"] for row in app_rows}
-
-  for row in app_rows:
-    status = row["status"]
-    if status in node_counts:
-      node_counts[status] += 1
+  if app_ids:
+    events = TrackerApplicationEvent.query.filter(
+      TrackerApplicationEvent.application_id.in_(app_ids),
+      TrackerApplicationEvent.event_type == 'status_changed'
+    ).order_by(TrackerApplicationEvent.application_id.asc(), TrackerApplicationEvent.id.asc()).all()
+  else:
+    events = []
 
   events_by_app = {}
-  for row in event_rows:
-    app_id = row["application_id"]
-    note = str(row["event_note"] or "").strip().lower()
+  for event in events:
+    app_id = event.application_id
+    note = str(event.event_note or "").strip().lower()
     if not note.startswith("moved to "):
       continue
 
@@ -254,7 +178,6 @@ def flow_overview(statuses, source=None, applied_from=None, base_dir=None):
       if previous == destination:
         continue
 
-      # Keep Sankey as a clean funnel: only count forward progression.
       if status_order.get(destination, -1) <= status_order.get(previous, -1):
         previous = destination
         continue
@@ -273,12 +196,12 @@ def flow_overview(statuses, source=None, applied_from=None, base_dir=None):
       links[key] = links.get(key, 0) + 1
 
   link_items = [
-    {"source": source, "target": target, "value": value}
-    for (source, target), value in sorted(links.items(), key=lambda item: item[1], reverse=True)
+    {"source": src, "target": tgt, "value": value}
+    for (src, tgt), value in sorted(links.items(), key=lambda item: item[1], reverse=True)
     if value > 0
   ]
 
   return {
-    "nodes": [{"id": status, "label": status.capitalize(), "count": node_counts[status]} for status in statuses],
+    "nodes": [{"id": s, "label": s.capitalize(), "count": node_counts[s]} for s in statuses],
     "links": link_items,
   }
