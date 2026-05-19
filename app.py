@@ -21,6 +21,24 @@ import io
 
 app = Flask(__name__)
 
+def load_env_file(path=".env"):
+  """Load KEY=VALUE pairs from a local .env file into process environment."""
+  if not os.path.exists(path):
+    return
+
+  with open(path, "r", encoding="utf-8") as env_file:
+    for raw_line in env_file:
+      line = raw_line.strip()
+      if not line or line.startswith("#") or "=" not in line:
+        continue
+      key, value = line.split("=", 1)
+      key = key.strip()
+      value = value.strip().strip('"').strip("'")
+      if key and key not in os.environ:
+        os.environ[key] = value
+
+load_env_file()
+
 db_url = os.environ.get('DATABASE_URL')
 if db_url:
     if db_url.startswith("postgres://"):
@@ -138,24 +156,7 @@ def login_page():
     return render_template("login.html")
 
 
-def load_env_file(path=".env"):
-  """Load KEY=VALUE pairs from a local .env file into process environment."""
-  if not os.path.exists(path):
-    return
 
-  with open(path, "r", encoding="utf-8") as env_file:
-    for raw_line in env_file:
-      line = raw_line.strip()
-      if not line or line.startswith("#") or "=" not in line:
-        continue
-      key, value = line.split("=", 1)
-      key = key.strip()
-      value = value.strip().strip('"').strip("'")
-      if key and key not in os.environ:
-        os.environ[key] = value
-
-
-load_env_file()
 
 try:
   MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(8 * 1024 * 1024)))

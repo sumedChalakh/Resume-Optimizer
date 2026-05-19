@@ -1,3 +1,4 @@
+from flask import current_app
 from app import db, TrackerApplication, TrackerApplicationEvent
 from sqlalchemy import func, or_
 
@@ -43,8 +44,9 @@ def _to_dict(app_model):
 
 
 def get_application_by_dedupe_key(dedupe_key, user_id):
-  app_model = TrackerApplication.query.filter_by(dedupe_key=dedupe_key, user_id=user_id).first()
-  return _to_dict(app_model)
+  with current_app.app_context():
+    app_model = TrackerApplication.query.filter_by(dedupe_key=dedupe_key, user_id=user_id).first()
+    return _to_dict(app_model)
 
 
 def create_application(
@@ -53,155 +55,162 @@ def create_application(
   event_type="created",
   event_note="Application added to tracker"
 ):
-  app_model = TrackerApplication(
-    user_id=user_id,
-    title=application["title"],
-    company=application["company"],
-    location=application.get("location", ""),
-    job_url=application.get("job_url", ""),
-    source=application.get("source", ""),
-    status=application["status"],
-    applied_date=application["applied_date"],
-    dedupe_key=application["dedupe_key"],
-    notes=application.get("notes", "")
-  )
-  db.session.add(app_model)
-  db.session.flush()
+  with current_app.app_context():
+    app_model = TrackerApplication(
+      user_id=user_id,
+      title=application["title"],
+      company=application["company"],
+      location=application.get("location", ""),
+      job_url=application.get("job_url", ""),
+      source=application.get("source", ""),
+      status=application["status"],
+      applied_date=application["applied_date"],
+      dedupe_key=application["dedupe_key"],
+      notes=application.get("notes", "")
+    )
+    db.session.add(app_model)
+    db.session.flush()
 
-  event = TrackerApplicationEvent(
-    application_id=app_model.id,
-    event_type=event_type,
-    event_note=event_note
-  )
-  db.session.add(event)
-  db.session.commit()
+    event = TrackerApplicationEvent(
+      application_id=app_model.id,
+      event_type=event_type,
+      event_note=event_note
+    )
+    db.session.add(event)
+    db.session.commit()
 
-  return _to_dict(app_model)
+    return _to_dict(app_model)
 
 
 def list_applications(user_id, status=None, search=None, source=None, applied_from=None):
-  query = TrackerApplication.query.filter_by(user_id=user_id)
-  query = _build_application_filters(query, status, search, source, applied_from)
-  query = query.order_by(TrackerApplication.created_at.desc(), TrackerApplication.id.desc())
-  
-  apps = query.all()
-  return [_to_dict(a) for a in apps]
+  with current_app.app_context():
+    query = TrackerApplication.query.filter_by(user_id=user_id)
+    query = _build_application_filters(query, status, search, source, applied_from)
+    query = query.order_by(TrackerApplication.created_at.desc(), TrackerApplication.id.desc())
+    
+    apps = query.all()
+    return [_to_dict(a) for a in apps]
 
 
 def list_sources(user_id):
-  sources = db.session.query(TrackerApplication.source)\
-    .filter(TrackerApplication.user_id == user_id)\
-    .filter(TrackerApplication.source != None)\
-    .filter(func.trim(TrackerApplication.source) != '')\
-    .distinct()\
-    .order_by(func.lower(TrackerApplication.source).asc())\
-    .all()
-  return [s[0] for s in sources if s[0]]
+  with current_app.app_context():
+    sources = db.session.query(TrackerApplication.source)\
+      .filter(TrackerApplication.user_id == user_id)\
+      .filter(TrackerApplication.source != None)\
+      .filter(func.trim(TrackerApplication.source) != '')\
+      .distinct()\
+      .order_by(TrackerApplication.source.asc())\
+      .all()
+    return [s[0] for s in sources if s[0]]
 
 
 def update_application_status(application_id, status, user_id):
-  app_model = TrackerApplication.query.filter_by(id=application_id, user_id=user_id).first()
-  if not app_model:
-    return None
+  with current_app.app_context():
+    app_model = TrackerApplication.query.filter_by(id=application_id, user_id=user_id).first()
+    if not app_model:
+      return None
 
-  app_model.status = status
-  
-  event = TrackerApplicationEvent(
-    application_id=app_model.id,
-    event_type="status_changed",
-    event_note=f"Moved to {status}"
-  )
-  db.session.add(event)
-  db.session.commit()
+    app_model.status = status
+    
+    event = TrackerApplicationEvent(
+      application_id=app_model.id,
+      event_type="status_changed",
+      event_note=f"Moved to {status}"
+    )
+    db.session.add(event)
+    db.session.commit()
 
-  return _to_dict(app_model)
+    return _to_dict(app_model)
 
 
 def delete_application(application_id, user_id):
-  app_model = TrackerApplication.query.filter_by(id=application_id, user_id=user_id).first()
-  if not app_model:
-    return False
+  with current_app.app_context():
+    app_model = TrackerApplication.query.filter_by(id=application_id, user_id=user_id).first()
+    if not app_model:
+      return False
 
-  db.session.delete(app_model)
-  db.session.commit()
-  return True
+    db.session.delete(app_model)
+    db.session.commit()
+    return True
 
 
 def dashboard_counts(user_id):
-  counts = db.session.query(TrackerApplication.status, func.count(TrackerApplication.id))\
-    .filter(TrackerApplication.user_id == user_id)\
-    .group_by(TrackerApplication.status)\
-    .all()
-  return {row[0]: row[1] for row in counts}
+  with current_app.app_context():
+    counts = db.session.query(TrackerApplication.status, func.count(TrackerApplication.id))\
+      .filter(TrackerApplication.user_id == user_id)\
+      .group_by(TrackerApplication.status)\
+      .all()
+    return {row[0]: row[1] for row in counts}
 
 
 def flow_overview(statuses, user_id, source=None, applied_from=None):
-  node_counts = {status: 0 for status in statuses}
-  links = {}
-  status_order = {status: idx for idx, status in enumerate(statuses)}
+  with current_app.app_context():
+    node_counts = {status: 0 for status in statuses}
+    links = {}
+    status_order = {status: idx for idx, status in enumerate(statuses)}
 
-  query = TrackerApplication.query.filter_by(user_id=user_id)
-  query = _build_application_filters(query, status=None, search=None, source=source, applied_from=applied_from)
-  
-  app_models = query.all()
-  app_ids = [a.id for a in app_models]
-  app_status_map = {a.id: a.status for a in app_models}
+    query = TrackerApplication.query.filter_by(user_id=user_id)
+    query = _build_application_filters(query, status=None, search=None, source=source, applied_from=applied_from)
+    
+    app_models = query.all()
+    app_ids = [a.id for a in app_models]
+    app_status_map = {a.id: a.status for a in app_models}
 
-  for a in app_models:
-    if a.status in node_counts:
-      node_counts[a.status] += 1
+    for a in app_models:
+      if a.status in node_counts:
+        node_counts[a.status] += 1
 
-  if app_ids:
-    events = TrackerApplicationEvent.query.filter(
-      TrackerApplicationEvent.application_id.in_(app_ids),
-      TrackerApplicationEvent.event_type == 'status_changed'
-    ).order_by(TrackerApplicationEvent.application_id.asc(), TrackerApplicationEvent.id.asc()).all()
-  else:
-    events = []
+    if app_ids:
+      events = TrackerApplicationEvent.query.filter(
+        TrackerApplicationEvent.application_id.in_(app_ids),
+        TrackerApplicationEvent.event_type == 'status_changed'
+      ).order_by(TrackerApplicationEvent.application_id.asc(), TrackerApplicationEvent.id.asc()).all()
+    else:
+      events = []
 
-  events_by_app = {}
-  for event in events:
-    app_id = event.application_id
-    note = str(event.event_note or "").strip().lower()
-    if not note.startswith("moved to "):
-      continue
-
-    destination = note.replace("moved to ", "", 1).strip()
-    if destination not in node_counts:
-      continue
-
-    events_by_app.setdefault(app_id, []).append(destination)
-
-  for app_id, destinations in events_by_app.items():
-    previous = "applied"
-    for destination in destinations:
-      if previous == destination:
+    events_by_app = {}
+    for event in events:
+      app_id = event.application_id
+      note = str(event.event_note or "").strip().lower()
+      if not note.startswith("moved to "):
         continue
 
-      if status_order.get(destination, -1) <= status_order.get(previous, -1):
+      destination = note.replace("moved to ", "", 1).strip()
+      if destination not in node_counts:
+        continue
+
+      events_by_app.setdefault(app_id, []).append(destination)
+
+    for app_id, destinations in events_by_app.items():
+      previous = "applied"
+      for destination in destinations:
+        if previous == destination:
+          continue
+
+        if status_order.get(destination, -1) <= status_order.get(previous, -1):
+          previous = destination
+          continue
+
+        key = (previous, destination)
+        links[key] = links.get(key, 0) + 1
         previous = destination
-        continue
 
-      key = (previous, destination)
-      links[key] = links.get(key, 0) + 1
-      previous = destination
+      current_status = app_status_map.get(app_id)
+      if (
+        current_status in node_counts
+        and current_status != previous
+        and status_order.get(current_status, -1) > status_order.get(previous, -1)
+      ):
+        key = (previous, current_status)
+        links[key] = links.get(key, 0) + 1
 
-    current_status = app_status_map.get(app_id)
-    if (
-      current_status in node_counts
-      and current_status != previous
-      and status_order.get(current_status, -1) > status_order.get(previous, -1)
-    ):
-      key = (previous, current_status)
-      links[key] = links.get(key, 0) + 1
+    link_items = [
+      {"source": src, "target": tgt, "value": value}
+      for (src, tgt), value in sorted(links.items(), key=lambda item: item[1], reverse=True)
+      if value > 0
+    ]
 
-  link_items = [
-    {"source": src, "target": tgt, "value": value}
-    for (src, tgt), value in sorted(links.items(), key=lambda item: item[1], reverse=True)
-    if value > 0
-  ]
-
-  return {
-    "nodes": [{"id": s, "label": s.capitalize(), "count": node_counts[s]} for s in statuses],
-    "links": link_items,
-  }
+    return {
+      "nodes": [{"id": s, "label": s.capitalize(), "count": node_counts[s]} for s in statuses],
+      "links": link_items,
+    }
