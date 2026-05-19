@@ -60,6 +60,7 @@ class User(db.Model):
     name = db.Column(db.String(150), nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    role = db.Column(db.String(20), default='user', nullable=False)
 
 class TrackerApplication(db.Model):
     __tablename__ = 'applications'
@@ -148,7 +149,27 @@ def auth_session():
         session.pop('user_id', None)
         return jsonify({"authenticated": False})
         
-    return jsonify({"authenticated": True, "user": {"id": user.id, "name": user.name, "email": user.email}})
+    return jsonify({"authenticated": True, "user": {"id": user.id, "name": user.name, "email": user.email, "role": user.role}})
+
+@app.get('/api/admin/dashboard-stats')
+def admin_dashboard_stats():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    user = db.session.get(User, user_id)
+    if not user or user.role != 'admin':
+        return jsonify({"error": "Forbidden"}), 403
+        
+    total_users = User.query.count()
+    total_apps = TrackerApplication.query.count()
+    recent_users = User.query.order_by(User.id.desc()).limit(5).all()
+    
+    return jsonify({
+        "total_users": total_users,
+        "total_applications": total_apps,
+        "recent_users": [{"id": u.id, "name": u.name, "email": u.email, "role": u.role} for u in recent_users]
+    })
 
 
 @app.get('/login')

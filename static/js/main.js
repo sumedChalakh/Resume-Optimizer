@@ -146,6 +146,7 @@ function setSidebarActive(mode) {
   else if (mode === 'auto') activeId = 'autoApplyNavLink';
   else if (mode === 'salary') activeId = 'salaryNavLink';
   else if (mode === 'tracker') activeId = 'trackerNavLink';
+  else if (mode === 'admin') activeId = 'adminNavLink';
 
   if (activeId) {
     const activeLink = document.getElementById(activeId);
@@ -183,6 +184,7 @@ function bindSidebarHandlers() {
       else if (targetHash === '#autoApplySection') setSidebarActive('auto');
       else if (targetHash === '#salarySection') setSidebarActive('salary');
       else if (targetHash === '#trackerSection') setSidebarActive('tracker');
+      else if (targetHash === '#adminSection') setSidebarActive('admin');
     });
   });
 
@@ -231,6 +233,9 @@ function getPageModeFromHash() {
   if (hash === '#trackersection' || hash === '#tracker') {
     return 'tracker';
   }
+  if (hash === '#adminsection' || hash === '#admin') {
+    return 'admin';
+  }
   return 'home';
 }
 
@@ -244,7 +249,7 @@ function applyPageModeFromHash() {
     dashboardViews.forEach(el => el.classList.add('hidden'));
   } else {
     // Fallback if elements don't have .dashboard-view yet
-    ['homeSection', 'inputSection', 'latexResumeSection', 'autoApplySection', 'salarySection', 'trackerSection', 'resultsSection', 'coverLetterStandaloneSection'].forEach(id => {
+    ['homeSection', 'inputSection', 'latexResumeSection', 'autoApplySection', 'salarySection', 'trackerSection', 'resultsSection', 'coverLetterStandaloneSection', 'adminSection'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
         el.style.display = 'none';
@@ -260,6 +265,7 @@ function applyPageModeFromHash() {
   else if (mode === 'auto') targetId = 'autoApplySection';
   else if (mode === 'salary') targetId = 'salarySection';
   else if (mode === 'tracker') targetId = 'trackerSection';
+  else if (mode === 'admin') targetId = 'adminSection';
 
   // 2. Target Reveal
   if (targetId) {
@@ -289,6 +295,8 @@ function applyPageModeFromHash() {
     if (typeof fetchApplications === 'function') {
       fetchApplications();
     }
+  } else if (mode === 'admin') {
+    loadAdminStats();
   }
 }
 
@@ -1878,6 +1886,40 @@ if (descBox) {
   descBox.addEventListener('mouseleave', () => document.getElementById('rightSidebarToken').classList.remove('highlight'));
 }
 
+async function loadAdminStats() {
+  try {
+    const response = await fetch('/api/admin/dashboard-stats');
+    if (!response.ok) {
+      if (response.status === 403 || response.status === 401) {
+        showError("Unauthorized to view admin panel.");
+      }
+      return;
+    }
+    const data = await response.json();
+    document.getElementById('adminTotalUsers').textContent = data.total_users || 0;
+    document.getElementById('adminTotalApps').textContent = data.total_applications || 0;
+    
+    const tbody = document.getElementById('adminRecentUsersList');
+    if (tbody) {
+      tbody.innerHTML = data.recent_users.map(u => `
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); color: #cbd5e1;">
+          <td style="padding: 16px;">${u.id}</td>
+          <td style="padding: 16px; font-weight: 500;">${escapeHtml(u.name)}</td>
+          <td style="padding: 16px; color: #3b82f6;">${escapeHtml(u.email)}</td>
+          <td style="padding: 16px;">
+            <span style="padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background: ${u.role === 'admin' ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)'}; color: ${u.role === 'admin' ? '#4ade80' : '#94a3b8'}; border: 1px solid ${u.role === 'admin' ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.1)'}; text-transform: uppercase;">
+              ${escapeHtml(u.role)}
+            </span>
+          </td>
+        </tr>
+      `).join('');
+    }
+  } catch (err) {
+    console.error("Failed to load admin stats", err);
+    showError("Could not connect to admin services.");
+  }
+}
+
 async function checkSessionStatus() {
   try {
     const response = await fetch('/auth/session');
@@ -1911,9 +1953,27 @@ async function checkSessionStatus() {
       if (leftSidebarInitial) {
         leftSidebarInitial.textContent = String(data.user.name).substring(0, 1).toUpperCase();
       }
+
+      // Check role for admin link visibility
+      const adminNavLink = document.getElementById('adminNavLink');
+      if (adminNavLink) {
+        if (data.user.role === 'admin') {
+          adminNavLink.classList.remove('hidden');
+          adminNavLink.classList.add('flex');
+        } else {
+          adminNavLink.classList.add('hidden');
+          adminNavLink.classList.remove('flex');
+        }
+      }
     } else {
       if (loggedOutDiv) loggedOutDiv.style.display = 'block';
       if (loggedInDiv) loggedInDiv.style.display = 'none';
+      
+      const adminNavLink = document.getElementById('adminNavLink');
+      if (adminNavLink) {
+        adminNavLink.classList.add('hidden');
+        adminNavLink.classList.remove('flex');
+      }
     }
   } catch (error) {
     console.error('Session check failed', error);

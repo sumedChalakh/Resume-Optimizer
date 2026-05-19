@@ -68,6 +68,10 @@
               <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <span class="font-medium">Salary Predictor</span>
             </a>
+            <a class="sidebar-link hidden items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="adminNavLink" href="/#adminSection" data-desc="Administrative dashboard for managing the ATS Optimizer platform.">
+              <span class="text-xl w-5 h-5 flex items-center justify-center text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors">⚙</span>
+              <span class="font-medium">Admin Panel</span>
+            </a>
           </nav>
         </div>
       </div>
@@ -635,6 +639,50 @@
       </div>
       <div class="reset-row">
         <button class="reset-btn" onclick="resetForm()">↩ Back</button>
+      </div>
+    </section>
+
+    <!-- ADMIN SECTION -->
+    <section class="admin-section" id="adminSection" style="display:none; padding-top: 4rem;">
+      <div class="hero">
+        <h1>Admin <span class="gradient-text">Dashboard</span></h1>
+        <p class="subtitle">Platform metrics and recent user registrations.</p>
+      </div>
+
+      <div class="input-grid" style="margin-bottom: 32px;">
+        <div class="input-card" style="text-align:center;">
+          <div class="card-label justify-center">
+            <span class="label-icon">👥</span> Total Users
+          </div>
+          <div class="text-5xl font-bold text-electricBlue mt-6 mb-2" id="adminTotalUsers">--</div>
+        </div>
+        <div class="input-card" style="text-align:center;">
+          <div class="card-label justify-center">
+            <span class="label-icon">📊</span> Applications Tracked
+          </div>
+          <div class="text-5xl font-bold text-energeticOrange mt-6 mb-2" id="adminTotalApps">--</div>
+        </div>
+      </div>
+
+      <div class="resume-output" style="display:block; max-width:1000px; margin: 0 auto;">
+        <div class="output-header">
+          <h2>Recent Signups</h2>
+        </div>
+        <div class="cover-letter-content" style="padding:0; overflow-x:auto;">
+          <table style="width: 100%; text-align: left; border-collapse: collapse;">
+            <thead>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); font-size: 14px;">
+                <th style="padding: 16px;">ID</th>
+                <th style="padding: 16px;">Name</th>
+                <th style="padding: 16px;">Email</th>
+                <th style="padding: 16px;">Role</th>
+              </tr>
+            </thead>
+            <tbody id="adminRecentUsersList" style="font-size: 15px;">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>
