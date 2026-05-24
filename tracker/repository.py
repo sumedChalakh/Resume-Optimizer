@@ -1,5 +1,6 @@
 from flask import current_app
-from app import db, TrackerApplication, TrackerApplicationEvent
+from extensions import db
+from models import TrackerApplication, TrackerApplicationEvent
 from sqlalchemy import func, or_
 
 def _build_application_filters(query, status=None, search=None, source=None, applied_from=None):

@@ -5,8 +5,7 @@ import urllib.request
 import urllib.error
 from datetime import date
 from collections import Counter
-from flask import Flask, render_template, request, jsonify, send_file, session
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, render_template, request, jsonify, send_file, session, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from anthropic import Anthropic
 from docx import Document
@@ -19,7 +18,8 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from latex_resume import latex_blueprint
 import io
 
-app = Flask(__name__)
+from extensions import db, bcrypt, login_manager
+from models import User, TrackerApplication, TrackerApplicationEvent
 
 def load_env_file(path=".env"):
   """Load KEY=VALUE pairs from a local .env file into process environment."""
@@ -39,142 +39,12 @@ def load_env_file(path=".env"):
 
 load_env_file()
 
-db_url = os.environ.get('DATABASE_URL')
-if db_url:
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
-    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_pre_ping': True,
-        'pool_recycle': 300
-    }
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///local_tracker.db'
-
-app.secret_key = os.environ.get("SECRET_KEY", "dev_fallback_secret_key_123")
-db = SQLAlchemy(app)
-
-class User(db.Model):
-    __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(150), nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(20), default='user', nullable=False)
-
-class TrackerApplication(db.Model):
-    __tablename__ = 'applications'
-    __table_args__ = (db.UniqueConstraint('user_id', 'dedupe_key', name='_user_dedupe_uc'),)
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    company = db.Column(db.String(200), nullable=False)
-    location = db.Column(db.String(200), default='')
-    job_url = db.Column(db.String(500), default='')
-    source = db.Column(db.String(100), default='')
-    status = db.Column(db.String(50), nullable=False, default='applied')
-    applied_date = db.Column(db.String(50), nullable=False)
-    dedupe_key = db.Column(db.String(100), nullable=False)
-    notes = db.Column(db.Text, default='')
-    created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, server_default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
-
-    user = db.relationship('User', backref=db.backref('applications', lazy=True, cascade="all, delete-orphan"))
-
-class TrackerApplicationEvent(db.Model):
-    __tablename__ = 'application_events'
-    id = db.Column(db.Integer, primary_key=True)
-    application_id = db.Column(db.Integer, db.ForeignKey('applications.id', ondelete="CASCADE"), nullable=False)
-    event_type = db.Column(db.String(100), nullable=False)
-    event_note = db.Column(db.Text, default='')
-    event_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
-
-    application = db.relationship('TrackerApplication', backref=db.backref('events', lazy=True, cascade="all, delete-orphan"))
-
-with app.app_context():
-    db.create_all()
 
 
-@app.post('/auth/signup')
-def auth_signup():
-    data = request.get_json(silent=True) or {}
-    name = data.get('name', '').strip()
-    email = data.get('email', '').strip().lower()
-    password = data.get('password', '')
-
-    if not name or not email or not password:
-        return jsonify({"error": "Missing fields"}), 400
-
-    existing_user = User.query.filter_by(email=email).first()
-    if existing_user:
-        return jsonify({"error": "Email already registered"}), 409
-
-    new_user = User(
-        name=name,
-        email=email,
-        password_hash=generate_password_hash(password)
-    )
-    db.session.add(new_user)
-    db.session.commit()
-
-    session['user_id'] = new_user.id
-    return jsonify({"ok": True, "user": {"id": new_user.id, "name": new_user.name, "email": new_user.email}})
-
-@app.post('/auth/login')
-def auth_login():
-    data = request.get_json(silent=True) or {}
-    email = data.get('email', '').strip().lower()
-    password = data.get('password', '')
-
-    user = User.query.filter_by(email=email).first()
-    if not user or not check_password_hash(user.password_hash, password):
-        return jsonify({"error": "Invalid email or password. This account may not be registered."}), 401
-
-    session['user_id'] = user.id
-    return jsonify({"ok": True, "user": {"id": user.id, "name": user.name, "email": user.email}})
-
-@app.post('/auth/logout')
-def auth_logout():
-    session.pop('user_id', None)
-    return jsonify({"ok": True})
-
-@app.get('/auth/session')
-def auth_session():
-    user_id = session.get('user_id')
-    if not user_id:
-        return jsonify({"authenticated": False})
-    
-    user = db.session.get(User, user_id)
-    if not user:
-        session.pop('user_id', None)
-        return jsonify({"authenticated": False})
-        
-    return jsonify({"authenticated": True, "user": {"id": user.id, "name": user.name, "email": user.email, "role": user.role}})
-
-@app.get('/api/admin/dashboard-stats')
-def admin_dashboard_stats():
-    user_id = session.get('user_id')
-    if not user_id:
-        return jsonify({"error": "Unauthorized"}), 401
-    
-    user = db.session.get(User, user_id)
-    if not user or user.role != 'admin':
-        return jsonify({"error": "Forbidden"}), 403
-        
-    total_users = User.query.count()
-    total_apps = TrackerApplication.query.count()
-    recent_users = User.query.order_by(User.id.desc()).limit(5).all()
-    
-    return jsonify({
-        "total_users": total_users,
-        "total_applications": total_apps,
-        "recent_users": [{"id": u.id, "name": u.name, "email": u.email, "role": u.role} for u in recent_users]
-    })
+# session and admin dashboard endpoints moved to auth.routes
 
 
-@app.get('/login')
-def login_page():
-    return render_template("login.html")
+# `login_page` moved to `auth.routes` blueprint
 
 
 
@@ -183,7 +53,6 @@ try:
   MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(8 * 1024 * 1024)))
 except ValueError:
   MAX_UPLOAD_BYTES = 8 * 1024 * 1024
-app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 GITHUB_PAT = os.getenv("GITHUB_PAT", "").strip()
@@ -1989,12 +1858,10 @@ def compute_hybrid_score(result, jd_text, low_credit_mode=False):
     return result
 
 
-@app.route("/")
 def index():
     return render_template("index.html")
 
 
-@app.route("/optimize", methods=["POST"])
 def optimize():
     data = request.get_json(silent=True) or {}
     resume_text = data.get("resume", "").strip()
@@ -2076,7 +1943,6 @@ Preserve all projects and all certifications from the original resume."""
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/generate-cover-letter", methods=["POST"])
 def generate_cover_letter():
     data = request.get_json(silent=True) or {}
     resume_text = data.get("resume", "").strip()
@@ -2099,7 +1965,6 @@ def generate_cover_letter():
         }), 200
 
 
-@app.route("/extract-resume", methods=["POST"])
 def extract_resume():
     uploaded = request.files.get("resume_file")
     if not uploaded:
@@ -2116,7 +1981,6 @@ def extract_resume():
         return jsonify({"error": f"Failed to process file: {str(e)}"}), 500
 
 
-@app.route("/export-docx", methods=["POST"])
 def export_docx():
     data = request.get_json(silent=True) or {}
     resume_data = data.get("resume_data")
@@ -2382,7 +2246,6 @@ def export_docx():
     )
 
 
-@app.route("/export-cover-letter-docx", methods=["POST"])
 def export_cover_letter_docx():
     data = request.get_json(silent=True) or {}
     cover_letter = data.get("cover_letter")
@@ -2462,21 +2325,74 @@ def export_cover_letter_docx():
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
-@app.route("/login")
 def login():
     return render_template("login.html")
 
-try:
-    from tracker import tracker_blueprint
-    app.register_blueprint(tracker_blueprint)
-except ImportError:
+def create_app():
+  app = Flask(__name__, static_folder="static", template_folder="templates")
+
+  # Core config
+  db_url = os.environ.get('DATABASE_URL')
+  if db_url:
+    if db_url.startswith("postgres://"):
+      db_url = db_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+      'pool_pre_ping': True,
+      'pool_recycle': 300
+    }
+  else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///local_tracker.db'
+
+  app.secret_key = os.environ.get("SECRET_KEY", "dev_fallback_secret_key_123")
+
+  try:
+    max_bytes = int(os.getenv("MAX_UPLOAD_BYTES", str(8 * 1024 * 1024)))
+  except ValueError:
+    max_bytes = 8 * 1024 * 1024
+  app.config["MAX_CONTENT_LENGTH"] = max_bytes
+
+  # Initialize extensions
+  db.init_app(app)
+  bcrypt.init_app(app)
+  login_manager.init_app(app)
+
+  @login_manager.user_loader
+  def _load_user(user_id):
+    try:
+      return db.session.get(User, int(user_id))
+    except Exception:
+      return None
+
+  # Register blueprints
+  try:
+    from auth.routes import auth_blueprint
+    app.register_blueprint(auth_blueprint)
+  except Exception:
     pass
 
-try:
+  try:
+    from tracker.routes import tracker_blueprint
+    app.register_blueprint(tracker_blueprint)
+  except Exception:
+    pass
+
+  try:
+    from optimizer.routes import optimizer_blueprint
+    app.register_blueprint(optimizer_blueprint)
+  except Exception:
+    pass
+
+  try:
     from latex_resume import latex_blueprint
     app.register_blueprint(latex_blueprint)
-except ImportError:
+  except Exception:
     pass
+
+  with app.app_context():
+    db.create_all()
+
+  return app
 
 
 if __name__ == "__main__":
@@ -2486,4 +2402,5 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
   except ValueError:
     port = 5000
-  app.run(host="0.0.0.0", debug=debug_enabled, port=port)
+  application = create_app()
+  application.run(host="0.0.0.0", debug=debug_enabled, port=port)

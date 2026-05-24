@@ -1,4 +1,5 @@
-from app import app
+from app import create_app
+app = create_app()
 import json
 
 client = app.test_client()

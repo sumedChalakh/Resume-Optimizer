@@ -1,7 +1,9 @@
 import sys
-from app import app, db
+from app import create_app
+from extensions import db
 from sqlalchemy import text
 
+app = create_app()
 try:
     with app.app_context():
         with db.engine.connect() as conn:
