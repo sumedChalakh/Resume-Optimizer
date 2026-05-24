@@ -1,6 +1,6 @@
-from app import create_app
-app = create_app()
 import os
+
+from app import app
 
 if __name__ == "__main__":
     debug_raw = os.getenv("FLASK_DEBUG", "0").strip().lower()

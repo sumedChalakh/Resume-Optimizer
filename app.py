@@ -5,8 +5,7 @@ import urllib.request
 import urllib.error
 from datetime import date
 from collections import Counter
-from flask import Flask, render_template, request, jsonify, send_file, session, current_app
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, render_template, request, jsonify, send_file
 from anthropic import Anthropic
 from docx import Document
 from pypdf import PdfReader
@@ -15,11 +14,10 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
-from latex_resume import latex_blueprint
 import io
 
 from extensions import db, bcrypt, login_manager
-from models import User, TrackerApplication, TrackerApplicationEvent
+from models import User
 
 def load_env_file(path=".env"):
   """Load KEY=VALUE pairs from a local .env file into process environment."""
@@ -2395,6 +2393,9 @@ def create_app():
   return app
 
 
+app = create_app()
+
+
 if __name__ == "__main__":
   debug_raw = os.getenv("FLASK_DEBUG", "0").strip().lower()
   debug_enabled = debug_raw in {"1", "true", "yes", "on"}
@@ -2402,5 +2403,6 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
   except ValueError:
     port = 5000
-  application = create_app()
-  application.run(host="0.0.0.0", debug=debug_enabled, port=port)
+  app.run(host="0.0.0.0", debug=debug_enabled, port=port)
+
+
