@@ -730,9 +730,10 @@
         <p class="subtitle">Prepare for real technical or behavioral interviews with our conversational recruiter agent.</p>
       </div>
 
-      <!-- Setup View Panel -->
-      <div id="interviewSetupCard" class="input-grid" style="max-width: 800px; margin: 0 auto;">
-        <div class="input-card" style="width: 100%;">
+      <!-- Setup View Panel & Recruiter Q&A Bank Grid -->
+      <div id="interviewSetupGrid" class="input-grid" style="max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 24px;">
+        <!-- Setup Card -->
+        <div id="interviewSetupCard" class="input-card" style="width: 100%; margin: 0;">
           <div class="card-label">
             <span class="label-icon">🎙️</span>
             Start Interview Practice Session
@@ -743,6 +744,7 @@
               <label class="drawer-field-label" style="margin-bottom: 6px; display: block; font-weight: 600; color: var(--text-muted);">Interview Type</label>
               <select id="interviewType" class="latex-input" style="background: rgba(255,255,255,0.05); color: white; width: 100%; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px;">
                 <option value="Technical" selected style="background: #0f172a; color: white;">Technical (Coding, System Design, Tech Architecture)</option>
+                <option value="Coding" style="background: #0f172a; color: white;">Coding Challenge Simulator (Algorithms & Big-O sandbox)</option>
                 <option value="Behavioral" style="background: #0f172a; color: white;">Behavioral (STAR method, Leadership, Situational)</option>
                 <option value="Mixed" style="background: #0f172a; color: white;">Mixed (Combination of Tech & Behavioral questions)</option>
               </select>
@@ -766,6 +768,21 @@
           <button type="button" class="optimize-btn" style="width: 100%;" onclick="startInterviewSession()">
             <span class="btn-icon">⚡</span> Start Interview Session
           </button>
+        </div>
+
+        <!-- Recruiter Q&A Bank Card -->
+        <div class="input-card" style="width: 100%; margin: 0; display: flex; flex-direction: column; gap: 16px; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255,255,255,0.08);">
+          <div class="card-label">
+            <span class="label-icon">🔍</span> Recruiter Q&A Bank
+          </div>
+          <p style="font-size: 11px; color: var(--text-muted); margin: 0; line-height: 1.4;">Instantly query standard anticipated interview questions and outlines asked by major companies.</p>
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <input type="text" id="qaCompanyInput" class="latex-input" style="flex: 1; margin: 0; padding: 10px;" placeholder="e.g. Stripe, Google, Meta" value="Stripe" />
+            <button type="button" class="optimize-btn" style="width: auto; padding: 0 16px; margin: 0; font-size: 11px;" onclick="searchQABank()">Search</button>
+          </div>
+          <div id="qaBankResults" class="custom-scrollbar" style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; font-size: 12px;">
+            <div style="color: var(--text-muted); text-align: center; padding: 40px 10px; font-size: 11px;">Search a company above to generate anticipated recruiter questions.</div>
+          </div>
         </div>
       </div>
 
