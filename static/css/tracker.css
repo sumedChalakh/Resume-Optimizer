@@ -1,15 +1,98 @@
 * { box-sizing: border-box; }
 
+/* --- LIGHT THEME (DEFAULT) --- */
 :root {
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --line: rgba(15, 23, 42, 0.08);
+  --text: #0f172a;
+  --muted: #64748b;
+  --accent: #2563eb;
+  --accent-soft: rgba(59, 130, 246, 0.1);
+  --ok: #16a34a;
+  --warn: #d97706;
+  --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+}
+
+/* --- DARK THEME --- */
+[data-theme="dark"] {
   --bg: #0f172a;
   --card: rgba(255, 255, 255, 0.05);
   --line: rgba(255, 255, 255, 0.1);
   --text: #f8fafc;
   --muted: #94a3b8;
   --accent: #3b82f6;
-  --accent-soft: rgba(59,130,246,0.15);
+  --accent-soft: rgba(59, 130, 246, 0.15);
   --ok: #22c55e;
   --warn: #f59e0b;
+  --card-shadow: none;
+}
+
+/* Custom Overrides for Light/Dark Themes in Tracker */
+body {
+  background-color: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+.column, .add-form-card, .insights-card, .flow-card {
+  background-color: var(--card) !important;
+  border-color: var(--line) !important;
+  box-shadow: var(--card-shadow);
+}
+
+.app-topbar {
+  background-color: var(--card) !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+
+[data-theme="light"] .app-topbar .brand,
+[data-theme="light"] .app-topbar .brand * {
+  color: var(--text) !important;
+}
+[data-theme="light"] .app-topbar .brand strong {
+  color: var(--accent) !important;
+}
+[data-theme="light"] .app-topbar .top-link {
+  color: var(--muted) !important;
+}
+[data-theme="light"] .app-topbar .top-link:hover {
+  color: var(--accent) !important;
+  background: var(--line) !important;
+}
+[data-theme="light"] .app-topbar .top-link.active {
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  border-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+/* App Cards in Columns */
+.app-card {
+  background-color: var(--bg) !important;
+  border-color: var(--line) !important;
+}
+
+.app-title {
+  color: var(--text) !important;
+}
+
+.app-company {
+  color: var(--muted) !important;
+}
+
+/* Inputs and elements */
+input, select, textarea {
+  color: var(--text) !important;
+  background-color: var(--card) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .app-topbar {
+  background-color: rgba(15, 23, 42, 0.9) !important;
+}
+[data-theme="dark"] .stat-pill {
+  color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
 }
 
 body {
@@ -483,4 +566,495 @@ body {
   .insights-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* --- EMAIL PARSER SYSTEM (Upgrades) --- */
+.email-sync-panel {
+  margin-top: 24px;
+  background: var(--card) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+  transition: all 0.3s ease;
+}
+
+.email-sync-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.email-sync-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.email-sync-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.email-template-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+  scrollbar-width: thin;
+}
+
+.email-template-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.email-template-scroll::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+
+.email-template-pill {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--bg) !important;
+  color: var(--muted) !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.email-template-pill:hover {
+  border-color: var(--accent);
+  color: var(--text) !important;
+  background: var(--accent-soft) !important;
+  transform: translateY(-1px);
+}
+
+.email-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.email-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.email-form input, 
+.email-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px;
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.email-form textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.email-form input:focus,
+.email-form textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.email-parse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.email-parse-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.email-parse-btn:disabled {
+  background: var(--line) !important;
+  color: var(--muted) !important;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.email-loader-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.email-loader-dot {
+  width: 5px;
+  height: 5px;
+  background-color: currentColor;
+  border-radius: 50%;
+  animation: email-bounce 1.4s infinite ease-in-out both;
+}
+
+.email-loader-dot:nth-child(1) { animation-delay: -0.32s; }
+.email-loader-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes email-bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1.0); }
+}
+
+.email-parse-result {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.email-parse-result.matched {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.email-parse-result.unmatched {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.email-result-header {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.email-result-meta {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+.email-action-row {
+  display: flex;
+  gap: 8px;
+}
+
+.email-action-btn {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.email-action-btn.primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+.email-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* --- MULTI-BOARD SWITCHER SYSTEM --- */
+.board-nav-section {
+  margin-bottom: 24px;
+}
+
+.board-nav-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1.5px solid var(--line) !important;
+  padding-bottom: 2px;
+}
+
+.board-tabs-list {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.board-tabs-list::-webkit-scrollbar {
+  display: none;
+}
+
+.board-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted) !important;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  margin-bottom: -2.5px;
+}
+
+.board-tab:hover {
+  color: var(--text) !important;
+}
+
+.board-tab.active {
+  color: var(--accent) !important;
+  border-bottom-color: var(--accent) !important;
+  font-weight: 700;
+}
+
+.board-tab-edit-btn, 
+.board-tab-delete-btn {
+  font-size: 10px;
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.board-tab-edit-btn:hover, 
+.board-tab-delete-btn:hover {
+  opacity: 1;
+  color: var(--warn) !important;
+}
+
+.board-tab-delete-btn:hover {
+  color: #ef4444 !important;
+}
+
+.add-board-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-board-tab-btn:hover {
+  background: var(--accent);
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* --- ARCHIVED CABINET SYSTEM --- */
+.archive-cabinet-section {
+  margin-top: 36px;
+  border-top: 1px dashed var(--line);
+  padding-top: 24px;
+}
+
+.archive-cabinet-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--warn) !important;
+  background: rgba(245, 158, 11, 0.08) !important;
+  border: 1px solid rgba(245, 158, 11, 0.2) !important;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.archive-cabinet-toggle-btn:hover {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: var(--warn) !important;
+  transform: translateY(-1px);
+}
+
+.archive-cabinet-container {
+  margin-top: 16px;
+  background: var(--card) !important;
+  border: 1.5px solid rgba(245, 158, 11, 0.2) !important;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.archive-cabinet-header {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+
+.archive-cabinet-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+
+.archive-cabinet-header p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+
+.archive-cabinet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.archive-cabinet-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.archive-cabinet-item:hover {
+  border-color: var(--warn) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.archive-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.archive-item-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.archive-item-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.archive-item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.archive-item-btn {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line) !important;
+  background: var(--card) !important;
+  color: var(--text) !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.archive-item-btn.restore {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+}
+
+.archive-item-btn.restore:hover {
+  background: var(--accent) !important;
+  color: white !important;
+}
+
+.archive-item-btn.purge {
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.05) !important;
+}
+
+.archive-item-btn.purge:hover {
+  background: #ef4444 !important;
+  color: white !important;
+}
+
+/* Kanban card Archive Button Styling */
+.app-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+}
+
+.app-card-btn {
+  flex: 1;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--line) !important;
+  background: var(--card) !important;
+  color: var(--muted) !important;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.app-card-btn:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+}
+
+.app-card-btn.archive-btn:hover {
+  border-color: var(--warn) !important;
+  color: var(--warn) !important;
+  background: rgba(245, 158, 11, 0.08) !important;
 }
