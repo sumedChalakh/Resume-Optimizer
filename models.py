@@ -10,6 +10,21 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), default='user', nullable=False)
+    resume_text = db.Column(db.Text, nullable=True)
+    plan = db.Column(db.String(50), default='free', nullable=False)
+    stripe_customer_id = db.Column(db.String(255), nullable=True)
+    subscription_active = db.Column(db.Boolean, default=False, nullable=False)
+    api_credits = db.Column(db.Integer, default=2, nullable=False)
+
+
+class TrackerBoard(db.Model):
+    __tablename__ = 'boards'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.String(150), nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
+
+    user = db.relationship('User', backref=db.backref('boards', lazy=True, cascade="all, delete-orphan"))
 
 
 class TrackerApplication(db.Model):
@@ -17,6 +32,7 @@ class TrackerApplication(db.Model):
     __table_args__ = (db.UniqueConstraint('user_id', 'dedupe_key', name='_user_dedupe_uc'),)
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    board_id = db.Column(db.Integer, db.ForeignKey('boards.id'), nullable=False, default=1)
     title = db.Column(db.String(200), nullable=False)
     company = db.Column(db.String(200), nullable=False)
     location = db.Column(db.String(200), default='')
@@ -26,10 +42,12 @@ class TrackerApplication(db.Model):
     applied_date = db.Column(db.String(50), nullable=False)
     dedupe_key = db.Column(db.String(100), nullable=False)
     notes = db.Column(db.Text, default='')
+    archived = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
     updated_at = db.Column(db.DateTime, server_default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
 
     user = db.relationship('User', backref=db.backref('applications', lazy=True, cascade="all, delete-orphan"))
+    board = db.relationship('TrackerBoard', backref=db.backref('applications', lazy=True, cascade="all, delete-orphan"), foreign_keys=[board_id])
 
 
 class TrackerApplicationEvent(db.Model):
@@ -41,3 +59,18 @@ class TrackerApplicationEvent(db.Model):
     event_at = db.Column(db.DateTime, server_default=db.func.current_timestamp())
 
     application = db.relationship('TrackerApplication', backref=db.backref('events', lazy=True, cascade="all, delete-orphan"))
+
+
+class InterviewSession(db.Model):
+    __tablename__ = 'interview_sessions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete="CASCADE"), nullable=False)
+    job_title = db.Column(db.String(150), nullable=False)
+    interview_type = db.Column(db.String(50), default='Mixed', nullable=False)
+    difficulty = db.Column(db.String(50), default='Mid', nullable=False)
+    score = db.Column(db.Integer, nullable=True)
+    feedback = db.Column(db.Text, nullable=True)
+    history = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('interview_sessions', lazy=True, cascade="all, delete-orphan"))
