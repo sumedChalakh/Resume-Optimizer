@@ -80,7 +80,19 @@ def auth_session():
     if not user:
         session.pop('user_id', None)
         return jsonify({"authenticated": False})
-    return jsonify({"authenticated": True, "user": {"id": user.id, "name": user.name, "email": user.email, "role": user.role}})
+    return jsonify({
+        "authenticated": True,
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+            "plan": user.plan,
+            "stripe_customer_id": user.stripe_customer_id,
+            "subscription_active": user.subscription_active,
+            "api_credits": user.api_credits
+        }
+    })
 
 
 @auth_blueprint.get('/api/admin/dashboard-stats')
