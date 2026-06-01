@@ -143,3 +143,87 @@ pre {
   font-size: 12px;
   color: #0f7a4b;
 }
+
+/* Tabs Styles */
+.tabs {
+  display: flex;
+  background: #e4ebfa;
+  border-radius: 8px;
+  padding: 2px;
+  margin-bottom: 12px;
+}
+.tab {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  color: #5a678a;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.tab.active {
+  background: #fff;
+  color: #1a56db;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Form Sections */
+.form-section {
+  display: flex;
+  flex-direction: column;
+}
+.form-section h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+/* Unlock Banner */
+.unlock-banner {
+  background: #ecfdf3;
+  border: 1px solid #d1fadf;
+  border-radius: 8px;
+  padding: 8px;
+  color: #027a48;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+/* Custom Colored Buttons */
+.green-btn {
+  background: #12b76a;
+  border-color: #12b76a;
+}
+.green-btn:hover {
+  background: #0ea25c;
+  border-color: #0ea25c;
+}
+.blue-btn {
+  background: #1a56db;
+  border-color: #1a56db;
+}
+.blue-btn:hover {
+  background: #1545b2;
+  border-color: #1545b2;
+}
+.purple-btn {
+  background: #7a08c2;
+  border-color: #7a08c2;
+}
+.purple-btn:hover {
+  background: #6305a0;
+  border-color: #6305a0;
+}
+.gray-btn {
+  background: #667085;
+  border-color: #667085;
+}
+.gray-btn:hover {
+  background: #535c6d;
+  border-color: #535c6d;
+}
+
