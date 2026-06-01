@@ -27,6 +27,12 @@
       }
     }
   </script>
+  <script>
+    (function() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
 </head>
 <body class="bg-midnight text-slate-200">
   <div class="bg-grid opacity-10 mix-blend-screen pointer-events-none"></div>
@@ -35,11 +41,14 @@
     <!-- Left Sidebar -->
     <aside class="w-64 flex flex-col justify-between border-r border-slate-800 bg-[#0d1527] hidden lg:flex shrink-0 z-50 transition-all duration-300" id="leftSidebar">
       <div>
-        <div class="p-6">
-          <a class="brand !text-white flex items-center gap-2 text-xl font-bold" href="/">
+        <div class="p-6 flex items-center justify-between">
+          <a class="brand flex items-center gap-2 text-xl font-bold" href="/">
             <span class="brand-icon">⚡</span>
             <span>ATS<strong class="!text-electricBlue">Optimizer</strong></span>
           </a>
+          <button id="themeToggleBtn" class="w-8 h-8 rounded-full border border-slate-700 bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-300 hover:text-white cursor-pointer transition-all" title="Toggle Light/Dark Theme">
+            <span id="themeToggleIcon" class="text-sm">☀️</span>
+          </button>
         </div>
         <div class="px-4 pb-4">
           <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-2">Products</h3>
@@ -68,6 +77,10 @@
               <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <span class="font-medium">Salary Predictor</span>
             </a>
+            <a class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="interviewNavLink" href="/#interviewSection" data-desc="Simulate a real technical or behavioral job interview with our AI recruiter and review your scorecard.">
+              <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" /></svg>
+              <span class="font-medium">AI Mock Interview</span>
+            </a>
             <a class="sidebar-link hidden items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="adminNavLink" href="/#adminSection" data-desc="Administrative dashboard for managing the ATS Optimizer platform.">
               <span class="text-xl w-5 h-5 flex items-center justify-center text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors">⚙</span>
               <span class="font-medium">Admin Panel</span>
@@ -86,9 +99,12 @@
         <div class="w-10 h-10 rounded-full bg-electricBlue/20 border border-electricBlue flex items-center justify-center text-electricBlue font-bold text-lg" id="sidebar-user-initial">
           G
         </div>
-        <div>
-          <div class="font-bold text-sm text-white"><span id="sidebar-username">Guest</span></div>
-          <div class="text-xs text-slate-400">Free Tier</div>
+        <div style="flex: 1; min-width: 0;">
+          <div class="font-bold text-sm text-white truncate"><span id="sidebar-username">Guest</span></div>
+          <div class="flex items-center justify-between gap-1 mt-0.5">
+            <span class="text-xs text-slate-400" id="sidebar-userplan">Free Tier</span>
+            <button type="button" onclick="openPricingDrawer()" style="background: none; border: none; padding: 0; color: #fbbf24; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s;" id="sidebarUpgradeBtn" class="hover:underline animate-pulse">⚡ Upgrade</button>
+          </div>
         </div>
       </div>
     </aside>
@@ -97,11 +113,16 @@
     <main class="flex-1 overflow-y-auto p-4 md:p-8 relative custom-scrollbar" id="mainContentArea">
       <!-- Mobile header fallback -->
       <div class="lg:hidden flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
-        <a class="brand !text-white flex items-center gap-2 text-xl font-bold" href="/">
+        <a class="brand flex items-center gap-2 text-xl font-bold" href="/">
           <span class="brand-icon">⚡</span>
           <span>ATS<strong class="!text-electricBlue">Optimizer</strong></span>
         </a>
-        <div class="header-badge text-xs !text-slate-300 !bg-white/5 !border-white/20 px-2 py-1 rounded" id="providerBadgeMobile">Provider: Auto</div>
+        <div class="flex items-center gap-3">
+          <button id="themeToggleBtnMobile" class="w-8 h-8 rounded-full border border-slate-700 bg-white/5 flex items-center justify-center text-slate-300 cursor-pointer transition-all animate-none" title="Toggle Light/Dark Theme">
+            <span id="themeToggleIconMobile" class="text-sm">☀️</span>
+          </button>
+          <div class="header-badge text-xs !text-slate-300 !bg-white/5 !border-white/20 px-2 py-1 rounded" id="providerBadgeMobile">Provider: Auto</div>
+        </div>
       </div>
   <section id="homeSection" class="bg-midnight min-h-screen w-full text-white font-sans overflow-hidden relative">
     <!-- Background Ambient Glow -->
@@ -362,6 +383,16 @@
           </div>
           <div class="char-count" id="latexUploadStatus">Upload your current resume to auto-fill fields, then edit as needed.</div>
 
+          <div class="card-label" style="color: var(--text-muted); margin-top: 8px;">
+            <span class="label-icon">🎨</span>
+            Select Layout Template
+          </div>
+          <select id="latexTemplateId" class="latex-input" style="background: var(--surface2); border: 1px solid var(--border); color: var(--text); width: 100%; margin-bottom: 12px;">
+            <option value="classic" style="background: var(--sidebar-bg); color: var(--text);" selected>📘 Classic Serif (Blue Headings)</option>
+            <option value="modern" style="background: var(--sidebar-bg); color: var(--text);">📓 Modern Sans-Serif (Clean Dark headings)</option>
+            <option value="executive" style="background: var(--sidebar-bg); color: var(--text);">📕 Elegant Executive (Rich Crimson Serif)</option>
+          </select>
+
           <div class="card-label">
             <span class="label-icon">👤</span>
             Candidate Details
@@ -591,7 +622,13 @@
       <!-- Resume Output -->
       <div class="resume-output" id="resumeOutput">
         <div class="output-header">
-          <h2>✨ Optimized Resume</h2>
+          <h2 class="flex items-center gap-3" style="color: var(--text);">
+            <span>✨ Optimized Resume</span>
+            <span id="saveTelemetryPill" class="save-status-pill">
+              <span id="saveTelemetryDot" class="save-status-dot"></span>
+              <span id="saveTelemetryText">Synced</span>
+            </span>
+          </h2>
           <div class="export-btns">
             <button class="export-btn" onclick="copyToClipboard()">📋 Copy Text</button>
             <button class="export-btn primary" onclick="exportDocx()">⬇️ Download .docx</button>
@@ -685,6 +722,151 @@
         </div>
       </div>
     </section>
+
+    <!-- AI MOCK INTERVIEW SIMULATOR SECTION -->
+    <section class="interview-section" id="interviewSection" style="display:none; padding-top: 4rem;">
+      <div class="hero">
+        <h1>AI Mock <span class="gradient-text">Interview Simulator</span></h1>
+        <p class="subtitle">Prepare for real technical or behavioral interviews with our conversational recruiter agent.</p>
+      </div>
+
+      <!-- Setup View Panel -->
+      <div id="interviewSetupCard" class="input-grid" style="max-width: 800px; margin: 0 auto;">
+        <div class="input-card" style="width: 100%;">
+          <div class="card-label">
+            <span class="label-icon">🎙️</span>
+            Start Interview Practice Session
+          </div>
+          
+          <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px;">
+            <div>
+              <label class="drawer-field-label" style="margin-bottom: 6px; display: block; font-weight: 600; color: var(--text-muted);">Interview Type</label>
+              <select id="interviewType" class="latex-input" style="background: rgba(255,255,255,0.05); color: white; width: 100%; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px;">
+                <option value="Technical" selected style="background: #0f172a; color: white;">Technical (Coding, System Design, Tech Architecture)</option>
+                <option value="Behavioral" style="background: #0f172a; color: white;">Behavioral (STAR method, Leadership, Situational)</option>
+                <option value="Mixed" style="background: #0f172a; color: white;">Mixed (Combination of Tech & Behavioral questions)</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="drawer-field-label" style="margin-bottom: 6px; display: block; font-weight: 600; color: var(--text-muted);">Target Seniority Level</label>
+              <select id="interviewDifficulty" class="latex-input" style="background: rgba(255,255,255,0.05); color: white; width: 100%; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px;">
+                <option value="Junior" style="background: #0f172a; color: white;">Junior (Entry Level / Associate)</option>
+                <option value="Mid" selected style="background: #0f172a; color: white;">Mid-Level (Standard Technical & Project execution)</option>
+                <option value="Senior" style="background: #0f172a; color: white;">Senior (Staff, Architecture, Leadership, System design)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="drawer-field-label" style="margin-bottom: 6px; display: block; font-weight: 600; color: var(--text-muted);">Job Description Context (Required)</label>
+              <textarea id="interviewJd" style="min-height: 120px;" placeholder="Paste the specific job description requirements here to align recruiter questions..."></textarea>
+            </div>
+          </div>
+
+          <button type="button" class="optimize-btn" style="width: 100%;" onclick="startInterviewSession()">
+            <span class="btn-icon">⚡</span> Start Interview Session
+          </button>
+        </div>
+      </div>
+
+      <!-- Chat Conversation View Panel -->
+      <div id="interviewChatCard" class="input-grid" style="display: none; max-width: 800px; margin: 0 auto; grid-template-columns: 1fr;">
+        <!-- Recruiter Info Header -->
+        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 20px;">🤖</div>
+            <div>
+              <h3 style="font-weight: 700; margin: 0; font-size: 15px; color: white;" id="recruiterName">AI Recruiting Panel</h3>
+              <span style="font-size: 11px; color: var(--text-muted);" id="interviewTypeDifficulty">Technical | Mid-Level</span>
+            </div>
+          </div>
+          <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #60a5fa; border-radius: 99px; padding: 4px 12px; font-size: 11px; font-weight: 700;" id="interviewRoundCounter">
+            Question 1 of 5
+          </div>
+        </div>
+
+        <!-- Chat History Stream -->
+        <div id="interviewChatStream" class="custom-scrollbar" style="min-height: 350px; max-height: 450px; overflow-y: auto; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px;">
+          <!-- Loaded Dynamically by JS -->
+        </div>
+
+        <!-- Typing Indicator -->
+        <div id="interviewTypingIndicator" style="display: none; align-items: center; gap: 8px; padding-left: 20px; margin-bottom: 16px;">
+          <span style="font-size: 12px; color: var(--text-muted);">Recruiter is evaluating your answer...</span>
+          <div style="display: flex; gap: 4px;">
+            <div style="width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; animation: bounce 1.4s infinite ease-in-out;"></div>
+            <div style="width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; animation: bounce 1.4s infinite ease-in-out 0.2s;"></div>
+            <div style="width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; animation: bounce 1.4s infinite ease-in-out 0.4s;"></div>
+          </div>
+        </div>
+
+        <!-- Answer Submission Area -->
+        <div class="input-card" style="width: 100%;">
+          <div class="card-label">
+            <span class="label-icon">🎙️</span> Your Answer Response
+          </div>
+          <textarea id="interviewAnswerInput" style="min-height: 100px; margin-bottom: 12px;" placeholder="Type your response to the recruiter's question here... Be clear, mention metrics, and outline your precise impact."></textarea>
+          <div style="display: flex; gap: 12px;">
+            <button type="button" class="optimize-btn" style="flex: 1;" onclick="submitInterviewAnswer()">
+              <span class="btn-icon">📤</span> Submit Response
+            </button>
+            <button type="button" class="top-btn" onclick="forceEndInterview()" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171;">
+              🛑 Finish & Get Scorecard
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scorecard View Panel -->
+      <div id="interviewScorecard" class="input-grid" style="display: none; max-width: 800px; margin: 0 auto; grid-template-columns: 1fr;">
+        <!-- Glowing score badge and overall feedback -->
+        <div class="ats-drawer-card" style="align-items: center; text-align: center; gap: 16px; background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(251, 191, 36, 0.25); display: flex; flex-direction: column;">
+          <div style="width: 90px; height: 90px; border-radius: 50%; border: 4px solid #fbbf24; box-shadow: 0 0 20px rgba(251,191,36,0.3); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 900; color: #fbbf24;" id="scorecardTotal">
+            85%
+          </div>
+          <div>
+            <h2 style="font-weight: 800; font-size: 20px; color: white; margin: 0 0 6px 0;">Official Performance Scorecard</h2>
+            <p id="scorecardFeedback" style="font-size: 13px; color: #94a3b8; max-width: 600px; line-height: 1.5; margin: 0;"></p>
+          </div>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" style="margin-top: 16px; display: grid;">
+          <div class="ats-drawer-card">
+            <div class="ats-drawer-section-title" style="font-size: 11px;">🎯 Technical Accuracy</div>
+            <div style="font-size: 24px; font-weight: 800; color: #34d399;" id="scorecardTech">18 / 25</div>
+            <div class="ats-progress-bar-container"><div class="ats-progress-bar-fill tech" id="scorecardTechFill" style="width: 72%;"></div></div>
+          </div>
+          <div class="ats-drawer-card">
+            <div class="ats-drawer-section-title" style="font-size: 11px;">🏗️ Comm Clarity</div>
+            <div style="font-size: 24px; font-weight: 800; color: #60a5fa;" id="scorecardComm">18 / 25</div>
+            <div class="ats-progress-bar-container"><div class="ats-progress-bar-fill struct" id="scorecardCommFill" style="width: 72%;"></div></div>
+          </div>
+          <div class="ats-drawer-card">
+            <div class="ats-drawer-section-title" style="font-size: 11px;">🤖 Behavioral Fit</div>
+            <div style="font-size: 24px; font-weight: 800; color: #c084fc;" id="scorecardBeh">12 / 15</div>
+            <div class="ats-progress-bar-container"><div class="ats-progress-bar-fill ai" id="scorecardBehFill" style="width: 80%;"></div></div>
+          </div>
+        </div>
+
+        <!-- Conversation Review Details -->
+        <div class="input-card" style="width: 100%; margin-top: 16px;">
+          <div class="card-label">
+            <span class="label-icon">🔍</span>
+            Round-by-Round Breakdown & Learning Guide
+          </div>
+          
+          <div id="scorecardRoundsList" style="display: flex; flex-direction: column; gap: 16px; margin-top: 12px;">
+            <!-- Loaded Dynamically by JS -->
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <button type="button" class="optimize-btn" style="width: 100%; margin-top: 16px;" onclick="resetInterviewPortal()">
+          🔄 Practice Another Session
+        </button>
+      </div>
+    </section>
   </main>
 
     <!-- Right Sidebar -->
@@ -707,12 +889,158 @@
               <span class="text-sm font-bold text-white">Sync Status: Active</span>
             </div>
             <p class="text-xs text-slate-400 mb-3 truncate" id="rightSidebarEmail">user@example.com</p>
+            <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; margin-top: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 11px; font-weight: 700; color: #94a3b8;" id="rightSidebarUserPlan">Plan: Free Tier</span>
+              <button type="button" onclick="openPricingDrawer()" style="background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); color: #fbbf24; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 800; cursor: pointer; transition: all 0.2s;" id="rightSidebarUpgradeBtn" class="hover:scale-105">Upgrade</button>
+            </div>
             <button id="authSignOutBtn" class="w-full py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition-all">Sign Out</button>
           </div>
         </div>
       </div>
     </aside>
   </div>
+
+  <!-- AI Bullet Booster Slide-out Drawer -->
+  <div id="bulletDrawerOverlay" class="drawer-overlay" onclick="closeBulletDrawer()"></div>
+  <aside id="bulletDrawer" class="drawer" aria-labelledby="drawerTitle">
+    <div class="drawer-header" style="border-bottom: 1px solid var(--border);">
+      <div>
+        <h2 id="drawerTitle" class="text-lg font-bold flex items-center gap-2 m-0" style="color: var(--text);">
+          <span style="color: var(--accent);">⚡</span> AI Bullet Booster
+        </h2>
+        <p class="text-xs m-0 mt-1" style="color: var(--text-muted);">Inject quantifiable metrics and high-impact action verbs.</p>
+      </div>
+      <button class="drawer-close-btn" onclick="closeBulletDrawer()" aria-label="Close drawer" style="color: var(--text-muted);">×</button>
+    </div>
+    
+    <div class="drawer-body custom-scrollbar">
+      <div class="drawer-field">
+        <span class="drawer-field-label" style="color: var(--text-muted);">Original Bullet</span>
+        <div id="drawerOriginalText" class="drawer-original-box" style="background: var(--surface); border: 1px solid var(--border); color: var(--text);">
+          Select a bullet point to optimize.
+        </div>
+      </div>
+      
+      <div class="drawer-field">
+        <label for="drawerTargetRole" class="drawer-field-label" style="color: var(--text-muted);">Target Role</label>
+        <input type="text" id="drawerTargetRole" class="latex-input" style="background: var(--surface2); border: 1px solid var(--border); color: var(--text);" placeholder="e.g. Data Scientist, Full Stack Developer" />
+      </div>
+      
+      <div class="drawer-field">
+        <label for="drawerJdContext" class="drawer-field-label" style="color: var(--text-muted);">Job Description Context (Optional)</label>
+        <textarea id="drawerJdContext" class="custom-scrollbar" style="min-height: 100px; background: var(--surface2); border: 1px solid var(--border); color: var(--text);" placeholder="Paste specific requirements from the JD to align metrics..."></textarea>
+      </div>
+      
+      <button id="boostBulletBtn" class="optimize-btn drawer-boost-btn" onclick="boostBulletAction()">
+        <span class="btn-icon">⚡</span> Boost Bullet Point
+      </button>
+      
+      <div class="drawer-field mt-4">
+        <span class="drawer-field-label" style="color: var(--text-muted);">Quantified X-Y-Z Variations</span>
+        <div id="drawerVariationsContainer" class="drawer-variations-list">
+          <div class="text-xs text-center py-8" style="color: var(--text-muted);">
+            Click "Boost Bullet Point" to generate impact-driven X-Y-Z variations.
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Premium Glassmorphic Pricing Drawer -->
+  <div id="pricingDrawerOverlay" class="drawer-overlay" onclick="closePricingDrawer()"></div>
+  <aside id="pricingDrawer" class="drawer pricing-drawer" aria-labelledby="pricingDrawerTitle" style="width: 580px; max-width: 90vw;">
+    <div class="drawer-header" style="border-bottom: 1px solid var(--border);">
+      <div>
+        <h2 id="pricingDrawerTitle" class="text-lg font-bold flex items-center gap-2 m-0" style="color: var(--text);">
+          <span style="color: #fbbf24;">⭐</span> SaaS Subscription Portal
+        </h2>
+        <p class="text-xs m-0 mt-1" style="color: var(--text-muted);">Select a tier below to unlock premium optimizations, templates, and browser extensions.</p>
+      </div>
+      <button type="button" class="drawer-close-btn" onclick="closePricingDrawer()" aria-label="Close drawer" style="color: var(--text-muted);">×</button>
+    </div>
+    
+    <div class="drawer-body custom-scrollbar" style="padding: 20px; display: flex; flex-direction: column; gap: 20px; max-height: calc(100vh - 80px); overflow-y: auto;">
+      
+      <!-- Plan Selector Cards -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- Free Plan -->
+        <div class="pricing-card" style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; transition: all 0.3s;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <strong style="color: #94a3b8; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Standard Free</strong>
+            <span style="font-size: 14px; font-weight: 800; color: #94a3b8;">$0 / mo</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 12px 0;">Great for basic, lightweight resume polishing.</p>
+          <ul style="font-size: 11px; color: #cbd5e1; padding-left: 16px; margin: 0 0 12px 0; line-height: 1.6;">
+            <li>2 automated resume optimizer runs</li>
+            <li>1 active tracking board</li>
+            <li>Classic Serif resume layout compilation</li>
+          </ul>
+          <button type="button" style="width: 100%; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #94a3b8; border-radius: 8px; padding: 8px; font-weight: 700; font-size: 11px; cursor: not-allowed;" disabled>Current Free Tier</button>
+        </div>
+        
+        <!-- Pro Plan -->
+        <div class="pricing-card premium-pro-card" style="background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(245, 158, 11, 0.25); box-shadow: 0 0 15px rgba(245, 158, 11, 0.05); border-radius: 12px; padding: 16px; transition: all 0.3s; position: relative; overflow: hidden;">
+          <div style="position: absolute; top: 0; right: 0; background: linear-gradient(135deg, #f59e0b, #d97706); color: #0f172a; font-size: 9px; font-weight: 800; padding: 4px 10px; border-bottom-left-radius: 8px; text-transform: uppercase; tracking-wider: 0.05em;">Popular choice</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-right: 70px;">
+            <strong style="color: #fbbf24; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Pro Professional</strong>
+            <span style="font-size: 14px; font-weight: 800; color: #fbbf24;">$12 / mo</span>
+          </div>
+          <p style="font-size: 12px; color: #94a3b8; margin: 0 0 12px 0;">Perfect for aggressive job hunters writing dozens of applications.</p>
+          <ul style="font-size: 11px; color: #e2e8f0; padding-left: 16px; margin: 0 0 12px 0; line-height: 1.6;">
+            <li>Unlimited Resume Builder & optimizer runs</li>
+            <li>AI Bullet Booster X-Y-Z metric generator tools</li>
+            <li>All standard LaTeX marketplace themes (Modern, Classic, Executive)</li>
+          </ul>
+          <button type="button" id="stripeCheckoutProBtn" onclick="checkoutPlan('pro')" style="width: 100%; border: none; background: linear-gradient(135deg, #f59e0b, #d97706); color: #0f172a; border-radius: 8px; padding: 10px; font-weight: 800; font-size: 11px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(245,158,11,0.2);">Upgrade to Pro</button>
+        </div>
+        
+        <!-- Premium Plan -->
+        <div class="pricing-card premium-elite-card" style="background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(139, 92, 246, 0.35); box-shadow: 0 0 20px rgba(139, 92, 246, 0.1); border-radius: 12px; padding: 16px; transition: all 0.3s; position: relative;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <strong style="color: #a78bfa; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Premium Elite</strong>
+            <span style="font-size: 14px; font-weight: 800; color: #a78bfa;">$29 / mo</span>
+          </div>
+          <p style="font-size: 12px; color: #94a3b8; margin: 0 0 12px 0;">The ultimate automated command center for full power placement.</p>
+          <ul style="font-size: 11px; color: #e2e8f0; padding-left: 16px; margin: 0 0 12px 0; line-height: 1.6;">
+            <li>Automated Direct Recruiter Email Status Tracking & parsing</li>
+            <li>Full "1-Click Auto-Apply" profile sync integrations for browser extensions</li>
+            <li>Multi-Board management and Archived Cabinets</li>
+          </ul>
+          <button type="button" id="stripeCheckoutPremiumBtn" onclick="checkoutPlan('premium')" style="width: 100%; border: none; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #ffffff; border-radius: 8px; padding: 10px; font-weight: 800; font-size: 11px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(139,92,246,0.3);">Upgrade to Premium Elite</button>
+        </div>
+        
+      </div>
+      
+      <!-- Portal Link if Subscribed -->
+      <div id="stripePortalContainer" style="display: none; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px; text-align: center;">
+        <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 10px 0;">Need to update billing settings or cancel an active subscription?</p>
+        <a href="/billing/portal" style="display: inline-block; padding: 6px 16px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #e2e8f0; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; transition: all 0.2s;">⚙ Open Customer Billing Portal</a>
+      </div>
+      
+    </div>
+  </aside>
+
+  <!-- ATS Score Detailed Breakdown Drawer -->
+  <div id="atsDrawerOverlay" class="drawer-overlay" onclick="closeAtsDrawer()"></div>
+  <aside id="atsDrawer" class="drawer ats-drawer" aria-labelledby="atsDrawerTitle" style="width: 540px; max-width: 90vw;">
+    <div class="drawer-header" style="border-bottom: 1px solid var(--border);">
+      <div>
+        <h2 id="atsDrawerTitle" class="text-lg font-bold flex items-center gap-2 m-0" style="color: var(--text);">
+          📊 ATS Score Analysis Report
+        </h2>
+        <p class="text-xs m-0 mt-1" style="color: var(--text-muted);">A comprehensive deep-dive scoring report showing matches, format structural checks, and alignment flags.</p>
+      </div>
+      <button class="drawer-close-btn" onclick="closeAtsDrawer()" aria-label="Close drawer" style="color: var(--text-muted);">&times;</button>
+    </div>
+    
+    <div class="drawer-body custom-scrollbar" style="padding: 24px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; max-height: calc(100vh - 80px);">
+      <div id="atsDrawerContent" style="display: flex; flex-direction: column; gap: 24px;">
+        <!-- Dynamic content injected by JavaScript -->
+      </div>
+    </div>
+  </aside>
+
   <script src="/static/js/main.js"></script>
 </body>
 </html>
