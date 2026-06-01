@@ -217,4 +217,96 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "EXTRACT_VISIBLE_JOB") {
     sendResponse(collectJobDetails());
   }
+  if (request.type === "AUTOFILL_FORM") {
+    try {
+      autofillWorkday(request.profile);
+      sendResponse({ success: true });
+    } catch (e) {
+      sendResponse({ success: false, error: e.message });
+    }
+  }
 });
+
+// AUTOFILL ENGINE LOGIC
+function fillField(input, value) {
+  if (!input || !value) return;
+  input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  input.dispatchEvent(new Event("blur", { bubbles: true }));
+}
+
+function autofillWorkday(profile) {
+  // Name Fields
+  fillField(document.querySelector("input[data-automation-id='legalNameSection_firstName']"), profile.firstName);
+  fillField(document.querySelector("input[data-automation-id='legalNameSection_lastName']"), profile.lastName);
+  fillField(document.querySelector("input[id*='firstName']"), profile.firstName);
+  fillField(document.querySelector("input[id*='lastName']"), profile.lastName);
+
+  // Contact Info Fields
+  fillField(document.querySelector("input[data-automation-id='contactInformationSection_emailAddress']"), profile.email);
+  fillField(document.querySelector("input[data-automation-id='contactInformationSection_phoneNumber']"), profile.phone);
+  fillField(document.querySelector("input[type='email']"), profile.email);
+  fillField(document.querySelector("input[type='tel']"), profile.phone);
+
+  // Address Details Fields
+  fillField(document.querySelector("input[data-automation-id='addressSection_addressLine1']"), profile.city); // fallback or empty
+  fillField(document.querySelector("input[data-automation-id='addressSection_city']"), profile.city);
+  fillField(document.querySelector("input[data-automation-id='addressSection_postalCode']"), "94016"); // sample or empty
+}
+
+// Floating Badge Injection
+function injectAutofillBadge() {
+  if (document.getElementById("quickAutofillFAB")) return;
+  
+  const fab = document.createElement("div");
+  fab.id = "quickAutofillFAB";
+  fab.innerHTML = "⚡ Autofill Application";
+  
+  Object.assign(fab.style, {
+    position: "fixed",
+    bottom: "20px",
+    right: "20px",
+    background: "rgba(30, 41, 59, 0.85)",
+    border: "1px solid rgba(255, 255, 255, 0.15)",
+    borderRadius: "12px",
+    padding: "10px 16px",
+    color: "#ffffff",
+    fontFamily: "'Segoe UI', sans-serif",
+    fontSize: "12px",
+    fontWeight: "700",
+    cursor: "pointer",
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.24)",
+    backdropFilter: "blur(12px)",
+    webkitBackdropFilter: "blur(12px)",
+    zIndex: "999999",
+    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    display: "flex",
+    alignItems: "center",
+    gap: "6px"
+  });
+  
+  fab.addEventListener("mouseenter", () => {
+    fab.style.transform = "translateY(-2px) scale(1.05)";
+    fab.style.boxShadow = "0 12px 40px rgba(26, 86, 219, 0.4)";
+    fab.style.borderColor = "rgba(26, 86, 219, 0.6)";
+  });
+  
+  fab.addEventListener("mouseleave", () => {
+    fab.style.transform = "translateY(0) scale(1)";
+    fab.style.boxShadow = "0 8px 32px rgba(0, 0, 0, 0.24)";
+    fab.style.borderColor = "rgba(255, 255, 255, 0.15)";
+  });
+  
+  fab.addEventListener("click", () => {
+    alert("Please click the '⚡ Autofill Active Form' button in the ATS Tracker extension popup to unlock and inject your details securely.");
+  });
+  
+  document.body.appendChild(fab);
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", injectAutofillBadge);
+} else {
+  injectAutofillBadge();
+}
