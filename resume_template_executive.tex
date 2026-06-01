@@ -1,0 +1,178 @@
+% ============================================================
+%  RESUME TEMPLATE — Elegant Executive Serif layout
+%  Engine: pdflatex / xelatex / lualatex
+% ============================================================
+\documentclass[10pt, letterpaper]{article}
+
+% ── packages ──────────────────────────────────────────────
+\usepackage[
+  top=0.5in, bottom=0.5in,
+  left=0.6in, right=0.6in
+]{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{parskip}
+\usepackage{fontawesome5}
+\usepackage{multicol}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+% ── colour palette ────────────────────────────────────────
+\definecolor{accent}{HTML}{991B1B}   % Deep Executive Red/Crimson
+\definecolor{muted}{HTML}{451A03}    % Warm dark brown secondary accent
+
+% ── hyperlinks ────────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  urlcolor=accent,
+  linkcolor=accent
+}
+
+% ── section styling ───────────────────────────────────────
+\titleformat{\section}
+  {\large\bfseries\color{accent}}   % format
+  {}                                % label
+  {0em}                             % sep
+  {}                                % before
+  [\vspace{-4pt}\rule{\linewidth}{1.2pt}\vspace{2pt}]  % after (rule)
+
+\titlespacing{\section}{0pt}{9pt}{4pt}
+
+% ── list spacing ──────────────────────────────────────────
+\setlist[itemize]{
+  leftmargin=1.4em,
+  topsep=2pt,
+  itemsep=1pt,
+  parsep=0pt,
+  label=\textbullet
+}
+
+% ── helper macros ─────────────────────────────────────────
+
+% \entry{Title}{Company / Institution}{Date}{Location}
+\newcommand{\entry}[4]{%
+  \noindent\textbf{#1} \hfill {\small\color{muted}#3}\\
+  \textit{\color{muted}#2} \hfill {\small\color{muted}#4}
+  \vspace{2pt}%
+}
+
+% \project{Name}{Tech Stack}{Date}
+\newcommand{\project}[3]{%
+  \noindent\textbf{#1} $\vert$ {\small\textit{#2}} \hfill {\small\color{muted}#3}
+  \vspace{2pt}%
+}
+
+% ── no page numbers ───────────────────────────────────────
+\pagestyle{empty}
+
+% ─────────────────────────────────────────────────────────
+\begin{document}
+
+% ══ HEADER ═══════════════════════════════════════════════
+\begin{center}
+  {\LARGE\bfseries YOUR FULL NAME}\\[4pt]
+  {\small
+    \faMapMarker\ City, State
+    \quad\textbar\quad
+    \faPhone\ +91 XXXXXXXXXX
+    \quad\textbar\quad
+    \href{mailto:your@email.com}{\faEnvelope\ your@email.com}
+    \quad\textbar\quad
+    \href{https://linkedin.com/in/yourprofile}{\faLinkedin\ linkedin.com/in/yourprofile}
+    \quad\textbar\quad
+    \href{https://github.com/yourgithub}{\faGithub\ github.com/yourgithub}
+  }
+\end{center}
+
+% ══ SUMMARY ══════════════════════════════════════════════
+\section{Professional Summary}
+Results-driven Data Scientist and ML Engineer with hands-on experience building
+end-to-end ML pipelines, distributed data processing with PySpark, and REST APIs
+for real-time inference. Civil Engineering background provides a unique lens for
+solving industrial and infrastructure analytics problems. Seeking entry-level
+roles in data science / ML engineering.
+
+% ══ SKILLS ═══════════════════════════════════════════════
+\section{Technical Skills}
+\begin{itemize}[leftmargin=0pt, label={}]
+  \item \textbf{Languages:}        Python, SQL, Bash
+  \item \textbf{ML / AI:}          Scikit-learn, XGBoost, PySpark MLlib, SHAP, MLflow
+  \item \textbf{Data Engineering:} PySpark 3.5, Pandas, NumPy, Parquet, ETL pipelines
+  \item \textbf{Deployment:}       Flask, FastAPI, Docker, GitHub Actions CI/CD
+  \item \textbf{Visualization:}    Power BI, Matplotlib, Seaborn, Plotly
+  \item \textbf{Cloud / Other:}    AWS (EC2, S3), Prometheus, Kubernetes health probes
+\end{itemize}
+
+% ══ EXPERIENCE ═══════════════════════════════════════════
+\section{Experience}
+
+\entry{Data Science Intern}{Zaalima Development}{Jun 2024 -- Present}{Remote}
+\begin{itemize}
+  \item Built \textbf{SparkScale Churn} — a distributed PySpark 3.5 churn prediction
+        pipeline on 2M-row IBM Telco dataset; GBT model achieved \textbf{AUC 0.874}
+        with threshold tuning boosting recall from 57\% to \textbf{78\%}.
+  \item Engineered 38-column enriched feature set from 1M synthetic e-commerce
+        transactions using RFM methodology, pd.qcut binning, and LEFT JOIN merges.
+  \item Developed \textbf{FactoryGuard AI} — Flask REST API for equipment failure
+        prediction with SHAP explainability; achieved \textbf{18.88 ms} average
+        inference latency (32 ms p95).
+  \item Containerised services with Docker; implemented GitHub Actions CI/CD and
+        Kubernetes liveness/readiness health probes.
+\end{itemize}
+
+\vspace{6pt}
+\entry{AI-ML Virtual Intern}{Google (via AICTE)}{Jan 2024 -- Mar 2024}{Remote}
+\begin{itemize}
+  \item Completed structured curriculum covering supervised/unsupervised learning,
+        neural networks, and responsible AI practices.
+  \item Applied models on real-world datasets; received completion certificate
+        endorsed by Google and AICTE.
+\end{itemize}
+
+% ══ PROJECTS ═════════════════════════════════════════════
+\section{Projects}
+
+\project{SparkScale Churn Predictor}{PySpark, MLlib, GBT, CrossValidator}{2024}
+\begin{itemize}
+  \item End-to-end distributed ML pipeline; Week 1–4 delivery: ETL → feature
+        engineering → model training → evaluation with ROC/PR curves and
+        threshold optimisation.
+  \item \href{https://github.com/sumedChalakh/sparkscale-churn}{github.com/sumedChalakh/sparkscale-churn}
+\end{itemize}
+
+\vspace{4pt}
+\project{FactoryGuard AI}{Flask, SHAP, Docker, Prometheus, Kubernetes}{2024}
+\begin{itemize}
+  \item Production REST API predicting equipment failure from sensor telemetry
+        (temperature, vibration, pressure) with explainability layer.
+  \item \href{https://github.com/sumedChalakh/factoryguard-ai}{github.com/sumedChalakh/factoryguard-ai}
+\end{itemize}
+
+\vspace{4pt}
+\project{CRYPTO-BOT}{XGBoost, OHLCV, Telegram API}{2024}
+\begin{itemize}
+  \item BTC/USDT trading signal bot on 2-year 15-minute data; 41 engineered
+        features (RSI, MACD, Bollinger Bands); Telegram delivery with TP/SL levels.
+\end{itemize}
+
+% ══ EDUCATION ════════════════════════════════════════════
+\section{Education}
+
+\entry{B.Tech — Civil Engineering}{JD College of Engineering, Nagpur (RTM Nagpur University)}{2022 -- 2026}{Nagpur, MH}
+\begin{itemize}
+  \item CGPA: \textbf{8.9 / 10.0} \quad|\quad Final Year
+  \item Published IEEE review paper: \textit{Fiber Reinforced Concrete — Properties \& Applications}
+\end{itemize}
+
+% ══ CERTIFICATIONS ═══════════════════════════════════════
+\section{Certifications \& Courses}
+\begin{itemize}
+  \item AWS SimuLearn — Cloud Computing Essentials
+  \item Google AI-ML Virtual Internship Certificate (AICTE, 2024)
+  \item GeeksforGeeks — Python Programming (paid course)
+  \item Skillians Data Science \& ML Bootcamp (ongoing, Aug 2025)
+\end{itemize}
+
+\end{document}
