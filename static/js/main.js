@@ -2918,6 +2918,73 @@ function resetInterviewPortal() {
   // Clear inputs/history
   document.getElementById('interviewAnswerInput').value = '';
   document.getElementById('interviewChatStream').innerHTML = '';
+  
+  // Reset Telemetry HUD displays
+  const paceEl = document.getElementById('telemetryPace');
+  const wordsEl = document.getElementById('telemetryWords');
+  const warningEl = document.getElementById('telemetryWarning');
+  if (paceEl) paceEl.textContent = '0s';
+  if (wordsEl) wordsEl.textContent = '0';
+  if (warningEl) warningEl.style.display = 'none';
+}
+
+// Real-time Voice Pace & Filler Telemetry HUD Logic
+function initInterviewAnswerTelemetry() {
+  const inputEl = document.getElementById('interviewAnswerInput');
+  if (!inputEl) return;
+
+  const paceEl = document.getElementById('telemetryPace');
+  const wordsEl = document.getElementById('telemetryWords');
+  const warningEl = document.getElementById('telemetryWarning');
+  const countEl = document.getElementById('telemetryFillerCount');
+
+  const fillersList = ['like', 'basically', 'actually', 'um', 'uh', 'so', 'just', 'literally', 'seriously', 'obviously'];
+
+  inputEl.addEventListener('input', () => {
+    const text = inputEl.value.trim();
+    if (!text) {
+      if (paceEl) paceEl.textContent = '0s';
+      if (wordsEl) wordsEl.textContent = '0';
+      if (warningEl) warningEl.style.display = 'none';
+      return;
+    }
+
+    const words = text.split(/\s+/).filter(Boolean);
+    const wordCount = words.length;
+
+    // Words count
+    if (wordsEl) wordsEl.textContent = wordCount;
+
+    // Est. speech duration at standard 150 words per minute (2.5 words per second)
+    const duration = Math.round(wordCount / 2.5);
+    if (paceEl) paceEl.textContent = duration + 's';
+
+    // Scan for filler words
+    let fillerCount = 0;
+    words.forEach(w => {
+      const cleaned = w.toLowerCase().replace(/[^a-z]/g, '');
+      if (fillersList.includes(cleaned)) {
+        fillerCount++;
+      }
+    });
+
+    if (warningEl && countEl) {
+      if (fillerCount > 0) {
+        countEl.textContent = fillerCount;
+        warningEl.style.display = 'block';
+      } else {
+        warningEl.style.display = 'none';
+      }
+    }
+  });
+}
+
+// Initialize on load
+window.addEventListener('DOMContentLoaded', () => {
+  initInterviewAnswerTelemetry();
+});
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  initInterviewAnswerTelemetry();
 }
 
 
