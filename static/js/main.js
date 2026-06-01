@@ -2982,9 +2982,78 @@ function initInterviewAnswerTelemetry() {
 // Initialize on load
 window.addEventListener('DOMContentLoaded', () => {
   initInterviewAnswerTelemetry();
+  
+  // Bind Enter key press to searchQABank
+  const qaInput = document.getElementById('qaCompanyInput');
+  if (qaInput) {
+    qaInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        searchQABank();
+      }
+    });
+  }
 });
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
   initInterviewAnswerTelemetry();
+}
+
+async function searchQABank() {
+  const companyInput = document.getElementById('qaCompanyInput');
+  const resultsContainer = document.getElementById('qaBankResults');
+  if (!companyInput || !resultsContainer) return;
+
+  const company = companyInput.value.trim();
+  if (!company) {
+    showError("Please enter a company name to search.");
+    return;
+  }
+
+  resultsContainer.innerHTML = `
+    <div style="color: var(--text-muted); text-align: center; padding: 40px 10px; font-size: 11px;">
+      <div class="spinner" style="width:16px;height:16px;border-width:2px;margin: 0 auto 10px auto; display:block;"></div>
+      Querying highly anticipated interview topics at ${escapeHtml(company)}...
+    </div>
+  `;
+
+  try {
+    const response = await fetch('/interview/api/qa-bank', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ company: company })
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.questions) throw new Error(data.error || "Failed to fetch question bank.");
+
+    let html = '';
+    data.questions.forEach(q => {
+      html += `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; text-align: left;">
+          <div style="color: #60a5fa; font-weight: 700; font-size: 11px;">❓ Topic ${q.id}</div>
+          <div style="color: white; font-weight: 600; line-height: 1.4;">${escapeHtml(q.question)}</div>
+          <div style="color: #fbbf24; font-size: 10px; font-weight: bold; margin-top: 4px;">🎯 Recruiter Focus:</div>
+          <div style="color: #cbd5e1; line-height: 1.4; font-size: 11px;">${escapeHtml(q.focus)}</div>
+          
+          <details style="margin-top: 4px;">
+            <summary style="font-size: 10px; font-weight: bold; color: #c084fc; cursor: pointer; user-select: none;">💡 Show Ideal Strategy Outline</summary>
+            <div style="margin-top: 6px; padding: 8px; background: rgba(255,255,255,0.02); border-left: 2px solid #c084fc; color: #cbd5e1; line-height: 1.4; font-size: 11px;">
+              ${escapeHtml(q.outline)}
+            </div>
+          </details>
+        </div>
+      `;
+    });
+
+    resultsContainer.innerHTML = html;
+  } catch (err) {
+    showError(err.message || "Failed to load company questions.");
+    resultsContainer.innerHTML = `
+      <div style="color: #ef4444; text-align: center; padding: 40px 10px; font-size: 11px;">
+        Failed to load question bank: ${escapeHtml(err.message)}
+      </div>
+    `;
+  }
 }
 
 
