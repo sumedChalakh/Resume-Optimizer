@@ -43,12 +43,21 @@ def start_interview():
     job_title = jd_text.split("\n")[0][:100] or "Target Role"
 
     # Define first question generator prompt
-    system_prompt = (
-        "You are an elite corporate technical recruiter and hiring manager.\n"
-        f"Generate exactly ONE highly specific, realistic, and challenging interview question (Difficulty: {difficulty}, Type: {interview_type}) "
-        "designed for the candidate's target job description based on their resume.\n"
-        "Ensure the question is professional, clear, and does not contain generic welcoming/introduction remarks. Poses the question directly."
-    )
+    is_coding = interview_type.lower() == "coding"
+    if is_coding:
+        system_prompt = (
+            "You are an elite principal software engineer and tech interviewer.\n"
+            f"Generate exactly ONE highly specific, realistic coding or algorithmic challenge (Difficulty: {difficulty}) "
+            "designed for the candidate's target job description based on their resume.\n"
+            "Pose a classic problem, describe the requirements, constraints, input/output structures, and ask them to write the code solution. Pose the problem directly."
+        )
+    else:
+        system_prompt = (
+            "You are an elite corporate technical recruiter and hiring manager.\n"
+            f"Generate exactly ONE highly specific, realistic, and challenging interview question (Difficulty: {difficulty}, Type: {interview_type}) "
+            "designed for the candidate's target job description based on their resume.\n"
+            "Ensure the question is professional, clear, and does not contain generic welcoming/introduction remarks. Poses the question directly."
+        )
     user_message = f"Job Description:\n{jd_text[:1000]}\n\nCandidate Resume:\n{resume_text[:2000]}"
 
     try:
@@ -121,16 +130,29 @@ def submit_answer():
     history[current_round_idx]["answer"] = answer_text
 
     # Evaluate the submitted answer using LLM
-    eval_prompt = (
-        "You are an expert technical interviewer. Evaluate the candidate's answer based on the posed question.\n"
-        "Provide a score from 1 to 10 (as an integer) representing the technical accuracy, fit, and communication clarity.\n"
-        "Provide a brief, supportive, but professional constructive critique (max 3 sentences) detailing gaps or strengths.\n"
-        "Respond ONLY in this JSON format:\n"
-        "{\n"
-        "  \"score\": integer_between_1_and_10,\n"
-        "  \"critique\": \"string\"\n"
-        "}"
-    )
+    is_coding = interview_sess.interview_type.lower() == "coding"
+    if is_coding:
+        eval_prompt = (
+            "You are an expert software engineering interviewer. Evaluate the candidate's code submission/answer.\n"
+            "Provide a score from 1 to 10 (as an integer) representing algorithmic accuracy, correctness, and Big-O efficiency.\n"
+            "Provide a constructive critique (max 3 sentences) detailing computational efficiency improvements, dry-run performance, and specifically including a Big-O notation complexity critique (time & space).\n"
+            "Respond ONLY in this JSON format:\n"
+            "{\n"
+            "  \"score\": integer_between_1_and_10,\n"
+            "  \"critique\": \"string\"\n"
+            "}"
+        )
+    else:
+        eval_prompt = (
+            "You are an expert technical interviewer. Evaluate the candidate's answer based on the posed question.\n"
+            "Provide a score from 1 to 10 (as an integer) representing the technical accuracy, fit, and communication clarity.\n"
+            "Provide a brief, supportive, but professional constructive critique (max 3 sentences) detailing gaps or strengths.\n"
+            "Respond ONLY in this JSON format:\n"
+            "{\n"
+            "  \"score\": integer_between_1_and_10,\n"
+            "  \"critique\": \"string\"\n"
+            "}"
+        )
     eval_message = f"Question asked: {history[current_round_idx]['question']}\nCandidate Answer: {answer_text}"
 
     score_val = 5
@@ -164,11 +186,19 @@ def submit_answer():
     user = db.session.get(User, user_id)
     resume_text = user.resume_text if user else ""
 
-    next_question_prompt = (
-        "You are an elite corporate interviewer. Generate exactly ONE logical subsequent interview question.\n"
-        f"This is Question {next_round_num} of 10. Focus on a new, distinct topic appropriate for the role and candidate's level.\n"
-        "Do not repeat questions or topics already asked. Poses the question directly without introductory filler."
-    )
+    is_coding = interview_sess.interview_type.lower() == "coding"
+    if is_coding:
+        next_question_prompt = (
+            "You are an elite software engineering interviewer. Generate exactly ONE subsequent algorithmic coding challenge or complexity follow-up question.\n"
+            f"This is Question {next_round_num} of 10. Focus on a new, distinct algorithm topic or optimization query.\n"
+            "Do not repeat questions or topics already asked. Poses the question directly without introductory filler."
+        )
+    else:
+        next_question_prompt = (
+            "You are an elite corporate interviewer. Generate exactly ONE logical subsequent interview question.\n"
+            f"This is Question {next_round_num} of 10. Focus on a new, distinct topic appropriate for the role and candidate's level.\n"
+            "Do not repeat questions or topics already asked. Poses the question directly without introductory filler."
+        )
     
     # Pack active history into contextual message
     history_ctx = "\n".join([f"Q: {h['question']}\nA: {h['answer']}" for h in history if h.get("answer")])
@@ -307,4 +337,59 @@ def end_interview():
         "overall_feedback": feedback_val,
         "history": history
     })
+    return _corsify(response)
+
+
+@interview_blueprint.route("/interview/api/qa-bank", methods=["POST", "OPTIONS"])
+def get_qa_bank():
+    if request.method == "OPTIONS":
+        return _corsify(make_response("", 204))
+
+    payload = request.get_json(silent=True) or {}
+    company = str(payload.get("company", "Stripe")).strip()
+    
+    qa_prompt = (
+        "You are an elite hiring panel coordinator. Generate the top 3 highly anticipated interview questions "
+        f"specifically asked during technical/behavioral rounds at '{company}'.\n"
+        "Include a description of what recruiters look for and a high-yield 'ideal response outline' for each.\n"
+        "Respond ONLY in this JSON format:\n"
+        "{\n"
+        "  \"questions\": [\n"
+        "    {\n"
+        "      \"id\": 1,\n"
+        "      \"question\": \"string\",\n"
+        "      \"focus\": \"string (what recruiters look for)\",\n"
+        "      \"outline\": \"string (ideal response outline strategy)\"\n"
+        "    }\n"
+        "  ]\n"
+        "}"
+    )
+    
+    fallback_data = {
+        "questions": [
+            {
+                "id": 1,
+                "question": f"Walk me through a complex architectural project you led at your previous role that would align with {company}'s scale.",
+                "focus": "Architectural scaling, performance trade-offs, and project leadership under stress.",
+                "outline": "Describe the initial scale bottleneck using metrics, the active technical options, the choice made, and the resulting convert metrics (e.g. latency, throughput)."
+            },
+            {
+                "id": 2,
+                "question": "Can you describe a time when you disagreed with a principal engineer or product manager on a technical roadmap decision?",
+                "focus": "Clarity of communication, peer-collaboration, alignment, and professional maturity.",
+                "outline": "Use the STAR framework: focus on the objective data comparison, the compromise found, and how you supported the final choice to ensure release schedule was met."
+            }
+        ]
+    }
+    
+    try:
+        raw_res, _ = generate_model_response(f"Generate questions for {company}", system_prompt=qa_prompt)
+        res = parse_ai_json(raw_res)
+        if isinstance(res, dict) and "questions" in res:
+            response = jsonify(res)
+        else:
+            response = jsonify(fallback_data)
+    except Exception:
+        response = jsonify(fallback_data)
+
     return _corsify(response)
