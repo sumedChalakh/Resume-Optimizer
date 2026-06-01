@@ -443,5 +443,265 @@ getEl("queueReviewBtn").addEventListener("click", () => {
   queueCurrentJobForReview().catch((error) => setMessage(String(error.message || error), true));
 });
 
+// AUTOFILL ENGINE LOGIC
+let decryptedProfile = null;
+
+// Cryptography Helpers (PBKDF2 + AES-GCM)
+async function deriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits", "deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: salt,
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function encryptData(plainText, password) {
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(password, salt);
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: iv },
+    key,
+    enc.encode(plainText)
+  );
+  
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, "0")).join("");
+  const ivHex = Array.from(iv).map(b => b.toString(16).padStart(2, "0")).join("");
+  const ctHex = Array.from(new Uint8Array(encrypted)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return `${saltHex}:${ivHex}:${ctHex}`;
+}
+
+async function decryptData(cipherTextWithMeta, password) {
+  const parts = cipherTextWithMeta.split(":");
+  if (parts.length !== 3) throw new Error("Invalid cipher format");
+  
+  const salt = new Uint8Array(parts[0].match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+  const iv = new Uint8Array(parts[1].match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+  const ct = new Uint8Array(parts[2].match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+  
+  const key = await deriveKey(password, salt);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: iv },
+    key,
+    ct
+  );
+  const dec = new TextDecoder();
+  return dec.decode(decrypted);
+}
+
+// Rendering UI based on encrypted state
+async function renderAutofillUI() {
+  const local = await chrome.storage.local.get(["encryptedProfile"]);
+  const hasEncrypted = Boolean(local.encryptedProfile);
+  
+  if (!hasEncrypted) {
+    getEl("autofillLockView").style.display = "block";
+    getEl("autofillProfileView").style.display = "none";
+    getEl("lockTitle").textContent = "Secure Profile Setup";
+    getEl("lockDesc").textContent = "Create a Master PIN to encrypt and protect your candidate profile details locally.";
+    getEl("unlockBtn").textContent = "Initialize Secure Profile";
+  } else if (!decryptedProfile) {
+    getEl("autofillLockView").style.display = "block";
+    getEl("autofillProfileView").style.display = "none";
+    getEl("lockTitle").textContent = "Enter Master PIN";
+    getEl("lockDesc").textContent = "Enter your Master PIN to decrypt and unlock your profile details.";
+    getEl("unlockBtn").textContent = "Unlock Autofill Profile";
+  } else {
+    getEl("autofillLockView").style.display = "none";
+    getEl("autofillProfileView").style.display = "block";
+    
+    // Populate form fields
+    getEl("profFirstName").value = decryptedProfile.firstName || "";
+    getEl("profLastName").value = decryptedProfile.lastName || "";
+    getEl("profEmail").value = decryptedProfile.email || "";
+    getEl("profPhone").value = decryptedProfile.phone || "";
+    getEl("profWebsite").value = decryptedProfile.website || "";
+    getEl("profLinkedIn").value = decryptedProfile.linkedin || "";
+    getEl("profGitHub").value = decryptedProfile.github || "";
+    getEl("profCity").value = decryptedProfile.city || "";
+    getEl("profCountry").value = decryptedProfile.country || "";
+  }
+}
+
+// Tab Switching Listeners
+getEl("tabSettings").addEventListener("click", () => {
+  getEl("tabSettings").classList.add("active");
+  getEl("tabAutofill").classList.remove("active");
+  getEl("panelSettings").style.display = "block";
+  getEl("panelAutofill").style.display = "none";
+});
+
+getEl("tabAutofill").addEventListener("click", () => {
+  getEl("tabAutofill").classList.add("active");
+  getEl("tabSettings").classList.remove("active");
+  getEl("panelAutofill").style.display = "block";
+  getEl("panelSettings").style.display = "none";
+  renderAutofillUI();
+});
+
+// Unlock / Initialize Button Action
+getEl("unlockBtn").addEventListener("click", async () => {
+  const pin = getEl("masterPin").value.trim();
+  if (!pin) {
+    setMessage("Please enter your PIN.", true);
+    return;
+  }
+  
+  const local = await chrome.storage.local.get(["encryptedProfile"]);
+  if (!local.encryptedProfile) {
+    const emptyProfile = {
+      firstName: "", lastName: "", email: "", phone: "",
+      website: "", linkedin: "", github: "", city: "", country: ""
+    };
+    try {
+      const encrypted = await encryptData(JSON.stringify(emptyProfile), pin);
+      await chrome.storage.local.set({ encryptedProfile: encrypted });
+      decryptedProfile = emptyProfile;
+      getEl("masterPin").value = "";
+      renderAutofillUI();
+      setMessage("✓ Secure Profile initialized!");
+    } catch (e) {
+      setMessage(`Setup error: ${e.message}`, true);
+    }
+  } else {
+    try {
+      const decrypted = await decryptData(local.encryptedProfile, pin);
+      decryptedProfile = JSON.parse(decrypted);
+      getEl("masterPin").value = "";
+      renderAutofillUI();
+      setMessage("✓ Profile decrypted successfully.");
+    } catch (e) {
+      setMessage("Incorrect PIN. Please try again.", true);
+    }
+  }
+});
+
+// Sync from Server Action
+getEl("syncProfBtn").addEventListener("click", async () => {
+  const syncData = await chrome.storage.sync.get(DEFAULTS);
+  const baseUrl = String(syncData.apiBaseUrl || DEFAULTS.apiBaseUrl).replace(/\/$/, "");
+  const token = String(syncData.ingestToken || "").trim();
+  
+  if (!token) {
+    setMessage("Sync error: Missing ingest token. Configure settings first.", true);
+    return;
+  }
+  
+  setMessage("Syncing profile from server...");
+  try {
+    const res = await fetch(`${baseUrl}/tracker/api/autofill-profile`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error ${res.status}`);
+    }
+    
+    const data = await res.json();
+    if (data.profile) {
+      getEl("profFirstName").value = data.profile.firstName || "";
+      getEl("profLastName").value = data.profile.lastName || "";
+      getEl("profEmail").value = data.profile.email || "";
+      setMessage("✓ Profile synchronized successfully!");
+    } else {
+      throw new Error("No profile returned from server.");
+    }
+  } catch (e) {
+    setMessage(`Sync error: ${e.message}`, true);
+  }
+});
+
+// Save & Encrypt Action
+getEl("saveProfBtn").addEventListener("click", async () => {
+  if (!decryptedProfile) {
+    setMessage("Profile is locked.", true);
+    return;
+  }
+  
+  const pin = window.prompt("Confirm PIN to encrypt and save changes:");
+  if (!pin) {
+    return;
+  }
+  
+  const updated = {
+    firstName: getEl("profFirstName").value.trim(),
+    lastName: getEl("profLastName").value.trim(),
+    email: getEl("profEmail").value.trim(),
+    phone: getEl("profPhone").value.trim(),
+    website: getEl("profWebsite").value.trim(),
+    linkedin: getEl("profLinkedIn").value.trim(),
+    github: getEl("profGitHub").value.trim(),
+    city: getEl("profCity").value.trim(),
+    country: getEl("profCountry").value.trim()
+  };
+  
+  try {
+    const encrypted = await encryptData(JSON.stringify(updated), pin);
+    await chrome.storage.local.set({ encryptedProfile: encrypted });
+    decryptedProfile = updated;
+    setMessage("✓ Profile updated and encrypted safely!");
+  } catch (e) {
+    setMessage(`Error encrypting profile: ${e.message}`, true);
+  }
+});
+
+// Lock Profile Action
+getEl("lockProfBtn").addEventListener("click", () => {
+  decryptedProfile = null;
+  renderAutofillUI();
+  setMessage("Profile locked successfully.");
+});
+
+// Trigger Active Page Autofill
+getEl("autofillActiveBtn").addEventListener("click", async () => {
+  if (!decryptedProfile) {
+    setMessage("Profile is locked.", true);
+    return;
+  }
+  
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) {
+      throw new Error("No active tab found.");
+    }
+    
+    setMessage("Triggering autofill on active page...");
+    chrome.tabs.sendMessage(tab.id, {
+      type: "AUTOFILL_FORM",
+      profile: decryptedProfile
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        setMessage(`Error: Make sure you are on a supported job portal.`, true);
+      } else if (response && response.success) {
+        setMessage("⚡ Autofill complete!");
+      } else {
+        setMessage("Autofill failed or was not accepted by the webpage.", true);
+      }
+    });
+  } catch (e) {
+    setMessage(`Autofill error: ${e.message}`, true);
+  }
+});
+
 renderPacketPreview(null);
 loadConfig().catch((error) => setMessage(String(error.message || error), true));
+
