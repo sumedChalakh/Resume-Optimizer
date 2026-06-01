@@ -806,6 +806,18 @@
             <span class="label-icon">🎙️</span> Your Answer Response
           </div>
           <textarea id="interviewAnswerInput" style="min-height: 100px; margin-bottom: 12px;" placeholder="Type your response to the recruiter's question here... Be clear, mention metrics, and outline your precise impact."></textarea>
+          
+          <!-- Pace & Filler Telemetry HUD -->
+          <div id="interviewTelemetryHUD" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 11px;">
+            <div style="display: flex; gap: 16px; color: var(--text-muted);">
+              <div>⏱️ Est. Speech: <span id="telemetryPace" style="color: white; font-weight: bold;">0s</span></div>
+              <div>📝 Words: <span id="telemetryWords" style="color: white; font-weight: bold;">0</span></div>
+            </div>
+            <div id="telemetryWarning" style="color: #fbbf24; font-weight: 700; display: none;">
+              ⚠️ Verbal Fillers: <span id="telemetryFillerCount" style="color: #fbbf24;">0</span> found!
+            </div>
+          </div>
+
           <div style="display: flex; gap: 12px;">
             <button type="button" class="optimize-btn" style="flex: 1;" onclick="submitInterviewAnswer()">
               <span class="btn-icon">📤</span> Submit Response
