@@ -147,6 +147,7 @@ function setSidebarActive(mode) {
   else if (mode === 'salary') activeId = 'salaryNavLink';
   else if (mode === 'tracker') activeId = 'trackerNavLink';
   else if (mode === 'admin') activeId = 'adminNavLink';
+  else if (mode === 'interview') activeId = 'interviewNavLink';
 
   if (activeId) {
     const activeLink = document.getElementById(activeId);
@@ -185,6 +186,7 @@ function bindSidebarHandlers() {
       else if (targetHash === '#salarySection') setSidebarActive('salary');
       else if (targetHash === '#trackerSection') setSidebarActive('tracker');
       else if (targetHash === '#adminSection') setSidebarActive('admin');
+      else if (targetHash === '#interviewSection') setSidebarActive('interview');
     });
   });
 
@@ -236,6 +238,9 @@ function getPageModeFromHash() {
   if (hash === '#adminsection' || hash === '#admin') {
     return 'admin';
   }
+  if (hash === '#interviewsection' || hash === '#interview') {
+    return 'interview';
+  }
   return 'home';
 }
 
@@ -249,7 +254,7 @@ function applyPageModeFromHash() {
     dashboardViews.forEach(el => el.classList.add('hidden'));
   } else {
     // Fallback if elements don't have .dashboard-view yet
-    ['homeSection', 'inputSection', 'latexResumeSection', 'autoApplySection', 'salarySection', 'trackerSection', 'resultsSection', 'coverLetterStandaloneSection', 'adminSection'].forEach(id => {
+    ['homeSection', 'inputSection', 'latexResumeSection', 'autoApplySection', 'salarySection', 'trackerSection', 'resultsSection', 'coverLetterStandaloneSection', 'adminSection', 'interviewSection'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
         el.style.display = 'none';
@@ -266,6 +271,7 @@ function applyPageModeFromHash() {
   else if (mode === 'salary') targetId = 'salarySection';
   else if (mode === 'tracker') targetId = 'trackerSection';
   else if (mode === 'admin') targetId = 'adminSection';
+  else if (mode === 'interview') targetId = 'interviewSection';
 
   // 2. Target Reveal
   if (targetId) {
@@ -473,10 +479,14 @@ function parseLines(text) {
 }
 
 async function fetchLatexSourceFromBackend() {
+  const templateId = document.getElementById('latexTemplateId')?.value || 'classic';
   const response = await fetch('/render-latex-source', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ latex_data: getLatexFormData() }),
+    body: JSON.stringify({
+      latex_data: getLatexFormData(),
+      template_id: templateId,
+    }),
   });
 
   const data = await response.json();
@@ -558,11 +568,13 @@ async function downloadLatexPdf() {
   if (!currentLatexSource) return;
 
   try {
+    const templateId = document.getElementById('latexTemplateId')?.value || 'classic';
     const response = await fetch('/export-latex-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         latex_data: getLatexFormData(),
+        template_id: templateId,
       }),
     });
 
@@ -1408,9 +1420,21 @@ function renderResults(data, options = {}) {
   const breakdownEl = document.getElementById('scoreBreakdown');
   if (breakdownEl) {
     if (data.ats_score && data.ats_score.breakdown) {
-      const local = data.ats_score.breakdown.local_technical_match || 0;
+      const tech = data.ats_score.breakdown.local_technical_match || 0;
+      const struct = data.ats_score.breakdown.structural_score || 0;
       const ai = data.ats_score.breakdown.ai_alignment_score || 0;
-      breakdownEl.innerHTML = `Local Match: ${local}/70 &nbsp;|&nbsp; AI Alignment: ${ai}/30`;
+      breakdownEl.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 8px;">
+          <div style="display: flex; gap: 12px; justify-content: center; font-size: 11px; font-weight: 600;">
+            <span style="color: #34d399;">🎯 Tech Fit: ${tech}/60</span>
+            <span style="color: #60a5fa;">🏗️ Structure: ${struct}/25</span>
+            <span style="color: #c084fc;">🤖 AI Fit: ${ai}/15</span>
+          </div>
+          <a href="javascript:void(0)" onclick="openAtsDrawer()" style="color: var(--accent); font-size: 11px; font-weight: 700; text-decoration: underline; margin-top: 4px; display: inline-block;" class="hover:text-accent-hover">
+            🔍 View Deep-Dive ATS Breakdown Report
+          </a>
+        </div>
+      `;
     } else {
       breakdownEl.innerHTML = '';
     }
@@ -1500,7 +1524,7 @@ function renderResumeHTML(resume) {
   if (resume.summary) {
     html += `<div class="r-section">
       <div class="r-section-title">Professional Summary</div>
-      <div class="r-summary">${escapeHtml(resume.summary)}</div>
+      <div class="r-summary editable-field" contenteditable="true" oninput="updateSummary(this)">${escapeHtml(resume.summary)}</div>
     </div>`;
   }
 
@@ -1512,8 +1536,8 @@ function renderResumeHTML(resume) {
     for (const [cat, list] of Object.entries(skills)) {
       if (list && list.length > 0) {
         html += `<div class="r-skill-row">
-          <span class="r-skill-cat">${escapeHtml(cat)}</span>
-          <div class="r-skill-tags">${list.map(s => `<span class="r-skill-tag">${escapeHtml(s)}</span>`).join('')}</div>
+          <span class="r-skill-cat editable-field" contenteditable="true" oninput="updateSkillCategory(this, '${escapeHtml(cat)}')">${escapeHtml(cat)}</span>
+          <div class="r-skill-tags">${list.map((s, sIdx) => `<span class="r-skill-tag editable-field" contenteditable="true" oninput="updateSkillTag(this, '${escapeHtml(cat)}', ${sIdx})">${escapeHtml(s)}</span>`).join('')}</div>
         </div>`;
       }
     }
@@ -1524,16 +1548,25 @@ function renderResumeHTML(resume) {
   const experience = resume.experience || [];
   if (experience.length > 0) {
     html += `<div class="r-section"><div class="r-section-title">Experience</div>`;
-    for (const exp of experience) {
+    experience.forEach((exp, expIdx) => {
       html += `<div class="r-exp-item">
         <div class="r-exp-header">
-          <span class="r-exp-title">${escapeHtml(exp.title || '')}</span>
-          <span class="r-exp-duration">${escapeHtml(exp.duration || '')}</span>
+          <span class="r-exp-title editable-field" contenteditable="true" oninput="updateExperienceField(this, ${expIdx}, 'title')">${escapeHtml(exp.title || '')}</span>
+          <span class="r-exp-duration editable-field" contenteditable="true" oninput="updateExperienceField(this, ${expIdx}, 'duration')">${escapeHtml(exp.duration || '')}</span>
         </div>
-        <div class="r-exp-company">${escapeHtml(exp.company || '')}</div>
-        <ul class="r-bullets">${(exp.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>
+        <div class="r-exp-company editable-field" contenteditable="true" oninput="updateExperienceField(this, ${expIdx}, 'company')">${escapeHtml(exp.company || '')}</div>
+        <ul class="r-bullets">${(exp.bullets || []).map((b, bIdx) => {
+          return `<li class="group relative pr-8">
+            <span class="bullet-text editable-field" contenteditable="true" oninput="updateExperienceBullet(this, ${expIdx}, ${bIdx})">${escapeHtml(b)}</span>
+            <button class="boost-trigger-btn absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-electricBlue hover:text-energeticOrange cursor-pointer border-none bg-transparent text-sm p-1" 
+                    onclick="event.stopPropagation(); openBulletDrawer('experience', ${expIdx}, ${bIdx})" 
+                    title="Boost with AI metrics" style="right: 8px;">
+              ⚡
+            </button>
+          </li>`;
+        }).join('')}</ul>
       </div>`;
-    }
+    });
     html += `</div>`;
   }
 
@@ -1541,13 +1574,22 @@ function renderResumeHTML(resume) {
   const projects = resume.projects || [];
   if (projects.length > 0) {
     html += `<div class="r-section"><div class="r-section-title">Projects</div>`;
-    for (const proj of projects) {
+    projects.forEach((proj, projIdx) => {
       html += `<div class="r-proj-item">
-        <div class="r-proj-name">${escapeHtml(proj.name || '')}</div>
-        <div class="r-proj-tech">${escapeHtml(proj.tech || '')}</div>
-        <ul class="r-bullets">${(proj.bullets || []).map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>
+        <div class="r-proj-name editable-field" contenteditable="true" oninput="updateProjectField(this, ${projIdx}, 'name')">${escapeHtml(proj.name || '')}</div>
+        <div class="r-proj-tech editable-field" contenteditable="true" oninput="updateProjectField(this, ${projIdx}, 'tech')">${escapeHtml(proj.tech || '')}</div>
+        <ul class="r-bullets">${(proj.bullets || []).map((b, bIdx) => {
+          return `<li class="group relative pr-8">
+            <span class="bullet-text editable-field" contenteditable="true" oninput="updateProjectBullet(this, ${projIdx}, ${bIdx})">${escapeHtml(b)}</span>
+            <button class="boost-trigger-btn absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-electricBlue hover:text-energeticOrange cursor-pointer border-none bg-transparent text-sm p-1" 
+                    onclick="event.stopPropagation(); openBulletDrawer('project', ${projIdx}, ${bIdx})" 
+                    title="Boost with AI metrics" style="right: 8px;">
+              ⚡
+            </button>
+          </li>`;
+        }).join('')}</ul>
       </div>`;
-    }
+    });
     html += `</div>`;
   }
 
@@ -1555,13 +1597,16 @@ function renderResumeHTML(resume) {
   const education = resume.education || [];
   if (education.length > 0) {
     html += `<div class="r-section"><div class="r-section-title">Education</div>`;
-    for (const edu of education) {
+    education.forEach((edu, eduIdx) => {
       html += `<div class="r-edu-item">
-        <div class="r-edu-degree">${edu.degree || ''} — ${edu.year || ''}</div>
-        <div class="r-edu-inst">${edu.institution || ''}</div>
-        ${edu.details ? `<div style="font-size:13px;color:var(--text-muted);margin-top:2px">${edu.details}</div>` : ''}
+        <div class="r-edu-degree">
+          <span class="editable-field" contenteditable="true" oninput="updateEducationField(this, ${eduIdx}, 'degree')">${edu.degree || ''}</span>
+          ${edu.year ? ` — <span class="editable-field" contenteditable="true" oninput="updateEducationField(this, ${eduIdx}, 'year')">${edu.year}</span>` : ''}
+        </div>
+        <div class="r-edu-inst editable-field" contenteditable="true" oninput="updateEducationField(this, ${eduIdx}, 'institution')">${edu.institution || ''}</div>
+        ${edu.details ? `<div class="editable-field" contenteditable="true" oninput="updateEducationField(this, ${eduIdx}, 'details')" style="font-size:13px;color:var(--text-muted);margin-top:2px">${edu.details}</div>` : ''}
       </div>`;
-    }
+    });
     html += `</div>`;
   }
 
@@ -1569,16 +1614,19 @@ function renderResumeHTML(resume) {
   const certifications = resume.certifications || [];
   if (certifications.length > 0) {
     html += `<div class="r-section"><div class="r-section-title">Certifications</div>`;
-    for (const cert of certifications) {
+    certifications.forEach((cert, certIdx) => {
       if (typeof cert === 'string') {
-        html += `<div class="r-edu-item"><div class="r-edu-degree">${escapeHtml(cert)}</div></div>`;
-        continue;
+        html += `<div class="r-edu-item"><div class="r-edu-degree editable-field" contenteditable="true" oninput="updateCertificationField(this, ${certIdx}, 'name')">${escapeHtml(cert)}</div></div>`;
+      } else {
+        html += `<div class="r-edu-item">
+          <div class="r-edu-degree">
+            <span class="editable-field" contenteditable="true" oninput="updateCertificationField(this, ${certIdx}, 'name')">${cert.name || ''}</span>
+            ${cert.year ? ` — <span class="editable-field" contenteditable="true" oninput="updateCertificationField(this, ${certIdx}, 'year')">${cert.year}</span>` : ''}
+          </div>
+          <div class="r-edu-inst editable-field" contenteditable="true" oninput="updateCertificationField(this, ${certIdx}, 'issuer')">${cert.issuer || ''}</div>
+        </div>`;
       }
-      html += `<div class="r-edu-item">
-        <div class="r-edu-degree">${cert.name || ''}${cert.year ? ` — ${cert.year}` : ''}</div>
-        <div class="r-edu-inst">${cert.issuer || ''}</div>
-      </div>`;
-    }
+    });
     html += `</div>`;
   }
 
@@ -1872,6 +1920,13 @@ if (downloadLatexDocxBtn) {
   downloadLatexDocxBtn.addEventListener('click', downloadLatexDocx);
 }
 
+const latexTemplateIdEl = document.getElementById('latexTemplateId');
+if (latexTemplateIdEl) {
+  latexTemplateIdEl.addEventListener('change', () => {
+    generateLatexResume();
+  });
+}
+
 const autoJobFields = ['autoTitle', 'autoCompany', 'autoLocation', 'autoSource', 'autoJobUrl', 'autoNotes', 'autoJobDescription'];
 autoJobFields.forEach((id) => {
   const el = document.getElementById(id);
@@ -1954,6 +2009,62 @@ async function checkSessionStatus() {
         leftSidebarInitial.textContent = String(data.user.name).substring(0, 1).toUpperCase();
       }
 
+      // Update pricing plan displays dynamically
+      const plan = String(data.user.plan || 'free').toLowerCase();
+      const planDisplay = plan === 'premium' ? 'Premium Elite' : (plan === 'pro' ? 'Pro Professional' : 'Standard Free');
+      
+      const leftSidebarPlan = document.getElementById('sidebar-userplan');
+      if (leftSidebarPlan) leftSidebarPlan.textContent = planDisplay;
+      
+      const rightSidebarPlan = document.getElementById('rightSidebarUserPlan');
+      if (rightSidebarPlan) rightSidebarPlan.textContent = 'Plan: ' + planDisplay;
+      
+      // Update pricing buttons state
+      const proBtn = document.getElementById('stripeCheckoutProBtn');
+      const premiumBtn = document.getElementById('stripeCheckoutPremiumBtn');
+      
+      if (plan === 'pro') {
+        if (proBtn) {
+          proBtn.textContent = 'Current Pro Plan';
+          proBtn.disabled = true;
+          proBtn.style.background = 'rgba(255,255,255,0.05)';
+          proBtn.style.color = '#94a3b8';
+          proBtn.style.border = '1px solid rgba(255,255,255,0.1)';
+          proBtn.style.boxShadow = 'none';
+        }
+        if (premiumBtn) {
+          premiumBtn.textContent = 'Upgrade to Premium';
+          premiumBtn.disabled = false;
+        }
+      } else if (plan === 'premium') {
+        if (proBtn) {
+          proBtn.textContent = 'Pro Tier';
+          proBtn.disabled = true;
+          proBtn.style.background = 'rgba(255,255,255,0.05)';
+          proBtn.style.color = '#94a3b8';
+          proBtn.style.border = '1px solid rgba(255,255,255,0.1)';
+          proBtn.style.boxShadow = 'none';
+        }
+        if (premiumBtn) {
+          premiumBtn.textContent = 'Current Premium Elite';
+          premiumBtn.disabled = true;
+          premiumBtn.style.background = 'rgba(255,255,255,0.05)';
+          premiumBtn.style.color = '#cbd5e1';
+          premiumBtn.style.border = '1px solid rgba(255,255,255,0.1)';
+          premiumBtn.style.boxShadow = 'none';
+        }
+      }
+      
+      // Show Customer Portal button if they have a Stripe Customer ID or mock Customer ID
+      const portalContainer = document.getElementById('stripePortalContainer');
+      if (portalContainer) {
+        if (data.user.stripe_customer_id) {
+          portalContainer.style.display = 'block';
+        } else {
+          portalContainer.style.display = 'none';
+        }
+      }
+
       // Check role for admin link visibility
       const adminNavLink = document.getElementById('adminNavLink');
       if (adminNavLink) {
@@ -1980,9 +2091,833 @@ async function checkSessionStatus() {
   }
 }
 
+function initializeThemeToggle() {
+  const btn = document.getElementById('themeToggleBtn');
+  const btnMobile = document.getElementById('themeToggleBtnMobile');
+  
+  function updateToggleIcons(theme) {
+    const iconSpan = document.getElementById('themeToggleIcon');
+    const iconSpanMobile = document.getElementById('themeToggleIconMobile');
+    const emoji = theme === 'dark' ? '🌙' : '☀️';
+    if (iconSpan) iconSpan.textContent = emoji;
+    if (iconSpanMobile) iconSpanMobile.textContent = emoji;
+  }
+  
+  function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateToggleIcons(newTheme);
+  }
+  
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  updateToggleIcons(savedTheme);
+  
+  if (btn) btn.addEventListener('click', toggleTheme);
+  if (btnMobile) btnMobile.addEventListener('click', toggleTheme);
+}
+
+function handleUrlParams() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const prefillJd = params.get('prefill_jd');
+    if (prefillJd) {
+      const jdInput = document.getElementById('jdInput');
+      if (jdInput) {
+        jdInput.value = prefillJd;
+        // Trigger input event to update character counter
+        const event = new Event('input', { bubbles: true });
+        jdInput.dispatchEvent(event);
+      }
+      // Redirect hash to builder and apply layout changes
+      window.location.hash = '#inputSection';
+      applyPageModeFromHash();
+    }
+  } catch (e) {
+    console.error("Error handling url params:", e);
+  }
+}
+
+function openPricingDrawer() {
+  const drawer = document.getElementById('pricingDrawer');
+  const overlay = document.getElementById('pricingDrawerOverlay');
+  if (drawer) drawer.classList.add('open');
+  if (overlay) overlay.classList.add('open');
+}
+
+function closePricingDrawer() {
+  const drawer = document.getElementById('pricingDrawer');
+  const overlay = document.getElementById('pricingDrawerOverlay');
+  if (drawer) drawer.classList.remove('open');
+  if (overlay) overlay.classList.remove('open');
+}
+
+async function checkoutPlan(planTier) {
+  const proBtn = document.getElementById('stripeCheckoutProBtn');
+  const premiumBtn = document.getElementById('stripeCheckoutPremiumBtn');
+  
+  if (proBtn) proBtn.disabled = true;
+  if (premiumBtn) premiumBtn.disabled = true;
+  
+  try {
+    const response = await fetch('/billing/checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ plan: planTier })
+    });
+    
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Checkout failed');
+    }
+    
+    if (data.url) {
+      if (data.sandbox) {
+        showToast(data.message || 'Sandbox plan activated!', '#10b981');
+        setTimeout(() => {
+          window.location.href = data.url;
+        }, 1500);
+      } else {
+        window.location.href = data.url;
+      }
+    } else {
+      throw new Error('No checkout URL returned.');
+    }
+  } catch (err) {
+    showError(err.message || 'Stripe redirect failed');
+    if (proBtn) proBtn.disabled = false;
+    if (premiumBtn) premiumBtn.disabled = false;
+  }
+}
+
 loadHomeOverview();
 bindSidebarHandlers();
 applyPageModeFromHash();
 checkSessionStatus();
-window.addEventListener('DOMContentLoaded', applyPageModeFromHash);
+initializeThemeToggle();
+handleUrlParams();
+window.addEventListener('DOMContentLoaded', () => {
+  applyPageModeFromHash();
+  handleUrlParams();
+});
 window.addEventListener('hashchange', applyPageModeFromHash);
+
+/* --- AI BULLET BOOSTER DRAWER CONTROLS --- */
+let currentBoostingBullet = null;
+
+function openBulletDrawer(type, parentIdx, bulletIdx) {
+  const resume = currentResumeData;
+  if (!resume) return;
+  
+  let bulletText = '';
+  if (type === 'experience') {
+    bulletText = resume.experience[parentIdx].bullets[bulletIdx];
+  } else if (type === 'project') {
+    bulletText = resume.projects[parentIdx].bullets[bulletIdx];
+  }
+  
+  currentBoostingBullet = { type, parentIdx, bulletIdx, text: bulletText };
+  
+  document.getElementById('drawerOriginalText').textContent = bulletText;
+  
+  let inferredRole = '';
+  if (type === 'experience') {
+    inferredRole = resume.experience[parentIdx].title || '';
+  } else if (type === 'project') {
+    inferredRole = (resume.experience && resume.experience[0]?.title) || '';
+  }
+  
+  if (!inferredRole) {
+    inferredRole = document.getElementById('autoTitle')?.value.trim() || '';
+  }
+  
+  document.getElementById('drawerTargetRole').value = inferredRole;
+  
+  const jdInput = document.getElementById('jdInput');
+  document.getElementById('drawerJdContext').value = jdInput ? jdInput.value.trim() : '';
+  
+  document.getElementById('drawerVariationsContainer').innerHTML = `
+    <div class="text-xs text-center py-8" style="color: var(--text-muted);">
+      Click "Boost Bullet Point" to generate impact-driven X-Y-Z variations.
+    </div>
+  `;
+  
+  document.getElementById('bulletDrawer').classList.add('open');
+  document.getElementById('bulletDrawerOverlay').classList.add('open');
+}
+
+function closeBulletDrawer() {
+  document.getElementById('bulletDrawer').classList.remove('open');
+  document.getElementById('bulletDrawerOverlay').classList.remove('open');
+  currentBoostingBullet = null;
+}
+
+async function boostBulletAction() {
+  if (!currentBoostingBullet) return;
+  
+  const btn = document.getElementById('boostBulletBtn');
+  const role = document.getElementById('drawerTargetRole').value.trim();
+  const jdContext = document.getElementById('drawerJdContext').value.trim();
+  const variationsContainer = document.getElementById('drawerVariationsContainer');
+  
+  btn.disabled = true;
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px;"></div> Boosting...';
+  
+  variationsContainer.innerHTML = `
+    <div class="text-xs text-center py-8" style="color: var(--text-muted);">
+      <div class="spinner" style="width:24px;height:24px;border-width:2px;margin-bottom:12px;"></div>
+      Analyzing bullet context and orchestrating X-Y-Z metrics...
+    </div>
+  `;
+  
+  try {
+    const response = await fetch('/boost-bullet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bullet: currentBoostingBullet.text,
+        role: role,
+        jd_context: jdContext
+      })
+    });
+    
+    const data = await response.json();
+    if (!response.ok || data.error) throw new Error(data.error || 'Optimization request failed');
+    
+    const variations = data.variations || [];
+    if (variations.length === 0) throw new Error('No variations generated');
+    
+    let html = '';
+    variations.forEach((variation, idx) => {
+      html += `
+        <div class="drawer-variation-item">
+          <div class="drawer-variation-text">${escapeHtml(variation)}</div>
+          <div class="drawer-variation-actions">
+            <button class="drawer-variation-btn" onclick="copyVariationText(this, ${idx})">Copy</button>
+            <button class="drawer-variation-btn apply" onclick="applyBoostedBullet(${idx})">Apply</button>
+          </div>
+        </div>
+      `;
+    });
+    
+    variationsContainer.innerHTML = html;
+    variationsContainer.dataset.variations = JSON.stringify(variations);
+    
+    showToast('Bullet optimizations generated!', '#22c55e');
+  } catch (err) {
+    showError(err.message || 'Could not optimize bullet.');
+    variationsContainer.innerHTML = `
+      <div class="text-xs text-center py-8" style="color: #ef4444;">
+        Failed to generate variations: ${escapeHtml(err.message)}
+      </div>
+    `;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+}
+
+function copyVariationText(btn, idx) {
+  const container = document.getElementById('drawerVariationsContainer');
+  const variations = JSON.parse(container.dataset.variations || '[]');
+  const text = variations[idx];
+  if (!text) return;
+  
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+    showToast('Variation copied to clipboard!', '#22c55e');
+  });
+}
+
+function applyBoostedBullet(idx) {
+  if (!currentBoostingBullet || !currentResumeData) return;
+  
+  const container = document.getElementById('drawerVariationsContainer');
+  const variations = JSON.parse(container.dataset.variations || '[]');
+  const newText = variations[idx];
+  if (!newText) return;
+  
+  const { type, parentIdx, bulletIdx } = currentBoostingBullet;
+  
+  if (type === 'experience') {
+    currentResumeData.experience[parentIdx].bullets[bulletIdx] = newText;
+  } else if (type === 'project') {
+    currentResumeData.projects[parentIdx].bullets[bulletIdx] = newText;
+  }
+  
+  renderResumeHTML(currentResumeData);
+  persistBuilderState();
+  
+  showToast('✓ Bullet updated in resume!', '#22c55e');
+  closeBulletDrawer();
+}
+
+/* --- WYSIWYG MODEL UPDATE HANDLERS & DEBOUNCER --- */
+let autoSaveTimeout = null;
+
+function triggerTelemetrySaving() {
+  const dot = document.getElementById('saveTelemetryDot');
+  const text = document.getElementById('saveTelemetryText');
+  if (dot && text) {
+    dot.className = 'save-status-dot saving';
+    text.textContent = 'Saving...';
+  }
+}
+
+function triggerTelemetrySynced() {
+  const dot = document.getElementById('saveTelemetryDot');
+  const text = document.getElementById('saveTelemetryText');
+  if (dot && text) {
+    dot.className = 'save-status-dot';
+    text.textContent = 'Synced';
+  }
+}
+
+function debouncedAutoSave(callback) {
+  triggerTelemetrySaving();
+  if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+  autoSaveTimeout = setTimeout(() => {
+    callback();
+    persistBuilderState();
+    triggerTelemetrySynced();
+  }, 1000);
+}
+
+function updateSummary(el) {
+  debouncedAutoSave(() => {
+    if (currentResumeData) {
+      currentResumeData.summary = el.innerText;
+    }
+  });
+}
+
+function updateExperienceField(el, expIdx, field) {
+  debouncedAutoSave(() => {
+    if (currentResumeData && currentResumeData.experience[expIdx]) {
+      currentResumeData.experience[expIdx][field] = el.innerText;
+    }
+  });
+}
+
+function updateExperienceBullet(el, expIdx, bIdx) {
+  debouncedAutoSave(() => {
+    if (currentResumeData && currentResumeData.experience[expIdx] && currentResumeData.experience[expIdx].bullets) {
+      currentResumeData.experience[expIdx].bullets[bIdx] = el.innerText;
+    }
+  });
+}
+
+function updateProjectField(el, projIdx, field) {
+  debouncedAutoSave(() => {
+    if (currentResumeData && currentResumeData.projects[projIdx]) {
+      currentResumeData.projects[projIdx][field] = el.innerText;
+    }
+  });
+}
+
+function updateProjectBullet(el, projIdx, bIdx) {
+  debouncedAutoSave(() => {
+    if (currentResumeData && currentResumeData.projects[projIdx] && currentResumeData.projects[projIdx].bullets) {
+      currentResumeData.projects[projIdx].bullets[bIdx] = el.innerText;
+    }
+  });
+}
+
+function updateEducationField(el, eduIdx, field) {
+  debouncedAutoSave(() => {
+    if (currentResumeData && currentResumeData.education[eduIdx]) {
+      currentResumeData.education[eduIdx][field] = el.innerText;
+    }
+  });
+}
+
+function updateCertificationField(el, certIdx, field) {
+  debouncedAutoSave(() => {
+    if (currentResumeData && currentResumeData.certifications[certIdx]) {
+      const cert = currentResumeData.certifications[certIdx];
+      if (typeof cert === 'string') {
+        currentResumeData.certifications[certIdx] = el.innerText;
+      } else {
+        currentResumeData.certifications[certIdx][field] = el.innerText;
+      }
+    }
+  });
+}
+
+function updateSkillCategory(el, oldCat) {
+  debouncedAutoSave(() => {
+    if (currentResumeData && currentResumeData.skills) {
+      const newCat = el.innerText.trim();
+      if (newCat && newCat !== oldCat) {
+        currentResumeData.skills[newCat] = currentResumeData.skills[oldCat];
+        delete currentResumeData.skills[oldCat];
+      }
+    }
+  });
+}
+
+function updateSkillTag(el, cat, sIdx) {
+  debouncedAutoSave(() => {
+    if (currentResumeData && currentResumeData.skills && currentResumeData.skills[cat]) {
+      currentResumeData.skills[cat][sIdx] = el.innerText.trim();
+    }
+  });
+}
+
+/* --- DYNAMIC ATS SCR-BREAKDOWN DRAWER --- */
+function openAtsDrawer() {
+  const data = lastOptimizeResponse;
+  if (!data) return;
+  
+  const drawer = document.getElementById('atsDrawer');
+  const overlay = document.getElementById('atsDrawerOverlay');
+  const content = document.getElementById('atsDrawerContent');
+  
+  if (!drawer || !overlay || !content) return;
+  
+  const score = Number(
+    (data.ats_score && typeof data.ats_score === 'object' ? data.ats_score.total : data.ats_score) || 0
+  );
+  
+  const breakdown = data.ats_score?.breakdown || {};
+  const tech = breakdown.local_technical_match || 0;
+  const struct = breakdown.structural_score || 0;
+  const ai = breakdown.ai_alignment_score || 0;
+  
+  const kws = data.keyword_analysis || {};
+  const matched = kws.matched_in_resume || [];
+  const missing = kws.missing_keywords || [];
+  const locationMatches = kws.matched_by_location || { experience: [], projects: [], skills: [], other: [] };
+  
+  const formatting = data.formatting_analysis || {
+    sections_present: { experience: false, projects: false, skills: false, education: false },
+    action_verbs_count: 0,
+    action_verbs_found: [],
+    metrics_count: 0,
+    metrics_found: []
+  };
+  
+  // Section badges
+  const sectionsHtml = Object.entries(formatting.sections_present).map(([section, present]) => {
+    const icon = present ? '✅' : '❌';
+    const label = section.charAt(0).toUpperCase() + section.slice(1);
+    const color = present ? '#34d399' : '#f87171';
+    return `
+      <div class="ats-check-item ${present ? 'success' : 'fail'}">
+        <span style="font-weight:600; color: var(--text);">${label} Section</span>
+        <span style="color: ${color}; font-weight:700;">${icon} ${present ? 'Found' : 'Missing'}</span>
+      </div>
+    `;
+  }).join('');
+  
+  // Action verbs HTML
+  const verbsHtml = formatting.action_verbs_count > 0 
+    ? formatting.action_verbs_found.map(v => `<span class="tag tag-green">${v}</span>`).join('')
+    : '<span style="color: var(--text-muted); font-size:12px;">No strong action verbs found. Try adding verbs like "Designed", "Spearheaded", "Optimized".</span>';
+    
+  // Metrics HTML
+  const metricsHtml = formatting.metrics_count > 0
+    ? formatting.metrics_found.map(m => `<span class="tag tag-blue">${m}</span>`).join('')
+    : '<span style="color: var(--text-muted); font-size:12px;">No quantifiable metrics found. Recruiter guidelines recommend adding numbers, percentages (%), or currency amounts to show impact.</span>';
+    
+  // Matched by Location badges
+  const expKwsHtml = (locationMatches.experience || []).map(k => `<span class="tag tag-green tag-exp">${k}</span>`).join('');
+  const projKwsHtml = (locationMatches.projects || []).map(k => `<span class="tag tag-blue tag-proj">${k}</span>`).join('');
+  const skillKwsHtml = (locationMatches.skills || []).map(k => `<span class="tag tag-orange tag-skills">${k}</span>`).join('');
+  const otherKwsHtml = (locationMatches.other || []).map(k => `<span class="tag tag-gray">${k}</span>`).join('');
+  
+  const missingKwsHtml = missing.map(k => `<span class="tag tag-red">${k}</span>`).join('');
+  
+  content.innerHTML = `
+    <!-- Overall Score Glowing Circle -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; padding: 16px; background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); border-radius:12px;">
+      <div style="font-size: 36px; font-weight: 900; color: #fbbf24; text-shadow: 0 0 15px rgba(251, 191, 36, 0.4);">${score}%</div>
+      <div style="font-size: 11px; font-weight:700; color: var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Unified ATS Grade</div>
+      <div style="font-size: 11px; text-align:center; color:#94a3b8; line-height:1.5; padding: 0 10px; margin-top: 4px;">
+        ${data.ats_score?.score_reasoning || ''}
+      </div>
+    </div>
+    
+    <!-- Technical Keywords Card (60%) -->
+    <div class="ats-drawer-card">
+      <div class="ats-drawer-section-title">🎯 Technical Keyword Fit (${tech}/60)</div>
+      <div class="ats-progress-bar-container">
+        <div class="ats-progress-bar-fill tech" style="width: ${(tech/60 * 100)}%;"></div>
+      </div>
+      <div style="font-size: 11px; color:#94a3b8; line-height:1.5;">
+        ATS matching awards **3x weight** for keywords in Professional Experience and **2x weight** for Projects.
+      </div>
+      
+      <div style="display:flex; flex-direction:column; gap:12px; margin-top: 8px;">
+        ${expKwsHtml ? `
+          <div>
+            <div style="font-size:10px; font-weight:700; color:#34d399; text-transform:uppercase; margin-bottom:4px;">💼 In Professional Experience (3.0x weight)</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px;">${expKwsHtml}</div>
+          </div>
+        ` : ''}
+        
+        ${projKwsHtml ? `
+          <div>
+            <div style="font-size:10px; font-weight:700; color:#60a5fa; text-transform:uppercase; margin-bottom:4px;">🏗️ In Projects Section (2.0x weight)</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px;">${projKwsHtml}</div>
+          </div>
+        ` : ''}
+        
+        ${skillKwsHtml ? `
+          <div>
+            <div style="font-size:10px; font-weight:700; color:#fbbf24; text-transform:uppercase; margin-bottom:4px;">🛠️ In Skills Lists (1.0x weight)</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px;">${skillKwsHtml}</div>
+          </div>
+        ` : ''}
+        
+        ${otherKwsHtml ? `
+          <div>
+            <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">📝 In General Summary/Other (0.5x weight)</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px;">${otherKwsHtml}</div>
+          </div>
+        ` : ''}
+        
+        ${missingKwsHtml ? `
+          <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top:12px;">
+            <div style="font-size:10px; font-weight:700; color:#f87171; text-transform:uppercase; margin-bottom:4px;">❌ Missing Keywords (Add to Resume)</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px;">${missingKwsHtml}</div>
+          </div>
+        ` : `
+          <div style="color:#34d399; font-size:11px; font-weight:600; display:flex; align-items:center; gap:4px; border-top: 1px solid rgba(255,255,255,0.06); padding-top:12px;">
+            ✓ You have successfully integrated all job-description keywords!
+          </div>
+        `}
+      </div>
+    </div>
+    
+    <!-- Formatting & Structure Card (25%) -->
+    <div class="ats-drawer-card">
+      <div class="ats-drawer-section-title">🏗️ Formatting & Structural Quality (${struct}/25)</div>
+      <div class="ats-progress-bar-container">
+        <div class="ats-progress-bar-fill struct" style="width: ${(struct/25 * 100)}%;"></div>
+      </div>
+      
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+        <div style="font-size: 11px; font-weight:700; color:var(--text); margin-bottom:2px;">Section Checklist</div>
+        ${sectionsHtml}
+      </div>
+      
+      <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top:12px; display:flex; flex-direction:column; gap:8px;">
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span style="font-size:11px; font-weight:700; color:var(--text);">Action Verbs found</span>
+            <span style="font-size:10px; color:#34d399; font-weight:700;">Count: ${formatting.action_verbs_count}</span>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:4px;">${verbsHtml}</div>
+        </div>
+        
+        <div style="margin-top:4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <span style="font-size:11px; font-weight:700; color:var(--text);">Quantifiable Results/Metrics</span>
+            <span style="font-size:10px; color:#60a5fa; font-weight:700;">Count: ${formatting.metrics_count}</span>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:4px;">${metricsHtml}</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- AI Domain Alignment Card (15%) -->
+    <div class="ats-drawer-card">
+      <div class="ats-drawer-section-title">🤖 AI Semantic Alignment (${ai}/15)</div>
+      <div class="ats-progress-bar-container">
+        <div class="ats-progress-bar-fill ai" style="width: ${(ai/15 * 100)}%;"></div>
+      </div>
+      <div style="font-size: 11px; color:#94a3b8; line-height:1.5;">
+        Recruiter-aligned semantic checking measures if your overall candidate profile perfectly matches the core domain and seniority level of the target job position (preventing keyword-stuffing hacks).
+      </div>
+      <div style="font-size:11px; font-weight:600; color:#c084fc; display:flex; align-items:center; gap:4px;">
+        🎯 Alignment Score: ${ai} out of 15 (Perfect domain fit)
+      </div>
+    </div>
+  `;
+  
+  drawer.classList.add('open');
+  overlay.classList.add('open');
+}
+
+function closeAtsDrawer() {
+  const drawer = document.getElementById('atsDrawer');
+  const overlay = document.getElementById('atsDrawerOverlay');
+  if (drawer && overlay) {
+    drawer.classList.remove('open');
+    overlay.classList.remove('open');
+  }
+}
+
+/* --- AI MOCK INTERVIEW SIMULATOR INTERACTIONS --- */
+let activeInterviewSessionId = null;
+
+async function startInterviewSession() {
+  const jdText = document.getElementById('interviewJd').value.trim();
+  const type = document.getElementById('interviewType').value;
+  const difficulty = document.getElementById('interviewDifficulty').value;
+
+  if (!jdText) {
+    showError("Please paste a target Job Description to align and context-fit the interview questions.");
+    return;
+  }
+
+  const startBtn = document.querySelector('#interviewSetupCard button');
+  if (startBtn) {
+    startBtn.disabled = true;
+    startBtn.innerHTML = '<span style="animation: bounce 1s infinite; display: inline-block;">⏳</span> Initializing Recruiting Panel...';
+  }
+
+  try {
+    const response = await fetch('/interview/api/start', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        jd: jdText,
+        type: type,
+        difficulty: difficulty
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to start interview practice session.");
+    }
+
+    activeInterviewSessionId = data.session_id;
+
+    // Transition panels
+    document.getElementById('interviewSetupCard').style.display = 'none';
+    document.getElementById('interviewChatCard').style.display = 'grid';
+    document.getElementById('interviewScorecard').style.display = 'none';
+
+    // Set header details
+    document.getElementById('interviewTypeDifficulty').textContent = `${type} | ${difficulty}-Level`;
+    document.getElementById('interviewRoundCounter').textContent = `Question ${data.round} of ${data.max_rounds}`;
+
+    // Reset Chat history and add the first question
+    const stream = document.getElementById('interviewChatStream');
+    stream.innerHTML = '';
+    
+    appendRecruiterMessage(data.first_question);
+
+  } catch (err) {
+    showError(err.message || "An error occurred starting the interview.");
+  } finally {
+    if (startBtn) {
+      startBtn.disabled = false;
+      startBtn.innerHTML = '<span class="btn-icon">⚡</span> Start Interview Session';
+    }
+  }
+}
+
+function appendRecruiterMessage(text) {
+  const stream = document.getElementById('interviewChatStream');
+  const row = document.createElement('div');
+  row.className = 'chat-row';
+  row.innerHTML = `
+    <span class="chat-avatar recruiter">🤖 Recruiter</span>
+    <div class="chat-bubble recruiter">${escapeHtml(text)}</div>
+  `;
+  stream.appendChild(row);
+  stream.scrollTop = stream.scrollHeight;
+}
+
+function appendUserMessage(text) {
+  const stream = document.getElementById('interviewChatStream');
+  const row = document.createElement('div');
+  row.className = 'chat-row';
+  row.innerHTML = `
+    <span class="chat-avatar user">👤 Candidate (You)</span>
+    <div class="chat-bubble user">${escapeHtml(text)}</div>
+  `;
+  stream.appendChild(row);
+  stream.scrollTop = stream.scrollHeight;
+}
+
+async function submitInterviewAnswer() {
+  const inputEl = document.getElementById('interviewAnswerInput');
+  const answer = inputEl.value.trim();
+
+  if (!answer) {
+    showError("Please type a response before submitting.");
+    return;
+  }
+
+  if (!activeInterviewSessionId) {
+    showError("No active interview session found. Please reload or restart.");
+    return;
+  }
+
+  // Disable submission buttons
+  const submitBtn = document.querySelector('#interviewChatCard button[onclick="submitInterviewAnswer()"]');
+  if (submitBtn) submitBtn.disabled = true;
+
+  // Append user message
+  appendUserMessage(answer);
+  inputEl.value = '';
+
+  // Show typing indicator
+  const indicator = document.getElementById('interviewTypingIndicator');
+  if (indicator) indicator.style.display = 'flex';
+  
+  const stream = document.getElementById('interviewChatStream');
+  stream.scrollTop = stream.scrollHeight;
+
+  try {
+    const response = await fetch('/interview/api/answer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        session_id: activeInterviewSessionId,
+        answer: answer
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to submit answer.");
+    }
+
+    if (indicator) indicator.style.display = 'none';
+
+    if (data.finished) {
+      // Direct to compile scorecard automatically
+      await forceEndInterview();
+    } else {
+      // Update round counters and load next question
+      document.getElementById('interviewRoundCounter').textContent = `Question ${data.round} of ${data.max_rounds}`;
+      appendRecruiterMessage(data.next_question);
+    }
+
+  } catch (err) {
+    if (indicator) indicator.style.display = 'none';
+    showError(err.message || "Failed to submit answer.");
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
+async function forceEndInterview() {
+  if (!activeInterviewSessionId) {
+    showError("No active session to terminate.");
+    return;
+  }
+
+  const indicator = document.getElementById('interviewTypingIndicator');
+  if (indicator) {
+    indicator.style.display = 'flex';
+    indicator.querySelector('span').textContent = 'Compiling Recruiter Grade Card & Learning Guide...';
+  }
+
+  const submitBtn = document.querySelector('#interviewChatCard button[onclick="submitInterviewAnswer()"]');
+  if (submitBtn) submitBtn.disabled = true;
+
+  try {
+    const response = await fetch('/interview/api/end', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        session_id: activeInterviewSessionId
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to compile official scorecard.");
+    }
+
+    if (indicator) indicator.style.display = 'none';
+
+    // Transition to Scorecard panel
+    document.getElementById('interviewSetupCard').style.display = 'none';
+    document.getElementById('interviewChatCard').style.display = 'none';
+    document.getElementById('interviewScorecard').style.display = 'grid';
+
+    // Populate scorecard metadata
+    document.getElementById('scorecardTotal').textContent = `${data.total_score}%`;
+    document.getElementById('scorecardFeedback').textContent = data.overall_feedback;
+
+    // Sub-scores
+    document.getElementById('scorecardTech').textContent = `${data.technical_score} / 25`;
+    document.getElementById('scorecardTechFill').style.width = `${(data.technical_score / 25 * 100)}%`;
+
+    document.getElementById('scorecardComm').textContent = `${data.communication_score} / 25`;
+    document.getElementById('scorecardCommFill').style.width = `${(data.communication_score / 25 * 100)}%`;
+
+    document.getElementById('scorecardBeh').textContent = `${data.behavioral_score} / 15`;
+    document.getElementById('scorecardBehFill').style.width = `${(data.behavioral_score / 15 * 100)}%`;
+
+    // Populate rounds details
+    const roundsList = document.getElementById('scorecardRoundsList');
+    roundsList.innerHTML = '';
+
+    data.history.forEach((round, index) => {
+      const box = document.createElement('div');
+      box.className = 'scorecard-round-box';
+      
+      const qScore = round.score !== null ? `${round.score}/10` : 'Scored';
+      const ansText = round.answer ? round.answer : 'No answer provided.';
+      const critiqueText = round.critique ? round.critique : 'No critique available.';
+      const idealText = round.ideal_answer ? round.ideal_answer : 'Detail technical actions and show measurable metrics.';
+
+      box.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px; margin-bottom: 8px;">
+          <strong style="font-size: 13px; color: #fbbf24;">Round ${index + 1} Question</strong>
+          <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px;">Score: ${qScore}</span>
+        </div>
+        <p style="font-size: 13px; color: white; font-weight: 500; margin: 0 0 10px 0;">${escapeHtml(round.question)}</p>
+        
+        <div style="font-size: 12px; margin-bottom: 8px;">
+          <span style="color: var(--text-muted); font-weight:700;">Your Response:</span>
+          <p style="color: #e2e8f0; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 6px; padding: 8px; margin: 4px 0 0 0; font-family: var(--font);">${escapeHtml(ansText)}</p>
+        </div>
+
+        <div style="font-size: 12px; margin-bottom: 8px;">
+          <span style="color: #60a5fa; font-weight:700;">Recruiter Constructive Critique:</span>
+          <p style="color: #cbd5e1; margin: 4px 0 0 0; line-height:1.5;">${escapeHtml(critiqueText)}</p>
+        </div>
+
+        <!-- Ideal Answer Dropdown Accordion -->
+        <details style="margin-top: 10px;">
+          <summary style="font-size: 11px; font-weight:700; color: #c084fc; cursor: pointer; user-select: none;" class="hover:underline">💡 View Ideal Recruiter Answer Outline</summary>
+          <div class="ideal-answer-dropdown">
+            ${escapeHtml(idealText)}
+          </div>
+        </details>
+      `;
+      roundsList.appendChild(box);
+    });
+
+  } catch (err) {
+    if (indicator) indicator.style.display = 'none';
+    showError(err.message || "Failed to end session.");
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
+function resetInterviewPortal() {
+  activeInterviewSessionId = null;
+  document.getElementById('interviewSetupCard').style.display = 'grid';
+  document.getElementById('interviewChatCard').style.display = 'none';
+  document.getElementById('interviewScorecard').style.display = 'none';
+
+  // Clear inputs/history
+  document.getElementById('interviewAnswerInput').value = '';
+  document.getElementById('interviewChatStream').innerHTML = '';
+}
+
+
