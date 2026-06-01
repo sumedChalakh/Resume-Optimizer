@@ -142,6 +142,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
 
+  if (message.type === "GET_MATCH_SCORE") {
+    getMatchScore(message.jd)
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ ok: false, error: String(error.message || error) }));
+    return true;
+  }
+
   if (message.type === "TRACKER_DEBUG_EVENT") {
     appendDebugEvent("content_debug", message.payload || {})
       .then(() => sendResponse({ ok: true }))
@@ -207,3 +214,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return true;
 });
+
+async function getMatchScore(jdText) {
+  const config = await getConfig();
+  if (!config.ingestToken) {
+    return { ok: false, error: "Missing ingest token in extension popup." };
+  }
+  
+  const endpoint = `${config.apiBaseUrl}/tracker/api/match-score`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.ingestToken}`,
+    },
+    body: JSON.stringify({ jd: jdText }),
+  });
+  
+  let data = {};
+  try {
+    data = await response.json();
+  } catch (error) {
+    data = { error: "Invalid JSON response from server." };
+  }
+  
+  return {
+    ok: response.ok,
+    code: response.status,
+    data: data
+  };
+}
