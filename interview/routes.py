@@ -78,7 +78,7 @@ def start_interview():
         "session_id": interview_sess.id,
         "first_question": first_question,
         "round": 1,
-        "max_rounds": 5
+        "max_rounds": 10
     })
     return _corsify(response)
 
@@ -147,15 +147,15 @@ def submit_answer():
     history[current_round_idx]["score"] = score_val
     history[current_round_idx]["critique"] = critique_val
 
-    # If completed all 5 rounds, mark as finished
-    if len(history) >= 5:
+    # If completed all 10 rounds, mark as finished
+    if len(history) >= 10:
         interview_sess.history = json.dumps(history)
         db.session.commit()
         response = jsonify({
             "session_id": interview_sess.id,
             "finished": True,
-            "round": 5,
-            "max_rounds": 5
+            "round": 10,
+            "max_rounds": 10
         })
         return _corsify(response)
 
@@ -166,7 +166,7 @@ def submit_answer():
 
     next_question_prompt = (
         "You are an elite corporate interviewer. Generate exactly ONE logical subsequent interview question.\n"
-        f"This is Question {next_round_num} of 5. Focus on a new, distinct topic appropriate for the role and candidate's level.\n"
+        f"This is Question {next_round_num} of 10. Focus on a new, distinct topic appropriate for the role and candidate's level.\n"
         "Do not repeat questions or topics already asked. Poses the question directly without introductory filler."
     )
     
@@ -195,7 +195,7 @@ def submit_answer():
         "session_id": interview_sess.id,
         "next_question": next_question,
         "round": next_round_num,
-        "max_rounds": 5,
+        "max_rounds": 10,
         "finished": False
     })
     return _corsify(response)
