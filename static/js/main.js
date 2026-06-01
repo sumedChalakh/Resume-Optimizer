@@ -2011,7 +2011,7 @@ async function checkSessionStatus() {
 
       // Update pricing plan displays dynamically
       const plan = String(data.user.plan || 'free').toLowerCase();
-      const planDisplay = plan === 'premium' ? 'Premium Elite' : (plan === 'pro' ? 'Pro Professional' : 'Standard Free');
+      const planDisplay = plan === 'premium' ? 'Premium AI Recruiter & Agent' : (plan === 'pro' ? 'Pro AI Copilot' : 'Standard Free');
       
       const leftSidebarPlan = document.getElementById('sidebar-userplan');
       if (leftSidebarPlan) leftSidebarPlan.textContent = planDisplay;
@@ -2033,7 +2033,7 @@ async function checkSessionStatus() {
           proBtn.style.boxShadow = 'none';
         }
         if (premiumBtn) {
-          premiumBtn.textContent = 'Upgrade to Premium';
+          premiumBtn.textContent = 'Upgrade to Premium AI Recruiter';
           premiumBtn.disabled = false;
         }
       } else if (plan === 'premium') {
@@ -2046,7 +2046,7 @@ async function checkSessionStatus() {
           proBtn.style.boxShadow = 'none';
         }
         if (premiumBtn) {
-          premiumBtn.textContent = 'Current Premium Elite';
+          premiumBtn.textContent = 'Current Premium AI Recruiter';
           premiumBtn.disabled = true;
           premiumBtn.style.background = 'rgba(255,255,255,0.05)';
           premiumBtn.style.color = '#cbd5e1';
