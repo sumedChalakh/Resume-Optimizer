@@ -19,12 +19,18 @@
       }
     }
   </script>
+  <script>
+    (function() {
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
 </head>
 <body class="bg-midnight text-slate-200">
   <div class="bg-grid opacity-10 mix-blend-screen pointer-events-none" style="position: fixed; inset: 0; background-image: linear-gradient(rgba(20, 86, 212, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(20, 86, 212, 0.035) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0;"></div>
 
   <header class="app-topbar w-full !bg-midnight/90 !border-white/10 !backdrop-blur-md">
-    <a class="brand !text-white" href="/">
+    <a class="brand" href="/">
       <span class="brand-icon">⚡</span>
       <span>ATS<strong class="!text-electricBlue">Optimizer</strong></span>
     </a>
@@ -35,7 +41,10 @@
       <a class="top-link active !text-white !bg-white/10" href="/tracker">Job Tracker</a>
     </nav>
 
-    <div class="top-actions">
+    <div class="top-actions flex items-center gap-3">
+      <button id="themeToggleBtn" class="w-8 h-8 rounded-full border border-slate-700 bg-white/5 flex items-center justify-center text-slate-300 cursor-pointer transition-all mr-3" title="Toggle Light/Dark Theme" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:50%; width:32px; height:32px; color:#cbd5e1; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+        <span id="themeToggleIcon" class="text-sm">☀️</span>
+      </button>
       <a class="top-btn !text-white !border-white/20 !bg-white/5 hover:!bg-white/10" href="/#inputSection">Resume Builder</a>
     </div>
   </header>
@@ -47,6 +56,18 @@
     </section>
 
     <section id="persistenceWarning" class="system-warning hidden" role="status" aria-live="polite"></section>
+
+    <!-- Board Switcher Navigation -->
+    <section class="board-nav-section">
+      <div class="board-nav-wrapper">
+        <div id="boardTabs" class="board-tabs-list">
+          <!-- Dynamic board tabs loaded via JavaScript -->
+        </div>
+        <button id="addBoardBtn" class="add-board-tab-btn" onclick="addNewBoardPrompt()">
+          <span>+</span> New Hunt Board
+        </button>
+      </div>
+    </section>
 
     <section class="toolbar">
       <input id="searchInput" type="text" placeholder="Search role or company" />
@@ -80,6 +101,38 @@
         <button type="submit">Add to Tracker</button>
       </form>
       <div id="formMessage" class="message"></div>
+    </section>
+
+    <section class="email-sync-panel">
+      <div class="email-sync-header">
+        <h2><span>⚡</span> Recruiter Email Sync</h2>
+        <span class="email-sync-status">🟢 Inbox Simulator Connected</span>
+      </div>
+      
+      <p class="text-sm text-slate-400 mb-3" style="color: var(--muted); margin: 0 0 12px 0;">
+        Click a recruiter template below to simulate a real inbox check, or paste email details manually to sync your Kanban board.
+      </p>
+
+      <div class="email-template-scroll">
+        <span class="email-template-pill" onclick="loadEmailTemplate('stripe_interview')">📞 Stripe Interview Invite</span>
+        <span class="email-template-pill" onclick="loadEmailTemplate('google_oa')">💻 Google Technical Test</span>
+        <span class="email-template-pill" onclick="loadEmailTemplate('openai_offer')">🎉 OpenAI Official Offer</span>
+        <span class="email-template-pill" onclick="loadEmailTemplate('netflix_rejection')">📝 Netflix Decision Update</span>
+        <span class="email-template-pill" onclick="loadEmailTemplate('custom_applied')">📧 LinkedIn Application Confirmed</span>
+      </div>
+
+      <form id="emailSyncForm" class="email-form" onsubmit="event.preventDefault(); parseRecruiterEmail();">
+        <div class="email-form-row">
+          <input id="emailSender" type="text" placeholder="Sender (e.g. careers@stripe.com)" required />
+          <input id="emailSubject" type="text" placeholder="Subject (e.g. Next steps with Stripe)" required />
+        </div>
+        <textarea id="emailBody" placeholder="Paste recruiter email body text here..." required></textarea>
+        <button id="emailParseBtn" class="email-parse-btn" type="submit">
+          <span>⚡</span> Sync & Parse Email
+        </button>
+      </form>
+
+      <div id="emailParseResult" class="email-parse-result" style="display: none;"></div>
     </section>
 
     <section id="statsRow" class="stats-row"></section>
@@ -161,6 +214,24 @@
     </section>
 
     <section class="board" id="board"></section>
+
+    <!-- Archived Cabinet Drawer -->
+    <section class="archive-cabinet-section mt-8">
+      <button id="toggleArchiveCabinetBtn" class="archive-cabinet-toggle-btn" onclick="toggleArchiveCabinet()">
+        📂 Open Archived Cabinet (<span id="archiveCount">0</span>)
+      </button>
+      
+      <div id="archiveCabinet" class="archive-cabinet-container" style="display: none;">
+        <div class="archive-cabinet-header">
+          <h3>📦 Archived Applications</h3>
+          <p>Historical application cards preserved off the active board.</p>
+        </div>
+        <div id="archiveCabinetList" class="archive-cabinet-list">
+          <!-- Dynamically populated list of archived cards -->
+          <div class="text-xs text-center py-6 text-slate-400" style="color: var(--muted); padding: 16px; text-align: center;">No archived applications.</div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <script>
