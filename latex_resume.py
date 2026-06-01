@@ -71,8 +71,18 @@ def latex_escape(value):
     return text
 
 
-def load_template_text():
-    with open(TEMPLATE_PATH, "r", encoding="utf-8") as f:
+def load_template_text(template_id="classic"):
+    filename = "resume_template.tex"
+    if template_id == "modern":
+        filename = "resume_template_modern.tex"
+    elif template_id == "executive":
+        filename = "resume_template_executive.tex"
+    
+    path = os.path.join(os.path.dirname(__file__), filename)
+    if not os.path.exists(path):
+        path = TEMPLATE_PATH
+        
+    with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
 
@@ -338,8 +348,8 @@ def build_contact_lines(data):
     return "\n    \\quad\\textbar\\quad\n    ".join(parts)
 
 
-def render_template_document(data):
-    template = load_template_text()
+def render_template_document(data, template_id="classic"):
+    template = load_template_text(template_id)
     full_name = latex_escape(data.get("full_name") or data.get("name") or "YOUR FULL NAME")
     header = build_contact_lines(data)
 
@@ -475,12 +485,13 @@ def render_template_document(data):
 def render_latex_source():
     data = request.get_json(silent=True) or {}
     latex_data = data.get("latex_data") or {}
+    template_id = data.get("template_id") or "classic"
 
     if not isinstance(latex_data, dict) or not latex_data:
         return jsonify({"error": "latex_data is required"}), 400
 
     try:
-        source = render_template_document(latex_data)
+        source = render_template_document(latex_data, template_id=template_id)
         source = sanitize_tex(source)
         return jsonify({"source": source})
     except Exception as exc:
@@ -876,12 +887,13 @@ def engine_status():
 def export_pdf():
     data = request.get_json(silent=True) or {}
     latex_data = data.get("latex_data") or {}
+    template_id = data.get("template_id") or "classic"
 
     if not isinstance(latex_data, dict) or not latex_data:
         return jsonify({"error": "latex_data is required"}), 400
 
     try:
-        src = render_template_document(latex_data)
+        src = render_template_document(latex_data, template_id=template_id)
     except Exception as exc:
         return jsonify({"error": f"Template render failed: {exc}"}), 400
 
@@ -946,10 +958,11 @@ def validate_latex():
     """Dry-run compile — returns errors without sending a PDF."""
     data = request.get_json(silent=True) or {}
     latex_data = data.get("latex_data") or {}
+    template_id = data.get("template_id") or "classic"
     if not isinstance(latex_data, dict) or not latex_data:
         return jsonify({"valid": False, "error": "latex_data is required"}), 400
     try:
-        src = render_template_document(latex_data)
+        src = render_template_document(latex_data, template_id=template_id)
     except Exception as exc:
         return jsonify({"valid": False, "error": f"Template render failed: {exc}"}), 400
     if not isinstance(src, str) or not src.strip():
