@@ -291,8 +291,143 @@ document.addEventListener("click", onDocumentClick, true);
 observeSuccessSignals();
 startPassiveScan();
 
+// Handle popup requests to manually extract visible job
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "EXTRACT_VISIBLE_JOB") {
     sendResponse(collectJobDetails());
   }
 });
+
+// MATCH SCORE ENGINE
+let lastProcessedJobKey = "";
+
+function injectMatchCard(targetContainer, score, matched, missing, jdText) {
+  const existing = document.getElementById("atsMatchScoreCard");
+  if (existing) {
+    existing.remove();
+  }
+  
+  const card = document.createElement("div");
+  card.id = "atsMatchScoreCard";
+  
+  let glowColor = "rgba(16, 185, 129, 0.2)";
+  let borderGlow = "#10b981";
+  if (score < 50) {
+    glowColor = "rgba(239, 68, 68, 0.2)";
+    borderGlow = "#ef4444";
+  } else if (score < 75) {
+    glowColor = "rgba(245, 158, 11, 0.2)";
+    borderGlow = "#f59e0b";
+  }
+  
+  Object.assign(card.style, {
+    background: "rgba(30, 41, 59, 0.95)",
+    border: `1px solid rgba(255, 255, 255, 0.1)`,
+    borderRadius: "12px",
+    padding: "16px",
+    margin: "12px 0 16px 0",
+    fontFamily: "'Segoe UI', sans-serif",
+    color: "#ffffff",
+    boxShadow: `0 8px 32px rgba(0, 0, 0, 0.3), 0 0 16px ${glowColor}`,
+    backdropFilter: "blur(12px)",
+    webkitBackdropFilter: "blur(12px)",
+    transition: "all 0.3s ease"
+  });
+  
+  card.innerHTML = `
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 20px;">⚡</span>
+        <strong style="font-size: 13px; font-weight: 700; tracking-wide: 0.05em; text-transform: uppercase; color: #94a3b8;">ATS Match Rating</strong>
+      </div>
+      <div style="font-size: 24px; font-weight: 800; color: ${borderGlow}; text-shadow: 0 0 8px ${glowColor};">${score}%</div>
+    </div>
+    
+    <div style="display: flex; gap: 8px; margin-bottom: 14px; align-items: center;">
+      <div style="flex: 1; height: 8px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; display: flex;">
+        <div style="width: ${score}%; background: ${borderGlow}; height: 100%; border-radius: 99px; box-shadow: 0 0 8px ${borderGlow};"></div>
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+      <span style="padding: 4px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2);">${matched.length} Matched</span>
+      <span style="padding: 4px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2);">${missing.length} Missing</span>
+    </div>
+    
+    <div id="atsRevealDrawer" style="display: none; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; margin-top: 10px;">
+      <div style="margin-bottom: 10px;">
+        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #34d399; margin-bottom: 4px;">Matched Keywords</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+          ${matched.map(kw => `<span style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.15); border-radius: 4px; padding: 2px 6px; font-size: 10px; color: #34d399;">✓ ${kw}</span>`).join("") || '<span style="font-size: 10px; color: #94a3b8;">None</span>'}
+        </div>
+      </div>
+      <div>
+        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #fbbf24; margin-bottom: 4px;">Missing Keywords</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+          ${missing.map(kw => `<span style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.15); border-radius: 4px; padding: 2px 6px; font-size: 10px; color: #fbbf24;">⚡ ${kw}</span>`).join("") || '<span style="font-size: 10px; color: #94a3b8;">None</span>'}
+        </div>
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 8px; margin-top: 12px;">
+      <button id="atsToggleDrawerBtn" style="flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #e2e8f0; font-size: 11px; font-weight: 700; padding: 8px; cursor: pointer; transition: all 0.2s;">👁️ Reveal Details</button>
+      <a id="atsOptimizeBtn" href="http://127.0.0.1:5000/?prefill_jd=${encodeURIComponent(jdText)}" target="_blank" style="flex: 1; text-align: center; text-decoration: none; background: linear-gradient(135deg, #1a56db, #7a08c2); border: none; border-radius: 8px; color: #ffffff; font-size: 11px; font-weight: 700; padding: 8px; cursor: pointer; box-shadow: 0 0 10px rgba(26,86,219,0.3); transition: all 0.2s;">⚡ Optimize Resume</a>
+    </div>
+  `;
+  
+  const toggleBtn = card.querySelector("#atsToggleDrawerBtn");
+  const drawer = card.querySelector("#atsRevealDrawer");
+  toggleBtn.addEventListener("click", () => {
+    if (drawer.style.display === "none") {
+      drawer.style.display = "block";
+      toggleBtn.textContent = "▲ Hide Details";
+    } else {
+      drawer.style.display = "none";
+      toggleBtn.textContent = "👁️ Reveal Details";
+    }
+  });
+  
+  targetContainer.prepend(card);
+}
+
+function startMatchScoreScanner() {
+  setInterval(() => {
+    if (!window.location.href.includes("naukri.com")) {
+      return;
+    }
+    
+    const details = collectJobDetails();
+    const jobKey = `${details.title}|${details.company}`.toLowerCase();
+    
+    if (!details.title || !details.company || jobKey === lastProcessedJobKey) {
+      return;
+    }
+    
+    const jdContainer = document.querySelector(".job-desc, .styles_job-desc-section__If_iH");
+    if (!jdContainer) return;
+    
+    const jdText = jdContainer.innerText || jdContainer.textContent || "";
+    if (jdText.length < 50) return;
+    
+    lastProcessedJobKey = jobKey;
+    emitDebug({ event: "match_score_request", key: jobKey });
+    
+    chrome.runtime.sendMessage({
+      type: "GET_MATCH_SCORE",
+      jd: jdText
+    }, (response) => {
+      if (response && response.ok && response.data) {
+        const { score, matched, missing } = response.data;
+        const targetContainer = document.querySelector(".job-desc, .styles_job-desc-section__If_iH");
+        if (targetContainer) {
+          injectMatchCard(targetContainer, score || 0, matched || [], missing || [], jdText);
+        }
+      } else {
+        emitDebug({ event: "match_score_error", error: response?.error || "Unknown error" });
+      }
+    });
+  }, 2000);
+}
+
+startMatchScoreScanner();
+
