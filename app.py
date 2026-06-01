@@ -1778,81 +1778,28 @@ def compute_hybrid_score(result, jd_text, low_credit_mode=False):
     if not isinstance(optimized, dict):
         return result
     
-    # 1. Extract JD Keywords
-    jd_keywords = extract_keywords_from_jd(jd_text, limit=40)
+    from utils.ats_scorer import calculate_advanced_ats_score
     
-    # 2. Local Code Calculation (Max 70 points)
-    # Check for keywords in Skills vs Experience/Projects (3x weight for latter)
-    local_points = 0
+    # Calculate detailed ATS score metrics using the unified scorer
+    score_details = calculate_advanced_ats_score(
+        resume_text="",
+        jd_text=jd_text,
+        optimized_resume_dict=optimized,
+        low_credit_mode=low_credit_mode
+    )
     
-    # Flatten projects and experience
-    rich_text = []
-    for exp in optimized.get("experience", []):
-        if isinstance(exp, dict):
-            rich_text.append(normalize_space(exp.get("title", "")))
-            rich_text.append(normalize_space(exp.get("company", "")))
-            for b in exp.get("bullets", []):
-                rich_text.append(normalize_space(b))
-            
-    for proj in optimized.get("projects", []):
-        if isinstance(proj, dict):
-            rich_text.append(normalize_space(proj.get("name", "")))
-            rich_text.append(normalize_space(proj.get("tech", "")))
-            for b in proj.get("bullets", []):
-                rich_text.append(normalize_space(b))
-            
-    rich_corpus = " ".join(rich_text).lower()
-    
-    skills_text = []
-    if isinstance(optimized.get("skills"), dict):
-        for cat, items in optimized.get("skills", {}).items():
-            if isinstance(items, list):
-                skills_text.extend([normalize_space(str(i)) for i in items])
-    skills_corpus = " ".join(skills_text).lower()
-    
-    for kw in jd_keywords:
-        if not kw:
-            continue
-        if kw in rich_corpus:
-            local_points += 3
-        elif kw in skills_corpus:
-            local_points += 1
-            
-    # Normalize local score to a max of 70
-    local_score = (local_points / 40) * 70
-    
-    # Penalize heavily for missing keywords
-    missing_keywords = result.get("missing_keywords", [])
-    if not missing_keywords and isinstance(result.get("keyword_analysis"), dict):
-        missing_keywords = result["keyword_analysis"].get("missing_keywords", [])
-        
-    if isinstance(missing_keywords, list) and len(missing_keywords) > 0:
-        missing_penalty = len(missing_keywords) * 8
-        local_score -= missing_penalty
-
-    local_score = max(0, min(70, local_score))
-    
-    if local_points == 0 and not jd_keywords:
-        local_score = 50
-        
-    local_score_int = int(round(local_score))
-    
-    # 3. AI Contextual Validation (Max 30 points)
-    resume_summary = optimized.get("summary", "")
-    penalty = check_domain_alignment(resume_summary, jd_text, low_credit_mode=low_credit_mode)
-    ai_score = max(0, 30 - penalty)
-    
-    total = max(0, min(100, local_score_int + ai_score))
-    
+    # Save the updated detailed score properties into the response
     result["ats_score"] = {
-        "total": total,
-        "breakdown": {
-            "local_technical_match": local_score_int,
-            "ai_alignment_score": ai_score,
-            "final_computed_weight": "70% Local / 30% AI"
-        },
-        "score_reasoning": f"Local Technical Match calculated at {local_score_int}/70 based on weighted keyword density (3x for experience/projects) with missing keyword penalties. AI domain alignment check provided {ai_score}/30 points (penalty applied: {penalty})."
+        "total": score_details["total"],
+        "breakdown": score_details["breakdown"],
+        "score_reasoning": score_details["score_reasoning"]
     }
+    
+    # Preserve key properties for direct front-end consumption and compatibility
+    result["keyword_analysis"] = score_details["keyword_analysis"]
+    result["missing_keywords"] = score_details["keyword_analysis"]["missing_keywords"]
+    result["formatting_analysis"] = score_details["formatting_analysis"]
+    
     return result
 
 
@@ -1864,6 +1811,25 @@ def optimize():
     data = request.get_json(silent=True) or {}
     resume_text = data.get("resume", "").strip()
     jd_text = data.get("jd", "").strip()
+
+    from flask import session
+    user_id = session.get('user_id')
+    if user_id and resume_text:
+        try:
+            from models import User
+            user = db.session.get(User, user_id)
+            if user:
+                if user.plan == 'free' and user.api_credits <= 0:
+                    return jsonify({
+                        "error": "You have exhausted your Free Tier credits. Please upgrade to Pro or Premium Elite to continue!",
+                        "limit_reached": True
+                    }), 403
+                user.resume_text = resume_text
+                if user.plan == 'free':
+                    user.api_credits = max(0, user.api_credits - 1)
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
     low_credit_mode = bool(data.get("low_credit_mode", False))
 
     if not resume_text or not jd_text:
@@ -1939,6 +1905,89 @@ Preserve all projects and all certifications from the original resume."""
             return jsonify({"error": f"Failed to parse AI response: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+BOOST_BULLET_PROMPT = """You are an expert technical resume writer and career coach.
+Your task is to take a single resume bullet point, a target role, and optional job description context, and rewrite it into 3 high-impact variations using Google's X-Y-Z formula: "Accomplished [X] as measured by [Y], by doing [Z]".
+
+Rules:
+1. You MUST inject realistic, domain-specific, quantifiable metrics (percentages, dollar amounts, time saved, scale, database sizes, or throughput increases).
+2. The language must be professional, punchy, and start with strong action verbs (e.g., Spearheaded, Engineered, Orchestrated, Optimized).
+3. Align the metrics and technical context specifically with the provided Target Role and Job Description.
+4. Keep the results concise and ATS-friendly (maximum 1-2 sentences per bullet).
+
+Respond ONLY with a valid JSON object containing a list of exactly 3 strings in the "variations" field:
+{
+  "variations": [
+    "Accomplished [X] as measured by [Y], by doing [Z]",
+    "Accomplished [X] as measured by [Y], by doing [Z]",
+    "Accomplished [X] as measured by [Y], by doing [Z]"
+  ]
+}"""
+
+def build_local_fallback_boost(bullet, role, jd_context):
+    role_lower = (role or "general").lower()
+    clean_b = bullet.strip(" -•*▸ ")
+    
+    if any(k in role_lower for k in ["data scientist", "data science", "machine learning", "ml", "ai"]):
+        variations = [
+            f"Optimized machine learning model accuracy by 14% resulting in $120K annual compute savings, accomplished by engineering custom feature pipelines and hyperparameter grids for {clean_b}.",
+            f"Reduced pipeline latency by 35% to process 12M+ records daily, accomplished by refactoring training data ingestion routines and deploying distributed training models based on {clean_b}.",
+            f"Boosted predictive precision by 18% as measured by precision/recall metrics, accomplished by implementing ensemble gradient boosting architectures and deploying a monitoring dashboard for {clean_b}."
+        ]
+    elif any(k in role_lower for k in ["data engineer", "data engineering", "pipeline"]):
+        variations = [
+            f"Accelerated ETL batch processing throughput by 42%, accomplished by refactoring PySpark joins and building parallel processing queues for {clean_b}.",
+            f"Eliminated 99.9% of downstream pipeline failures by implementing automated data quality validations, saving 15 engineering hours weekly while supporting {clean_b}.",
+            f"Reduced cloud warehousing query costs by 28% while handling a 3TB database scale, accomplished by optimizing partitioning schemes and dynamic indexing designs for {clean_b}."
+        ]
+    elif any(k in role_lower for k in ["software", "developer", "backend", "frontend", "engineer"]):
+        variations = [
+            f"Reduced application server response times by 180ms (40% improvement), accomplished by optimizing SQL query execution plans and implementing redis caching mechanisms for {clean_b}.",
+            f"Improved code coverage from 65% to 92% across core microservices, accomplished by authoring 80+ integration test suites and establishing custom CI/CD pipelines to support {clean_b}.",
+            f"Scaled microservices infrastructure to handle a 2.5x surge in concurrent requests (up to 15K DAU), accomplished by designing modular RESTful API endpoints and docker container clusters for {clean_b}."
+        ]
+    else:
+        variations = [
+            f"Increased reporting accuracy by 25% and reduced ad-hoc data extraction requests by 30 hours monthly, accomplished by designing interactive automated dashboards using {clean_b}.",
+            f"Identified $85K in operational inefficiencies, accomplished by executing cohort retention studies and funnel analysis reports based on {clean_b}.",
+            f"Enhanced stakeholder decision-making speeds by 3x, accomplished by translating complex data telemetry into weekly executive summaries highlighting {clean_b}."
+        ]
+    
+    return {
+        "variations": variations,
+        "fallback_mode": True,
+        "fallback_reason": "External API keys unavailable or model timed out. Dynamic domain templates generated locally."
+    }
+
+def boost_bullet_api():
+    data = request.get_json(silent=True) or {}
+    bullet = data.get("bullet", "").strip()
+    role = data.get("role", "").strip()
+    jd_context = data.get("jd_context", "").strip()
+
+    if not bullet:
+        return jsonify({"error": "Original bullet text is required."}), 400
+
+    user_message = f"""Original Bullet: "{bullet}"
+Target Role: "{role}"
+Job Description Context: "{jd_context}"
+
+Generate the 3 optimized variations now using Google's X-Y-Z formula. Return only the JSON object."""
+
+    try:
+        raw, provider = generate_model_response(user_message, system_prompt=BOOST_BULLET_PROMPT)
+        result = parse_ai_json(raw)
+        if not isinstance(result, dict) or "variations" not in result or not isinstance(result["variations"], list):
+            raise ValueError("Invalid JSON structure returned by model")
+        
+        variations = [str(v).strip() for v in result["variations"] if v]
+        if len(variations) < 3:
+            raise ValueError("Less than 3 variations generated")
+        result["variations"] = variations[:3]
+        result["provider"] = provider
+        return jsonify(result)
+    except Exception as e:
+        fallback = build_local_fallback_boost(bullet, role, jd_context)
+        return jsonify(fallback)
 
 
 def generate_cover_letter():
@@ -1969,9 +2018,36 @@ def extract_resume():
         return jsonify({"error": "Please choose a file to upload."}), 400
 
     try:
+        from flask import session
+        user_id = session.get('user_id')
+        if user_id:
+            try:
+                from models import User
+                user = db.session.get(User, user_id)
+                if user and user.plan == 'free' and user.api_credits <= 0:
+                    return jsonify({
+                        "error": "You have exhausted your Free Tier credits. Please upgrade to Pro or Premium Elite to continue!",
+                        "limit_reached": True
+                    }), 403
+            except Exception:
+                pass
+
         text = extract_resume_text(uploaded)
         if not text:
             return jsonify({"error": "Could not extract text from file."}), 400
+
+        if user_id and text:
+            try:
+                from models import User
+                user = db.session.get(User, user_id)
+                if user:
+                    user.resume_text = text
+                    if user.plan == 'free':
+                        user.api_credits = max(0, user.api_credits - 1)
+                    db.session.commit()
+            except Exception:
+                db.session.rollback()
+
         return jsonify({"text": text})
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -2340,7 +2416,11 @@ def create_app():
       'pool_recycle': 300
     }
   else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///local_tracker.db'
+    from tracker.config import get_db_path
+    db_path = get_db_path(app.root_path)
+    abs_db_path = os.path.abspath(db_path)
+    os.makedirs(os.path.dirname(abs_db_path), exist_ok=True)
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{abs_db_path}'
 
   app.secret_key = os.environ.get("SECRET_KEY", "dev_fallback_secret_key_123")
 
@@ -2387,8 +2467,140 @@ def create_app():
   except Exception:
     pass
 
+  try:
+    from billing.routes import billing_blueprint
+    app.register_blueprint(billing_blueprint)
+  except Exception as e:
+    print("Failed to register billing blueprint:", e)
+
+  try:
+    from interview.routes import interview_blueprint
+    app.register_blueprint(interview_blueprint)
+  except Exception as e:
+    print("Failed to register interview blueprint:", e)
+
   with app.app_context():
     db.create_all()
+    # Dynamic Auto-Migrations and Seeding
+    try:
+      from sqlalchemy import text
+      # 1. Create boards table if it doesn't exist (failsafe SQL)
+      try:
+        db.session.execute(text("""
+          CREATE TABLE IF NOT EXISTS boards (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name VARCHAR(150) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+          )
+        """))
+        db.session.commit()
+      except Exception:
+        db.session.rollback()  # Rollback aborted SQLite transaction before attempting PostgreSQL fallback
+        try:
+          db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS boards (
+              id SERIAL PRIMARY KEY,
+              user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              name VARCHAR(150) NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+          """))
+          db.session.commit()
+        except Exception as e:
+          db.session.rollback()
+          print("Failed to create boards table:", e)
+
+      # Create interview_sessions table if it doesn't exist (failsafe SQL)
+      try:
+        db.session.execute(text("""
+          CREATE TABLE IF NOT EXISTS interview_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            job_title VARCHAR(150) NOT NULL,
+            interview_type VARCHAR(50) DEFAULT 'Mixed',
+            difficulty VARCHAR(50) DEFAULT 'Mid',
+            score INTEGER,
+            feedback TEXT,
+            history TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+          )
+        """))
+        db.session.commit()
+      except Exception:
+        db.session.rollback()
+        try:
+          db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS interview_sessions (
+              id SERIAL PRIMARY KEY,
+              user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              job_title VARCHAR(150) NOT NULL,
+              interview_type VARCHAR(50) DEFAULT 'Mixed',
+              difficulty VARCHAR(50) DEFAULT 'Mid',
+              score INTEGER,
+              feedback TEXT,
+              history TEXT,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+          """))
+          db.session.commit()
+        except Exception as e:
+          db.session.rollback()
+          print("Failed to create interview_sessions table:", e)
+
+      # 2. Add columns to applications table dynamically
+      for col_def in [
+        "board_id INTEGER DEFAULT 1",
+        "archived BOOLEAN DEFAULT FALSE"
+      ]:
+        try:
+          db.session.execute(text(f"ALTER TABLE applications ADD COLUMN {col_def}"))
+          db.session.commit()
+        except Exception:
+          db.session.rollback()
+
+      # Add resume_text column to users table dynamically
+      try:
+        db.session.execute(text("ALTER TABLE users ADD COLUMN resume_text TEXT"))
+        db.session.commit()
+      except Exception:
+        db.session.rollback()
+
+      # Add billing columns to users table dynamically
+      for col_def in [
+        "plan VARCHAR(50) DEFAULT 'free'",
+        "stripe_customer_id VARCHAR(255)",
+        "subscription_active BOOLEAN DEFAULT FALSE",
+        "api_credits INTEGER DEFAULT 2"
+      ]:
+        try:
+          db.session.execute(text(f"ALTER TABLE users ADD COLUMN {col_def}"))
+          db.session.commit()
+        except Exception:
+          db.session.rollback()
+
+      # 3. Seed default board for each user if none exists
+      try:
+        from models import User
+        users = User.query.all()
+        for u in users:
+          first_board = db.session.execute(
+            text("SELECT id FROM boards WHERE user_id = :uid LIMIT 1"),
+            {"uid": u.id}
+          ).fetchone()
+          if not first_board:
+            db.session.execute(
+              text("INSERT INTO boards (user_id, name) VALUES (:uid, :name)"),
+              {"uid": u.id, "name": "Standard Hunt"}
+            )
+            db.session.commit()
+      except Exception as e:
+        db.session.rollback()
+        print("Failed to seed default board:", e)
+    except Exception as exc:
+      print("Migration pipeline error:", exc)
 
   return app
 
