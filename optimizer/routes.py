@@ -36,3 +36,9 @@ def export_cover_letter_docx_route():
 def login_route():
     from app import login
     return login()
+
+@optimizer_blueprint.post('/boost-bullet')
+def boost_bullet_route():
+    from app import boost_bullet_api
+    return boost_bullet_api()
+
