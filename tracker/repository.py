@@ -1,6 +1,6 @@
 from flask import current_app
 from extensions import db
-from models import TrackerApplication, TrackerApplicationEvent
+from models import TrackerApplication, TrackerApplicationEvent, TrackerBoard
 from sqlalchemy import func, or_
 
 def _build_application_filters(query, status=None, search=None, source=None, applied_from=None):
@@ -30,6 +30,7 @@ def _to_dict(app_model):
   return {
     "id": app_model.id,
     "user_id": app_model.user_id,
+    "board_id": app_model.board_id,
     "title": app_model.title,
     "company": app_model.company,
     "location": app_model.location,
@@ -39,6 +40,7 @@ def _to_dict(app_model):
     "applied_date": app_model.applied_date,
     "dedupe_key": app_model.dedupe_key,
     "notes": app_model.notes,
+    "archived": app_model.archived,
     "created_at": app_model.created_at.isoformat() if app_model.created_at else None,
     "updated_at": app_model.updated_at.isoformat() if app_model.updated_at else None,
   }
@@ -59,6 +61,7 @@ def create_application(
   with current_app.app_context():
     app_model = TrackerApplication(
       user_id=user_id,
+      board_id=application.get("board_id", 1),
       title=application["title"],
       company=application["company"],
       location=application.get("location", ""),
@@ -67,7 +70,8 @@ def create_application(
       status=application["status"],
       applied_date=application["applied_date"],
       dedupe_key=application["dedupe_key"],
-      notes=application.get("notes", "")
+      notes=application.get("notes", ""),
+      archived=application.get("archived", False)
     )
     db.session.add(app_model)
     db.session.flush()
@@ -83,9 +87,11 @@ def create_application(
     return _to_dict(app_model)
 
 
-def list_applications(user_id, status=None, search=None, source=None, applied_from=None):
+def list_applications(user_id, status=None, search=None, source=None, applied_from=None, board_id=None, archived=False):
   with current_app.app_context():
-    query = TrackerApplication.query.filter_by(user_id=user_id)
+    query = TrackerApplication.query.filter_by(user_id=user_id, archived=archived)
+    if board_id:
+      query = query.filter_by(board_id=board_id)
     query = _build_application_filters(query, status, search, source, applied_from)
     query = query.order_by(TrackerApplication.created_at.desc(), TrackerApplication.id.desc())
     
@@ -93,19 +99,20 @@ def list_applications(user_id, status=None, search=None, source=None, applied_fr
     return [_to_dict(a) for a in apps]
 
 
-def list_sources(user_id):
+def list_sources(user_id, board_id=None, archived=False):
   with current_app.app_context():
-    sources = db.session.query(TrackerApplication.source)\
+    query = db.session.query(TrackerApplication.source)\
       .filter(TrackerApplication.user_id == user_id)\
+      .filter(TrackerApplication.archived == archived)\
       .filter(TrackerApplication.source != None)\
-      .filter(func.trim(TrackerApplication.source) != '')\
-      .distinct()\
-      .order_by(TrackerApplication.source.asc())\
-      .all()
+      .filter(func.trim(TrackerApplication.source) != '')
+    if board_id:
+      query = query.filter(TrackerApplication.board_id == board_id)
+    sources = query.distinct().order_by(TrackerApplication.source.asc()).all()
     return [s[0] for s in sources if s[0]]
 
 
-def update_application_status(application_id, status, user_id):
+def update_application_status(application_id, status, user_id, event_note=None):
   with current_app.app_context():
     app_model = TrackerApplication.query.filter_by(id=application_id, user_id=user_id).first()
     if not app_model:
@@ -113,10 +120,11 @@ def update_application_status(application_id, status, user_id):
 
     app_model.status = status
     
+    note = event_note if event_note else f"Moved to {status}"
     event = TrackerApplicationEvent(
       application_id=app_model.id,
       event_type="status_changed",
-      event_note=f"Moved to {status}"
+      event_note=note
     )
     db.session.add(event)
     db.session.commit()
@@ -135,22 +143,26 @@ def delete_application(application_id, user_id):
     return True
 
 
-def dashboard_counts(user_id):
+def dashboard_counts(user_id, board_id=None, archived=False):
   with current_app.app_context():
-    counts = db.session.query(TrackerApplication.status, func.count(TrackerApplication.id))\
+    query = db.session.query(TrackerApplication.status, func.count(TrackerApplication.id))\
       .filter(TrackerApplication.user_id == user_id)\
-      .group_by(TrackerApplication.status)\
-      .all()
+      .filter(TrackerApplication.archived == archived)
+    if board_id:
+      query = query.filter(TrackerApplication.board_id == board_id)
+    counts = query.group_by(TrackerApplication.status).all()
     return {row[0]: row[1] for row in counts}
 
 
-def flow_overview(statuses, user_id, source=None, applied_from=None):
+def flow_overview(statuses, user_id, source=None, applied_from=None, board_id=None):
   with current_app.app_context():
     node_counts = {status: 0 for status in statuses}
     links = {}
     status_order = {status: idx for idx, status in enumerate(statuses)}
 
-    query = TrackerApplication.query.filter_by(user_id=user_id)
+    query = TrackerApplication.query.filter_by(user_id=user_id, archived=False)
+    if board_id:
+      query = query.filter_by(board_id=board_id)
     query = _build_application_filters(query, status=None, search=None, source=source, applied_from=applied_from)
     
     app_models = query.all()
@@ -215,3 +227,66 @@ def flow_overview(statuses, user_id, source=None, applied_from=None):
       "nodes": [{"id": s, "label": s.capitalize(), "count": node_counts[s]} for s in statuses],
       "links": link_items,
     }
+
+
+def _board_to_dict(board):
+  if not board:
+    return None
+  return {
+    "id": board.id,
+    "user_id": board.user_id,
+    "name": board.name,
+    "created_at": board.created_at.isoformat() if board.created_at else None
+  }
+
+def list_boards(user_id):
+  with current_app.app_context():
+    boards = TrackerBoard.query.filter_by(user_id=user_id).order_by(TrackerBoard.id.asc()).all()
+    return [_board_to_dict(b) for b in boards]
+
+def create_board(user_id, name):
+  with current_app.app_context():
+    board = TrackerBoard(user_id=user_id, name=name)
+    db.session.add(board)
+    db.session.commit()
+    return _board_to_dict(board)
+
+def rename_board(board_id, name, user_id):
+  with current_app.app_context():
+    board = TrackerBoard.query.filter_by(id=board_id, user_id=user_id).first()
+    if not board:
+      return None
+    board.name = name
+    db.session.commit()
+    return _board_to_dict(board)
+
+def delete_board(board_id, user_id):
+  with current_app.app_context():
+    board = TrackerBoard.query.filter_by(id=board_id, user_id=user_id).first()
+    if not board:
+      return False
+      
+    count = TrackerBoard.query.filter_by(user_id=user_id).count()
+    if count <= 1:
+      raise ValueError("Cannot delete the only active board.")
+
+    TrackerApplication.query.filter_by(board_id=board_id, user_id=user_id).delete()
+    db.session.delete(board)
+    db.session.commit()
+    return True
+
+def archive_application(application_id, archived, user_id):
+  with current_app.app_context():
+    app_model = TrackerApplication.query.filter_by(id=application_id, user_id=user_id).first()
+    if not app_model:
+      return None
+    app_model.archived = archived
+    
+    event = TrackerApplicationEvent(
+      application_id=app_model.id,
+      event_type="archived" if archived else "restored",
+      event_note="Application archived" if archived else "Application restored to active board"
+    )
+    db.session.add(event)
+    db.session.commit()
+    return _to_dict(app_model)
