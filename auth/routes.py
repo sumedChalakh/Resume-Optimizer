@@ -109,12 +109,23 @@ def admin_dashboard_stats():
 
     total_users = User.query.count()
     total_apps = TrackerApplication.query.count()
-    recent_users = User.query.order_by(User.id.desc()).limit(5).all()
+    all_users = User.query.order_by(User.id.desc()).all()
 
     return jsonify({
         "total_users": total_users,
         "total_applications": total_apps,
-        "recent_users": [{"id": u.id, "name": u.name, "email": u.email, "role": u.role} for u in recent_users]
+        "recent_users": [
+            {
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "role": u.role,
+                "resumes_created": u.resumes_created or 0,
+                "resumes_optimized": u.resumes_optimized or 0,
+                "resumes_downloaded": u.resumes_downloaded or 0,
+                "mock_interviews": u.mock_interviews or 0
+            } for u in all_users
+        ]
     })
 
 
