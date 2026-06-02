@@ -393,3 +393,49 @@ def get_qa_bank():
         response = jsonify(fallback_data)
 
     return _corsify(response)
+
+
+@interview_blueprint.route("/interview/api/star-restructure", methods=["POST", "OPTIONS"])
+def star_restructure():
+    if request.method == "OPTIONS":
+        return _corsify(make_response("", 204))
+
+    payload = request.get_json(silent=True) or {}
+    story = str(payload.get("story", "")).strip()
+
+    if not story:
+        response = jsonify({"error": "Story content is required."})
+        return _corsify(response), 400
+
+    star_prompt = (
+        "You are an expert recruiter and career strategist.\n"
+        "Restructure the candidate's raw professional experience story/bullet point into the high-yield STAR method.\n"
+        "Break it down into four distinct, concise paragraphs: Situation, Task, Action, and Result.\n"
+        "Ensure the 'Action' paragraph details technical implementation clearly, and 'Result' includes quantifiable metrics (estimate realistic metrics if missing).\n"
+        "Respond ONLY in this JSON format:\n"
+        "{\n"
+        "  \"situation\": \"concise sentence setting background\",\n"
+        "  \"task\": \"concise sentence defining target/goal\",\n"
+        "  \"action\": \"concise sentence showing active execution steps\",\n"
+        "  \"result\": \"concise sentence highlighting measurable outcomes/metrics\"\n"
+        "}"
+    )
+
+    fallback_data = {
+        "situation": "Our legacy database query system was causing 3-second timeouts during peak user traffic due to sub-optimal index pathways.",
+        "task": "My goal was to optimize queries, eliminate transaction timeouts, and restore stable system latency under high volume.",
+        "action": "I audited performance bottlenecks, created custom multi-column B-Tree indexes, and refactored relational query queries.",
+        "result": "Successfully reduced average query search latency by 85%, fully eliminating timeouts and improving overall server throughput."
+    }
+
+    try:
+        raw_res, _ = generate_model_response(story, system_prompt=star_prompt)
+        res = parse_ai_json(raw_res)
+        if isinstance(res, dict) and "situation" in res:
+            response = jsonify(res)
+        else:
+            response = jsonify(fallback_data)
+    except Exception:
+        response = jsonify(fallback_data)
+
+    return _corsify(response)

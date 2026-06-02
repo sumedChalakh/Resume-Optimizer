@@ -770,18 +770,51 @@
           </button>
         </div>
 
-        <!-- Recruiter Q&A Bank Card -->
-        <div class="input-card" style="width: 100%; margin: 0; display: flex; flex-direction: column; gap: 16px; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255,255,255,0.08);">
-          <div class="card-label">
-            <span class="label-icon">🔍</span> Recruiter Q&A Bank
+        <!-- Sidebar Stack -->
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <!-- Recruiter Q&A Bank Card -->
+          <div class="input-card" style="width: 100%; margin: 0; display: flex; flex-direction: column; gap: 16px; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255,255,255,0.08);">
+            <div class="card-label">
+              <span class="label-icon">🔍</span> Recruiter Q&A Bank
+            </div>
+            <p style="font-size: 11px; color: var(--text-muted); margin: 0; line-height: 1.4;">Instantly query standard anticipated interview questions and outlines asked by major companies.</p>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <input type="text" id="qaCompanyInput" class="latex-input" style="flex: 1; margin: 0; padding: 10px;" placeholder="e.g. Stripe, Google, Meta" value="Stripe" />
+              <button type="button" class="optimize-btn" style="width: auto; padding: 0 16px; margin: 0; font-size: 11px;" onclick="searchQABank()">Search</button>
+            </div>
+            <div id="qaBankResults" class="custom-scrollbar" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; font-size: 12px;">
+              <div style="color: var(--text-muted); text-align: center; padding: 40px 10px; font-size: 11px;">Search a company above to generate anticipated recruiter questions.</div>
+            </div>
           </div>
-          <p style="font-size: 11px; color: var(--text-muted); margin: 0; line-height: 1.4;">Instantly query standard anticipated interview questions and outlines asked by major companies.</p>
-          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-            <input type="text" id="qaCompanyInput" class="latex-input" style="flex: 1; margin: 0; padding: 10px;" placeholder="e.g. Stripe, Google, Meta" value="Stripe" />
-            <button type="button" class="optimize-btn" style="width: auto; padding: 0 16px; margin: 0; font-size: 11px;" onclick="searchQABank()">Search</button>
-          </div>
-          <div id="qaBankResults" class="custom-scrollbar" style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; font-size: 12px;">
-            <div style="color: var(--text-muted); text-align: center; padding: 40px 10px; font-size: 11px;">Search a company above to generate anticipated recruiter questions.</div>
+
+          <!-- STAR Method Restructurer Card -->
+          <div class="input-card" style="width: 100%; margin: 0; display: flex; flex-direction: column; gap: 16px; background: rgba(30, 41, 59, 0.45); border: 1px solid rgba(139, 92, 246, 0.25); box-shadow: 0 0 15px rgba(139,92,246,0.05);">
+            <div class="card-label">
+              <span class="label-icon">✨</span> STAR Method Restructurer
+            </div>
+            <p style="font-size: 11px; color: var(--text-muted); margin: 0; line-height: 1.4;">Paste any raw work story or experience bullet point to automatically restructure it into the high-converting STAR framework.</p>
+            <textarea id="starRawStoryInput" style="min-height: 80px; margin: 0; padding: 10px; font-size: 11px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: white;" placeholder="e.g. I rebuilt our legacy database query system because it was causing 3s timeouts, added custom multi-column B-tree indexes, reducing latency by 85%..."></textarea>
+            <button type="button" id="boostStarBtn" class="optimize-btn" style="width: 100%; margin: 0; font-size: 11px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white;" onclick="restructureToStar()">Restructure to STAR</button>
+            
+            <!-- Output STAR block -->
+            <div id="starRestructuredOutput" style="display: none; flex-direction: column; gap: 10px; font-size: 11px; text-align: left; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; margin-top: 4px;">
+              <div style="background: rgba(59,130,246,0.08); border-left: 3px solid #3b82f6; padding: 6px 10px; border-radius: 4px;">
+                <strong style="color: #60a5fa; text-transform: uppercase;">S - Situation</strong>
+                <p id="starSituation" style="margin: 4px 0 0 0; color: #cbd5e1; line-height: 1.4;"></p>
+              </div>
+              <div style="background: rgba(245,158,11,0.08); border-left: 3px solid #f59e0b; padding: 6px 10px; border-radius: 4px;">
+                <strong style="color: #fbbf24; text-transform: uppercase;">T - Task</strong>
+                <p id="starTask" style="margin: 4px 0 0 0; color: #cbd5e1; line-height: 1.4;"></p>
+              </div>
+              <div style="background: rgba(139,92,246,0.08); border-left: 3px solid #8b5cf6; padding: 6px 10px; border-radius: 4px;">
+                <strong style="color: #a78bfa; text-transform: uppercase;">A - Action</strong>
+                <p id="starAction" style="margin: 4px 0 0 0; color: #cbd5e1; line-height: 1.4;"></p>
+              </div>
+              <div style="background: rgba(16,185,129,0.08); border-left: 3px solid #10b981; padding: 6px 10px; border-radius: 4px;">
+                <strong style="color: #34d399; text-transform: uppercase;">R - Result</strong>
+                <p id="starResult" style="margin: 4px 0 0 0; color: #cbd5e1; line-height: 1.4;"></p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

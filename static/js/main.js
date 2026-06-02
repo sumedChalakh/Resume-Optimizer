@@ -3056,4 +3056,48 @@ async function searchQABank() {
   }
 }
 
+async function restructureToStar() {
+  const storyInput = document.getElementById('starRawStoryInput');
+  const boostBtn = document.getElementById('boostStarBtn');
+  const outputBox = document.getElementById('starRestructuredOutput');
+  
+  if (!storyInput || !boostBtn || !outputBox) return;
+
+  const rawStory = storyInput.value.trim();
+  if (!rawStory) {
+    showError("Please paste a work story or bullet point to restructure.");
+    return;
+  }
+
+  boostBtn.disabled = true;
+  const originalHtml = boostBtn.innerHTML;
+  boostBtn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></div> Restructuring...';
+
+  try {
+    const response = await fetch('/interview/api/star-restructure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ story: rawStory })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Failed to restructure story.");
+
+    // Load data fields
+    document.getElementById('starSituation').textContent = data.situation || '';
+    document.getElementById('starTask').textContent = data.task || '';
+    document.getElementById('starAction').textContent = data.action || '';
+    document.getElementById('starResult').textContent = data.result || '';
+
+    // Show output HUD
+    outputBox.style.display = 'flex';
+    showToast('✓ Story restructured into STAR!', '#10b981');
+  } catch (err) {
+    showError(err.message || "Could not segment story.");
+  } finally {
+    boostBtn.disabled = false;
+    boostBtn.innerHTML = originalHtml;
+  }
+}
+
 
