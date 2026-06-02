@@ -44,12 +44,20 @@ def start_interview():
 
     # Define first question generator prompt
     is_coding = interview_type.lower() == "coding"
+    is_negotiation = interview_type.lower() == "negotiation"
     if is_coding:
         system_prompt = (
             "You are an elite principal software engineer and tech interviewer.\n"
             f"Generate exactly ONE highly specific, realistic coding or algorithmic challenge (Difficulty: {difficulty}) "
             "designed for the candidate's target job description based on their resume.\n"
             "Pose a classic problem, describe the requirements, constraints, input/output structures, and ask them to write the code solution. Pose the problem directly."
+        )
+    elif is_negotiation:
+        system_prompt = (
+            "You are an elite corporate Talent Acquisition director and HR executive.\n"
+            f"Generate exactly ONE realistic opening salary and compensation proposal/query (Difficulty: {difficulty}) "
+            "based on the candidate's target job description and their resume background.\n"
+            "Start the conversation as HR making an initial offer or asking for their expectations, keeping it highly realistic and challenging. Pose the proposal directly."
         )
     else:
         system_prompt = (
@@ -131,11 +139,23 @@ def submit_answer():
 
     # Evaluate the submitted answer using LLM
     is_coding = interview_sess.interview_type.lower() == "coding"
+    is_negotiation = interview_sess.interview_type.lower() == "negotiation"
     if is_coding:
         eval_prompt = (
             "You are an expert software engineering interviewer. Evaluate the candidate's code submission/answer.\n"
             "Provide a score from 1 to 10 (as an integer) representing algorithmic accuracy, correctness, and Big-O efficiency.\n"
             "Provide a constructive critique (max 3 sentences) detailing computational efficiency improvements, dry-run performance, and specifically including a Big-O notation complexity critique (time & space).\n"
+            "Respond ONLY in this JSON format:\n"
+            "{\n"
+            "  \"score\": integer_between_1_and_10,\n"
+            "  \"critique\": \"string\"\n"
+            "}"
+        )
+    elif is_negotiation:
+        eval_prompt = (
+            "You are an expert corporate compensation strategist and HR director. Evaluate the candidate's salary negotiation counter-offer or response.\n"
+            "Provide a score from 1 to 10 (as an integer) representing their professional framing, assertiveness, packages balancing (base vs bonus vs equity), and collaboration.\n"
+            "Provide a constructive critique (max 3 sentences) showing how they can improve their leverage, framing, or package demands.\n"
             "Respond ONLY in this JSON format:\n"
             "{\n"
             "  \"score\": integer_between_1_and_10,\n"
@@ -187,10 +207,17 @@ def submit_answer():
     resume_text = user.resume_text if user else ""
 
     is_coding = interview_sess.interview_type.lower() == "coding"
+    is_negotiation = interview_sess.interview_type.lower() == "negotiation"
     if is_coding:
         next_question_prompt = (
             "You are an elite software engineering interviewer. Generate exactly ONE subsequent algorithmic coding challenge or complexity follow-up question.\n"
             f"This is Question {next_round_num} of 10. Focus on a new, distinct algorithm topic or optimization query.\n"
+            "Do not repeat questions or topics already asked. Poses the question directly without introductory filler."
+        )
+    elif is_negotiation:
+        next_question_prompt = (
+            "You are an elite Talent Acquisition director. Generate exactly ONE logical subsequent counter-offer, benefits negotiation, or compensation query.\n"
+            f"This is Question {next_round_num} of 10. Push back professionally on equity, sign-on, or base salary package options to simulate high-stakes HR discussion.\n"
             "Do not repeat questions or topics already asked. Poses the question directly without introductory filler."
         )
     else:
