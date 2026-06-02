@@ -2026,6 +2026,10 @@ async function loadAdminStats() {
               ${escapeHtml(u.role)}
             </span>
           </td>
+          <td style="padding: 16px; text-align: center; font-weight: 600; color: #fbbf24;">${u.resumes_created}</td>
+          <td style="padding: 16px; text-align: center; font-weight: 600; color: #3b82f6;">${u.resumes_optimized}</td>
+          <td style="padding: 16px; text-align: center; font-weight: 600; color: #10b981;">${u.resumes_downloaded}</td>
+          <td style="padding: 16px; text-align: center; font-weight: 600; color: #a78bfa;">${u.mock_interviews}</td>
         </tr>
       `).join('');
     }
