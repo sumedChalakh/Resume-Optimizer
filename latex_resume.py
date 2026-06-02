@@ -664,18 +664,27 @@ def _set_paragraph_spacing(paragraph, before=0, after=0, line=1.0):
 
 
 def _add_section_heading(doc, text):
-    heading = doc.add_paragraph()
-    _set_paragraph_spacing(heading, before=8, after=2, line=1.0)
-    run = heading.add_run(text)
-    run.bold = True
-    run.font.size = Pt(14)
-    run.font.color.rgb = RGBColor(43, 106, 190)
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
 
-    divider = doc.add_paragraph()
-    _set_paragraph_spacing(divider, before=0, after=4, line=1.0)
-    line = divider.add_run("_" * 78)
-    line.font.size = Pt(7)
-    line.font.color.rgb = RGBColor(110, 154, 230)
+    heading = doc.add_paragraph()
+    _set_paragraph_spacing(heading, before=10, after=4, line=1.0)
+    
+    # Elegant solid bottom border beneath the section heading text
+    pPr = heading._p.get_or_add_pPr()
+    pbdr = OxmlElement('w:pBdr')
+    bottom = OxmlElement('w:bottom')
+    bottom.set(qn('w:val'), 'single')
+    bottom.set(qn('w:sz'), '6')  # border thickness
+    bottom.set(qn('w:space'), '1')
+    bottom.set(qn('w:color'), '000000') # solid black color line
+    pbdr.append(bottom)
+    pPr.append(pbdr)
+
+    run = heading.add_run(text.upper())
+    run.bold = True
+    run.font.size = Pt(11)
+    run.font.color.rgb = RGBColor(0, 0, 0)
 
 
 def build_docx_from_latex_data(data):
@@ -688,125 +697,131 @@ def build_docx_from_latex_data(data):
 
     normal = doc.styles["Normal"]
     normal.font.name = "Times New Roman"
-    normal.font.size = Pt(12)
+    normal.font.size = Pt(10.5)
 
     name = str(data.get("full_name") or data.get("name") or "YOUR NAME").strip()
     name_p = doc.add_paragraph()
-    _set_paragraph_spacing(name_p, before=0, after=1, line=1.0)
+    _set_paragraph_spacing(name_p, before=0, after=2, line=1.0)
     name_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     name_run = name_p.add_run(name.upper())
     name_run.bold = True
     name_run.font.size = Pt(16)
 
-        # Headline removed to match PDF template
+    # Subtitle Line: headline | location
+    headline = str(data.get("headline") or "").strip()
+    location = str(data.get("location") or "").strip()
+    sub_items = []
+    if headline:
+        sub_items.append(headline)
+    if location:
+        sub_items.append(location)
 
-    # Build contact line with hyperlinked social links (matching PDF format)
+    if sub_items:
+        sub_p = doc.add_paragraph()
+        _set_paragraph_spacing(sub_p, before=0, after=2, line=1.0)
+        sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        sub_run = sub_p.add_run(" | ".join(sub_items))
+        sub_run.bold = True
+        sub_run.font.size = Pt(11)
+
+    # Contact line with no icons, direct clean hyperlinked text
     contact_p = doc.add_paragraph()
-    _set_paragraph_spacing(contact_p, before=0, after=6, line=1.0)
+    _set_paragraph_spacing(contact_p, before=0, after=8, line=1.0)
     contact_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
-    location = str(data.get("location") or "").strip()
     phone = str(data.get("phone") or "").strip()
     email = str(data.get("email") or "").strip()
     linkedin = str(data.get("linkedin") or "").strip()
     github = str(data.get("github") or "").strip()
     
-    contact_items = []
-    if location:
-        contact_items.append(location)
+    contact_runs = []
     if phone:
-        contact_items.append(phone)
+        contact_runs.append(("text", phone))
     if email:
-        contact_items.append(email)
-    
-    # Add first items (location, phone, email)
-    for i, item in enumerate(contact_items):
-        if i > 0:
-            sep_run = contact_p.add_run(" | ")
-            sep_run.font.size = Pt(11)
-        # Add icon before item
-        if i == 0:  # location
-            icon_run = contact_p.add_run("📍 ")
-        elif i == 1:  # phone
-            icon_run = contact_p.add_run("📞 ")
-        elif i == 2:  # email
-            icon_run = contact_p.add_run("📧 ")
-        icon_run.font.size = Pt(11)
-        run = contact_p.add_run(item)
-        run.font.size = Pt(11)
-    
-    # Add LinkedIn link
+        contact_runs.append(("email", email))
     if linkedin:
-        if contact_items:
-            sep_run = contact_p.add_run(" | ")
-            sep_run.font.size = Pt(11)
-            icon_run = contact_p.add_run("🔗 ")
-            icon_run.font.size = Pt(11)
-        linkedin_clean = linkedin if linkedin.startswith("http") else f"https://{linkedin}"
-        add_hyperlink(contact_p, linkedin, linkedin_clean)
-    
-    # Add GitHub link
+        contact_runs.append(("link", ("LinkedIn", linkedin)))
     if github:
-        if contact_items or linkedin:
-            sep_run = contact_p.add_run(" | ")
-            sep_run.font.size = Pt(11)
-            icon_run = contact_p.add_run("🔗 ")
-            icon_run.font.size = Pt(11)
-        github_clean = github if github.startswith("http") else f"https://{github}"
-        add_hyperlink(contact_p, github, github_clean)
+        contact_runs.append(("link", ("GitHub", github)))
+    
+    for idx, item in enumerate(contact_runs):
+        if idx > 0:
+            contact_p.add_run(" | ")
+        
+        if item[0] == "text":
+            r = contact_p.add_run(item[1])
+            r.font.size = Pt(10.5)
+        elif item[0] == "email":
+            add_hyperlink(contact_p, item[1], f"mailto:{item[1]}")
+        elif item[0] == "link":
+            label, url = item[1]
+            url_clean = url if url.startswith("http") else f"https://{url}"
+            add_hyperlink(contact_p, label, url_clean)
 
     summary = trim_text(data.get("summary") or "", 850)
     if summary:
         _add_section_heading(doc, "Professional Summary")
         p = doc.add_paragraph(summary)
         _set_paragraph_spacing(p, before=0, after=4, line=1.05)
+        p.runs[0].font.size = Pt(10.5)
 
     skills = trim_lines(parse_field_lines(data.get("skills")), max_lines=12, max_len=240)
     if skills:
-        _add_section_heading(doc, "Technical Skills")
+        _add_section_heading(doc, "Skills")
         for line in skills:
             p = doc.add_paragraph()
-            _set_paragraph_spacing(p, before=0, after=1, line=1.0)
+            _set_paragraph_spacing(p, before=0, after=2, line=1.0)
             if ":" in line:
                 label, value = line.split(":", 1)
                 r1 = p.add_run(label.strip() + ": ")
                 r1.bold = True
-                p.add_run(value.strip())
+                r1.font.size = Pt(10.5)
+                r2 = p.add_run(value.strip())
+                r2.font.size = Pt(10.5)
             else:
-                p.add_run(line)
+                r = p.add_run(line)
+                r.font.size = Pt(10.5)
 
     experiences = parse_experience_entries(data.get("experience"))[:8]
     if experiences:
-        _add_section_heading(doc, "Experience")
+        _add_section_heading(doc, "Professional Experience")
         for exp in experiences:
             title = str(exp.get("title") or "Role").strip()
             company = str(exp.get("company") or "").strip()
             duration = str(exp.get("duration") or "").strip()
             location = str(exp.get("location") or "").strip()
 
-            head_line = title
+            # Job Title
+            tp = doc.add_paragraph()
+            _set_paragraph_spacing(tp, before=4, after=1, line=1.0)
+            tr = tp.add_run(title)
+            tr.bold = True
+            tr.font.size = Pt(11.5)
+
+            # Company details with location on same line
+            if company:
+                cp = doc.add_paragraph()
+                _set_paragraph_spacing(cp, before=0, after=1, line=1.0)
+                company_text = company
+                if location and location != "Location":
+                    company_text += f" ({location})"
+                cr = cp.add_run(company_text)
+                cr.font.size = Pt(11)
+
+            # Employment Dates
             if duration and duration != "Date":
-                head_line += f" | {duration}"
-            hp = doc.add_paragraph()
-            _set_paragraph_spacing(hp, before=2, after=0, line=1.0)
-            hr = hp.add_run(head_line)
-            hr.bold = True
-            hr.font.size = Pt(12)
+                dp = doc.add_paragraph()
+                _set_paragraph_spacing(dp, before=0, after=2, line=1.0)
+                dr = dp.add_run(duration)
+                dr.italic = True
+                dr.font.size = Pt(10)
 
-            sub_line = company
-            if location and location != "Location":
-                sub_line = f"{sub_line} ({location})" if sub_line else location
-            if sub_line:
-                sp = doc.add_paragraph(sub_line)
-                _set_paragraph_spacing(sp, before=0, after=1, line=1.0)
-                sr = sp.runs[0]
-                sr.italic = True
-                sr.font.size = Pt(10)
-
+            # Bullet points
             for bullet in trim_lines(exp.get("bullets") or [], max_lines=8, max_len=260):
                 bp = doc.add_paragraph(style="List Bullet")
-                _set_paragraph_spacing(bp, before=0, after=0, line=1.0)
-                bp.add_run(bullet)
+                _set_paragraph_spacing(bp, before=1, after=1, line=1.1)
+                br = bp.add_run(bullet)
+                br.font.size = Pt(10.5)
 
     projects = parse_project_entries(data.get("projects"))[:8]
     if projects:
@@ -816,26 +831,30 @@ def build_docx_from_latex_data(data):
             tech = str(proj.get("tech") or "").strip()
             date = str(proj.get("date") or "").strip()
 
-            head_line = name
-            if date and date != "Date":
-                head_line += f" | {date}"
+            # Name and Date on same line
             pp = doc.add_paragraph()
-            _set_paragraph_spacing(pp, before=2, after=0, line=1.0)
-            pr = pp.add_run(head_line)
+            _set_paragraph_spacing(pp, before=4, after=1, line=1.0)
+            proj_title = name
+            if date and date != "Date":
+                proj_title += f" — {date}"
+            pr = pp.add_run(proj_title)
             pr.bold = True
-            pr.font.size = Pt(12)
+            pr.font.size = Pt(11.5)
 
+            # Technologies used
             if tech and tech != "Tech Stack":
-                tp = doc.add_paragraph(tech)
-                _set_paragraph_spacing(tp, before=0, after=1, line=1.0)
-                tr = tp.runs[0]
+                tp = doc.add_paragraph()
+                _set_paragraph_spacing(tp, before=0, after=2, line=1.0)
+                tr = tp.add_run(tech)
                 tr.italic = True
-                tr.font.size = Pt(10)
+                tr.font.size = Pt(10.5)
 
+            # Project details
             for bullet in trim_lines(proj.get("bullets") or [], max_lines=8, max_len=260):
                 bp = doc.add_paragraph(style="List Bullet")
-                _set_paragraph_spacing(bp, before=0, after=0, line=1.0)
-                bp.add_run(bullet)
+                _set_paragraph_spacing(bp, before=1, after=1, line=1.1)
+                br = bp.add_run(bullet)
+                br.font.size = Pt(10.5)
 
     education = parse_block_items(data.get("education"), min_fields=3, defaults=["Institution", "Year"])[:6]
     if education:
@@ -855,6 +874,7 @@ def build_docx_from_latex_data(data):
                 line += f" | {location}"
             ep = doc.add_paragraph(line)
             _set_paragraph_spacing(ep, before=0, after=1, line=1.0)
+            ep.runs[0].font.size = Pt(10.5)
 
     certs = trim_lines(parse_field_lines(data.get("certifications")), max_lines=14, max_len=230)
     if certs:
@@ -862,7 +882,8 @@ def build_docx_from_latex_data(data):
         for cert in certs:
             bp = doc.add_paragraph(style="List Bullet")
             _set_paragraph_spacing(bp, before=0, after=0, line=1.0)
-            bp.add_run(cert)
+            br = bp.add_run(cert)
+            br.font.size = Pt(10.5)
 
     buf = io.BytesIO()
     doc.save(buf)
