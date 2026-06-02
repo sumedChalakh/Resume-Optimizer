@@ -141,7 +141,12 @@ def login_page():
 @auth_blueprint.get('/auth/google/login')
 def google_login():
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        return redirect(url_for('auth.login_page'))
+        return (
+            "<h3>Google OAuth configuration is missing!</h3>"
+            "<p>Please configure <strong>GOOGLE_CLIENT_ID</strong> and <strong>GOOGLE_CLIENT_SECRET</strong> "
+            "as environment variables in your Render service dashboard (under Environment settings).</p>"
+            "<p><a href='/login'>Back to Login</a></p>"
+        ), 400
 
     config = _google_oidc_config()
     state = secrets.token_urlsafe(32)
