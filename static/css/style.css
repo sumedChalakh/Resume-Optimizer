@@ -103,6 +103,37 @@ body, .bg-midnight {
   box-shadow: var(--card-shadow) !important;
 }
 
+/* Custom premium adaptive styles */
+.hero-secondary-btn {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  backdrop-filter: blur(8px);
+}
+.hero-secondary-btn:hover {
+  background: var(--surface2) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  transform: translateY(-2px);
+}
+
+#rightSidebarAuthArea {
+  background: var(--surface2) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--card-shadow) !important;
+  border-radius: var(--radius) !important;
+  transition: all 0.3s ease;
+}
+[data-theme="light"] #rightSidebarAuthArea {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05), 0 8px 16px -6px rgba(15, 23, 42, 0.05) !important;
+}
+[data-theme="dark"] #rightSidebarAuthArea {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
 /* Text overrides in Light Theme */
 [data-theme="light"] h1, 
 [data-theme="light"] h2, 
@@ -1261,6 +1292,8 @@ textarea::placeholder { color: var(--text-muted); opacity: 0.6; }
   border: 1px solid rgba(59, 130, 246, 0.3);
   color: #60a5fa;
 }
+.drawer-body {
+  display: flex;
   flex-direction: column;
   gap: 20px;
 }
@@ -1539,4 +1572,163 @@ textarea::placeholder { color: var(--text-muted); opacity: 0.6; }
 @keyframes bounce {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
+}
+
+/* Adaptive styles for LaTeX Maker Panes and text elements */
+.latex-pane {
+  background: var(--surface2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+[data-theme="dark"] .latex-pane {
+  background: rgba(30, 41, 59, 0.4) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Card labels within LaTeX section */
+.card-label {
+  color: var(--text) !important;
+}
+[data-theme="dark"] .card-label {
+  color: #f1f5f9 !important;
+}
+[data-theme="light"] .ai-pane .card-label {
+  color: #6d28d9 !important; /* Rich readable purple in light mode */
+}
+[data-theme="dark"] .ai-pane .card-label {
+  color: #a78bfa !important; /* Pastel purple in dark mode */
+}
+[data-theme="light"] .preview-pane .card-label {
+  color: #059669 !important; /* Rich readable green in light mode */
+}
+[data-theme="dark"] .preview-pane .card-label {
+  color: #10b981 !important; /* Emerald green in dark mode */
+}
+
+/* Button top-btn customization for index.html */
+.top-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.top-btn:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--surface2) !important;
+  transform: translateY(-1px);
+}
+
+/* Sidebar Profile Theme adaptation */
+.sidebar-user-block {
+  border-top: 1px solid var(--border) !important;
+}
+.sidebar-user-name {
+  color: var(--text) !important;
+}
+.sidebar-user-plan {
+  color: var(--text-muted) !important;
+}
+
+/* Account Control Panel Theme adaptation */
+.panel-card-title {
+  color: var(--text) !important;
+}
+.panel-card-text {
+  color: var(--text-muted) !important;
+}
+.panel-card-plan {
+  color: var(--accent2) !important;
+  font-weight: 700;
+}
+.panel-btn-signout {
+  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  cursor: pointer;
+  padding: 10px 24px !important;
+  border-radius: 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease;
+}
+.panel-btn-signout:hover {
+  background: var(--surface2) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+[data-theme="dark"] .panel-btn-signout {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+[data-theme="dark"] .panel-btn-signout:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+.panel-btn-upgrade {
+  background: rgba(217, 119, 6, 0.1) !important;
+  border: 1px solid rgba(217, 119, 6, 0.25) !important;
+  color: #d97706 !important;
+  border-radius: 12px !important;
+  padding: 10px 20px !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.panel-btn-upgrade:hover {
+  transform: scale(1.05);
+}
+[data-theme="dark"] .panel-btn-upgrade {
+  background: rgba(251, 191, 36, 0.1) !important;
+  border: 1px solid rgba(251, 191, 36, 0.25) !important;
+  color: #fbbf24 !important;
+}
+
+/* Centered Auth Required Modal styling */
+#authRequiredModalBox {
+  background: var(--bg) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+[data-theme="light"] #authRequiredModalBox h3 {
+  color: var(--text) !important;
+}
+[data-theme="light"] #authRequiredModalBox p {
+  color: var(--text-muted) !important;
+}
+[data-theme="light"] #authRequiredModalBox button {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  color: var(--text) !important;
+}
+
+/* Centered Interactive Alert Modal styling */
+#interactiveAlertModalBox {
+  background: var(--bg) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+[data-theme="light"] #interactiveAlertModalBox h3 {
+  color: var(--text) !important;
+}
+[data-theme="light"] #interactiveAlertModalBox p {
+  color: var(--text-muted) !important;
+}
+[data-theme="light"] #interactiveAlertModalBox button {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  color: var(--text) !important;
 }

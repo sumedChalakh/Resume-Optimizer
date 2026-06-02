@@ -102,14 +102,14 @@
           </div>
         </div>
 
-        <div class="p-6 border-t border-slate-800 flex items-center gap-3 mt-auto">
+        <div class="p-6 border-t sidebar-user-block flex items-center gap-3 mt-auto">
           <div class="w-10 h-10 rounded-full bg-electricBlue/20 border border-electricBlue flex items-center justify-center text-electricBlue font-bold text-lg" id="sidebar-user-initial">
             G
           </div>
           <div style="flex: 1; min-width: 0;">
-            <div class="font-bold text-sm text-white truncate"><span id="sidebar-username">Guest</span></div>
+            <div class="font-bold text-sm sidebar-user-name truncate"><span id="sidebar-username">Guest</span><a href="/login" class="text-xs text-electricBlue ml-2 hover:underline font-semibold" id="sidebar-login-link">(Login)</a></div>
             <div class="flex items-center justify-between gap-1 mt-0.5">
-              <span class="text-xs text-slate-400" id="sidebar-userplan">Free Tier</span>
+              <span class="text-xs sidebar-user-plan" id="sidebar-userplan">Free Tier</span>
               <button type="button" onclick="openPricingDrawer()" style="background: none; border: none; padding: 0; color: #fbbf24; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s;" id="sidebarUpgradeBtn" class="hover:underline animate-pulse">⚡ Upgrade</button>
             </div>
           </div>
@@ -149,10 +149,10 @@
         <a href="#inputSection" class="px-8 py-3.5 bg-gradient-to-r from-electricBlue to-blue-600 hover:to-blue-500 text-white rounded-xl font-semibold shadow-[0_0_20px_rgba(59,130,246,0.4)] hover:shadow-[0_0_30px_rgba(59,130,246,0.6)] transition-all duration-300 transform hover:-translate-y-0.5">
           Go To Resume Builder
         </a>
-        <a href="#latexResumeSection" class="px-8 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold backdrop-blur-sm transition-all duration-300 transform hover:-translate-y-0.5">
+        <a href="#latexResumeSection" class="hero-secondary-btn px-8 py-3.5 rounded-xl font-semibold transition-all duration-300 transform hover:-translate-y-0.5">
           Open LaTeX Maker
         </a>
-        <a href="#autoApplySection" class="px-8 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-semibold backdrop-blur-sm transition-all duration-300 transform hover:-translate-y-0.5">
+        <a href="#autoApplySection" class="hero-secondary-btn px-8 py-3.5 rounded-xl font-semibold transition-all duration-300 transform hover:-translate-y-0.5">
           Open Auto Apply
         </a>
       </div>
@@ -291,6 +291,70 @@
                 <div class="flex justify-between items-center mt-3 pt-3 border-t border-slate-800">
                   <div class="text-xs text-slate-500 font-medium">Applied: 2d ago</div>
                   <div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-[9px] text-slate-300 font-bold">TI</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3.5: System Control Center (Stretched & Centered) -->
+    <div class="relative max-w-6xl mx-auto px-6 pb-12 mt-12">
+      <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-electricBlue to-energeticOrange"></div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-stretch">
+          <!-- System Status Column -->
+          <div class="flex flex-col justify-center items-center md:items-start text-center md:text-left space-y-4 pr-0 md:pr-8 border-r-0 md:border-r border-slate-800">
+            <div>
+              <h3 class="text-2xl font-bold text-white mb-2">System Status</h3>
+              <p class="text-slate-400 text-sm max-w-sm">Current AI modeling API provider and latency metrics routing status.</p>
+            </div>
+            <div class="header-badge inline-block text-xs !text-electricBlue !bg-electricBlue/10 !border-electricBlue/20 px-4 py-2 rounded-full font-bold shadow-sm" id="providerBadge">
+              Provider: Auto
+            </div>
+          </div>
+
+          <!-- Account Status Column -->
+          <div class="flex flex-col justify-center">
+            <h3 class="text-2xl font-bold panel-card-title mb-4 text-center md:text-left">Account Control Panel</h3>
+            
+            <div id="rightSidebarAuthArea" class="bg-white/5 border border-white/10 rounded-2xl p-6 w-full transition-all">
+              <div id="rightSidebarLoggedOut" class="flex flex-col md:flex-row items-center gap-6 justify-between">
+                <div class="flex-1 text-center md:text-left">
+                  <h4 class="text-base font-bold panel-card-title mb-2">Unlock Cloud Sync</h4>
+                  <p class="text-xs panel-card-text leading-relaxed max-w-md">Sign in to secure your resumes and track job applications across devices in real-time.</p>
+                  
+                  <div class="flex flex-wrap gap-4 mt-3 text-xs panel-card-text">
+                    <span class="flex items-center gap-1.5"><strong class="text-electricBlue text-sm">✓</strong> Sync</span>
+                    <span class="flex items-center gap-1.5"><strong class="text-electricBlue text-sm">✓</strong> Backups</span>
+                    <span class="flex items-center gap-1.5"><strong class="text-electricBlue text-sm">✓</strong> Multi-Device</span>
+                  </div>
+                </div>
+                
+                <div class="shrink-0 w-full md:w-auto">
+                  <a href="/login" class="block text-center w-full md:w-auto px-8 py-3 bg-gradient-to-r from-electricBlue to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-bold hover:shadow-lg transition-all text-sm transform hover:-translate-y-0.5 shadow-md">
+                    Sign In / Register
+                  </a>
+                </div>
+              </div>
+              
+              <div id="rightSidebarLoggedIn" style="display: none;" class="flex flex-col md:flex-row items-center gap-6 justify-between">
+                <div class="flex-1 text-center md:text-left">
+                  <div class="flex items-center justify-center md:justify-start gap-2 mb-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-green-500 animate-ping"></span>
+                    <span class="text-sm font-bold panel-card-title">Sync Status: Active</span>
+                  </div>
+                  <p class="text-xs panel-card-text truncate max-w-xs" id="rightSidebarEmail">user@example.com</p>
+                  <div class="mt-2 text-xs panel-card-text">
+                    <span class="font-bold panel-card-plan" id="rightSidebarUserPlan">Plan: Free Tier</span>
+                  </div>
+                </div>
+                
+                <div class="flex items-center gap-3 w-full md:w-auto justify-center md:justify-end">
+                  <button type="button" onclick="openPricingDrawer()" id="rightSidebarUpgradeBtn" class="panel-btn-upgrade hover:scale-105">Upgrade Plan</button>
+                  <button id="authSignOutBtn" class="panel-btn-signout">Sign Out</button>
                 </div>
               </div>
             </div>
@@ -464,14 +528,14 @@
       <div class="latex-3pane-container" style="display: flex; gap: 24px; align-items: stretch; margin-top: 24px; min-height: 800px; text-align: left; flex-wrap: wrap;">
         
         <!-- Left Pane: AI Suggestions (25% width) -->
-        <div class="latex-pane ai-pane" style="flex: 1.1; min-width: 260px; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 16px; backdrop-filter: blur(10px);">
-          <div class="card-label" style="font-size: 14px; font-weight: 700; color: #a78bfa; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+        <div class="latex-pane ai-pane" style="flex: 1.1; min-width: 260px;">
+          <div class="card-label" style="font-size: 14px; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
             <span>🤖</span> AI Assistant Suggestions
           </div>
           
           <div style="display: flex; flex-direction: column; gap: 8px;">
             <label style="font-size: 11px; color: var(--text-muted);">Ask AI to write or optimize sections:</label>
-            <textarea id="latexAiPrompt" placeholder="e.g., Rewrite my experience bullets to focus on cloud scale..." style="min-height: 80px; font-size: 11px; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white; resize: vertical;"></textarea>
+            <textarea id="latexAiPrompt" placeholder="e.g., Rewrite my experience bullets to focus on cloud scale..." style="min-height: 80px; font-size: 11px; padding: 8px; border-radius: 6px; resize: vertical;"></textarea>
             <button type="button" class="top-btn" style="font-size: 11px; width: 100%;" onclick="runCustomLatexAiPrompt()">🪄 Execute Custom Prompt</button>
           </div>
 
@@ -498,8 +562,8 @@
         </div>
 
         <!-- Middle Pane: Form Editor (40% width) -->
-        <div class="latex-pane edit-pane" style="flex: 1.8; min-width: 360px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 16px; max-height: 850px; overflow-y: auto; backdrop-filter: blur(10px);">
-          <div class="card-label" style="font-size: 14px; font-weight: 700; color: #f1f5f9; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+        <div class="latex-pane edit-pane custom-scrollbar" style="flex: 1.8; min-width: 360px; max-height: 850px; overflow-y: auto;">
+          <div class="card-label" style="font-size: 14px; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
             <span>✍️</span> Edit Details (I will edit)
           </div>
 
@@ -572,8 +636,8 @@
         </div>
 
         <!-- Right Pane: Live Stylized Preview & Actions (35% width) -->
-        <div class="latex-pane preview-pane" style="flex: 1.6; min-width: 320px; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 20px; max-height: 850px; overflow-y: auto; backdrop-filter: blur(10px);">
-          <div class="card-label" style="font-size: 14px; font-weight: 700; color: #10b981; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <div class="latex-pane preview-pane custom-scrollbar" style="flex: 1.6; min-width: 320px; position: sticky; top: 20px; max-height: 850px; overflow-y: auto;">
+          <div class="card-label" style="font-size: 14px; font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
             <span>👁️ Live Preview (Check)</span>
             <button class="top-btn" id="generateLatexBtn" type="button" style="margin:0; font-size:10px; padding:4px 10px; background:#10b981; border-color:#10b981; color:white;">🧾 Generate Source</button>
           </div>
@@ -1075,35 +1139,7 @@
     </section>
   </main>
 
-    <!-- Right Sidebar -->
-    <aside class="w-72 border-l border-slate-800 bg-[#0d1527] p-6 flex flex-col gap-6 hidden xl:flex shrink-0 overflow-y-auto custom-scrollbar">
-      <div class="space-y-2">
-        <h3 class="text-sm font-bold text-white">System Status</h3>
-        <div class="header-badge inline-block text-xs !text-electricBlue !bg-electricBlue/10 !border-electricBlue/20 px-3 py-1.5 rounded-full" id="providerBadge">Provider: Auto</div>
-      </div>
 
-      <div class="space-y-4 pt-4 border-t border-slate-800">
-        <h3 class="text-sm font-bold text-white">Account Status</h3>
-        <div id="rightSidebarAuthArea" class="bg-white/5 border border-white/10 rounded-xl p-4">
-          <div id="rightSidebarLoggedOut">
-            <p class="text-xs text-slate-400 mb-3">Sign in to sync your job tracker and save resumes securely across devices.</p>
-            <a href="/login" class="block text-center w-full py-2 bg-gradient-to-r from-electricBlue to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-sm">Sign In / Register</a>
-          </div>
-          <div id="rightSidebarLoggedIn" style="display: none;">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="w-2 h-2 rounded-full bg-green-500"></span>
-              <span class="text-sm font-bold text-white">Sync Status: Active</span>
-            </div>
-            <p class="text-xs text-slate-400 mb-3 truncate" id="rightSidebarEmail">user@example.com</p>
-            <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; margin-top: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 11px; font-weight: 700; color: #94a3b8;" id="rightSidebarUserPlan">Plan: Free Tier</span>
-              <button type="button" onclick="openPricingDrawer()" style="background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); color: #fbbf24; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 800; cursor: pointer; transition: all 0.2s;" id="rightSidebarUpgradeBtn" class="hover:scale-105">Upgrade</button>
-            </div>
-            <button id="authSignOutBtn" class="w-full py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition-all">Sign Out</button>
-          </div>
-        </div>
-      </div>
-    </aside>
   </div>
 
   <!-- AI Bullet Booster Slide-out Drawer -->
@@ -1187,7 +1223,7 @@
         
         <!-- Pro Plan -->
         <div class="pricing-card premium-pro-card" style="background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(245, 158, 11, 0.25); box-shadow: 0 0 15px rgba(245, 158, 11, 0.05); border-radius: 12px; padding: 16px; transition: all 0.3s; position: relative; overflow: hidden;">
-          <div style="position: absolute; top: 0; right: 0; background: linear-gradient(135deg, #f59e0b, #d97706); color: #0f172a; font-size: 9px; font-weight: 800; padding: 4px 10px; border-bottom-left-radius: 8px; text-transform: uppercase; tracking-wider: 0.05em;">Popular choice</div>
+          <div style="position: absolute; top: 0; right: 0; background: linear-gradient(135deg, #f59e0b, #d97706); color: #0f172a; font-size: 9px; font-weight: 800; padding: 4px 10px; border-bottom-left-radius: 8px; text-transform: uppercase; letter-spacing: 0.05em;">Popular choice</div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-right: 70px;">
             <strong style="color: #fbbf24; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Pro AI Copilot</strong>
             <span style="font-size: 14px; font-weight: 800; color: #fbbf24;">$15 / mo</span>
@@ -1247,6 +1283,53 @@
       </div>
     </div>
   </aside>
+
+  <!-- Centered Interactive Login Required Modal -->
+  <div id="authRequiredModal" class="fixed inset-0 z-[300] hidden items-center justify-center bg-black/65 backdrop-blur-sm transition-all duration-300">
+    <div class="border rounded-3xl p-8 max-w-md w-[90%] text-center shadow-2xl relative overflow-hidden transform scale-95 transition-transform duration-300" id="authRequiredModalBox">
+      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-electricBlue to-energeticOrange"></div>
+      
+      <button onclick="closeAuthRequiredModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl bg-transparent border-none cursor-pointer" style="line-height:1; font-weight:700;">&times;</button>
+      
+      <div class="w-16 h-16 rounded-full bg-electricBlue/10 flex items-center justify-center text-electricBlue text-2xl mx-auto mb-5 border border-electricBlue/20 shadow-inner">
+        🔒
+      </div>
+      
+      <h3 class="text-2xl font-bold mb-3" style="color: white; margin-top: 0;">Authentication Required</h3>
+      <p class="text-sm text-slate-400 mb-6 leading-relaxed">Please sign in or create a free account to download your resume, cover letter, or LaTeX source files.</p>
+      
+      <div class="flex flex-col gap-3">
+        <a href="/login" class="block text-center w-full py-3 bg-gradient-to-r from-electricBlue to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-bold hover:shadow-lg transition-all text-sm transform hover:-translate-y-0.5 shadow-md" style="text-decoration:none;">
+          Sign In / Register
+        </a>
+        <button onclick="closeAuthRequiredModal()" class="w-full py-3 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-sm font-bold transition-all border border-slate-800 cursor-pointer">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Centered Interactive Alert Modal -->
+  <div id="interactiveAlertModal" class="fixed inset-0 z-[300] hidden items-center justify-center bg-black/65 backdrop-blur-sm transition-all duration-300">
+    <div class="border rounded-3xl p-8 max-w-md w-[90%] text-center shadow-2xl relative overflow-hidden transform scale-95 transition-transform duration-300" id="interactiveAlertModalBox">
+      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-energeticOrange" id="alertModalGlowBar"></div>
+      
+      <button onclick="closeInteractiveAlertModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl bg-transparent border-none cursor-pointer" style="line-height:1; font-weight:700;">&times;</button>
+      
+      <div class="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 text-2xl mx-auto mb-5 border border-amber-500/20 shadow-inner" id="alertModalIconContainer">
+        ⚠️
+      </div>
+      
+      <h3 class="text-2xl font-bold mb-3" style="color: white; margin-top: 0;" id="alertModalTitle">Notice</h3>
+      <p class="text-sm text-slate-400 mb-6 leading-relaxed" id="alertModalMessage">Something went wrong. Please check your details and try again.</p>
+      
+      <div class="flex flex-col gap-3" id="alertModalActionContainer">
+        <button onclick="closeInteractiveAlertModal()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl text-sm font-bold transition-all shadow-md cursor-pointer hover:opacity-90">
+          Dismiss
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/js/main.js"></script>
 </body>

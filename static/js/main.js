@@ -4,6 +4,7 @@ let currentCoverLetterData = null;
 let lastOptimizeResponse = null;
 let currentAutoPacket = null;
 let currentLatexSource = '';
+let isUserAuthenticated = false;
 const BUILDER_STATE_KEY = 'ats_optimizer_builder_state_v1';
 const AUTO_QUEUE_KEY = 'ats_optimizer_auto_queue_v1';
 const TRACKER_WRITE_TOKEN_KEY = 'tracker_write_token';
@@ -557,6 +558,10 @@ async function copyLatexSource() {
 }
 
 async function downloadLatexSource() {
+  if (!isUserAuthenticated) {
+    showAuthRequiredModal();
+    return;
+  }
   if (!currentLatexSource) {
     await generateLatexResume();
   }
@@ -572,6 +577,10 @@ async function downloadLatexSource() {
 }
 
 async function downloadLatexPdf() {
+  if (!isUserAuthenticated) {
+    showAuthRequiredModal();
+    return;
+  }
   if (!currentLatexSource) {
     await generateLatexResume();
   }
@@ -619,6 +628,10 @@ async function downloadLatexPdf() {
 }
 
 async function downloadLatexDocx() {
+  if (!isUserAuthenticated) {
+    showAuthRequiredModal();
+    return;
+  }
   try {
     const response = await fetch('/export-latex-docx', {
       method: 'POST',
@@ -1779,6 +1792,10 @@ function buildPlainText(resume) {
 }
 
 async function exportDocx() {
+  if (!isUserAuthenticated) {
+    showAuthRequiredModal();
+    return;
+  }
   if (!currentResumeData) return;
   try {
     const response = await fetch('/export-docx', {
@@ -1812,6 +1829,10 @@ function copyCoverLetter() {
 }
 
 async function exportCoverLetterDocx() {
+  if (!isUserAuthenticated) {
+    showAuthRequiredModal();
+    return;
+  }
   if (!currentCoverLetterData) return;
   try {
     const response = await fetch('/export-cover-letter-docx', {
@@ -1863,11 +1884,25 @@ function resetForm() {
 }
 
 function showError(msg) {
-  const toast = document.createElement('div');
-  toast.className = 'error-toast';
-  toast.textContent = '⚠ ' + msg;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
+  const msgLower = String(msg || '').toLowerCase();
+  if (
+    msgLower.includes('failed') || 
+    msgLower.includes('error') || 
+    msgLower.includes('service') || 
+    msgLower.includes('connect') || 
+    msgLower.includes('unavailable') || 
+    msgLower.includes('timeout') || 
+    msgLower.includes('could not') ||
+    msgLower.includes('abort')
+  ) {
+    showInteractiveAlert(
+      "Service Offline", 
+      "Sorry, we are working on it. The AI optimizer engine is currently experiencing a connection delay. Please try again in a few moments.", 
+      "service_error"
+    );
+  } else {
+    showInteractiveAlert("Action Required", msg, "warning");
+  }
 }
 
 function showToast(msg, color = '#4f8ef7') {
@@ -2010,6 +2045,7 @@ async function checkSessionStatus() {
     const loggedInDiv = document.getElementById('rightSidebarLoggedIn');
 
     if (data.authenticated && data.user) {
+      isUserAuthenticated = true;
       if (loggedOutDiv) loggedOutDiv.style.display = 'none';
       if (loggedInDiv) {
         loggedInDiv.style.display = 'block';
@@ -2029,6 +2065,8 @@ async function checkSessionStatus() {
       if (leftSidebarName) {
         leftSidebarName.textContent = data.user.name;
       }
+      const loginLink = document.getElementById('sidebar-login-link');
+      if (loginLink) loginLink.style.display = 'none';
       const leftSidebarInitial = document.getElementById('sidebar-user-initial');
       if (leftSidebarInitial) {
         leftSidebarInitial.textContent = String(data.user.name).substring(0, 1).toUpperCase();
@@ -2102,8 +2140,12 @@ async function checkSessionStatus() {
         }
       }
     } else {
+      isUserAuthenticated = false;
       if (loggedOutDiv) loggedOutDiv.style.display = 'block';
       if (loggedInDiv) loggedInDiv.style.display = 'none';
+      
+      const loginLink = document.getElementById('sidebar-login-link');
+      if (loginLink) loginLink.style.display = 'inline-block';
       
       const adminNavLink = document.getElementById('adminNavLink');
       if (adminNavLink) {
@@ -3534,6 +3576,90 @@ async function enhanceLatexExperience() {
     updateLatexLivePreview();
     showToast('Experience bullets enhanced!', '#10b981');
   }
+}
+
+function showAuthRequiredModal() {
+  const modal = document.getElementById('authRequiredModal');
+  const box = document.getElementById('authRequiredModalBox');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+      if (box) {
+        box.classList.remove('scale-95');
+        box.classList.add('scale-100');
+      }
+    }, 10);
+  }
+}
+
+function closeAuthRequiredModal() {
+  const modal = document.getElementById('authRequiredModal');
+  const box = document.getElementById('authRequiredModalBox');
+  if (box) {
+    box.classList.remove('scale-100');
+    box.classList.add('scale-95');
+  }
+  setTimeout(() => {
+    if (modal) {
+      modal.classList.remove('flex');
+      modal.classList.add('hidden');
+    }
+  }, 150);
+}
+
+function showInteractiveAlert(title, message, type = 'warning') {
+  const modal = document.getElementById('interactiveAlertModal');
+  const box = document.getElementById('interactiveAlertModalBox');
+  const titleEl = document.getElementById('alertModalTitle');
+  const msgEl = document.getElementById('alertModalMessage');
+  const glowBar = document.getElementById('alertModalGlowBar');
+  const iconContainer = document.getElementById('alertModalIconContainer');
+  
+  if (!modal || !box) return;
+  
+  if (titleEl) titleEl.textContent = title;
+  if (msgEl) msgEl.textContent = message;
+  
+  if (type === 'service_error') {
+    if (glowBar) {
+      glowBar.className = 'absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-rose-600';
+    }
+    if (iconContainer) {
+      iconContainer.className = 'w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 text-2xl mx-auto mb-5 border border-red-500/20 shadow-inner';
+      iconContainer.textContent = '🛠️';
+    }
+  } else {
+    if (glowBar) {
+      glowBar.className = 'absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-energeticOrange';
+    }
+    if (iconContainer) {
+      iconContainer.className = 'w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 text-2xl mx-auto mb-5 border border-amber-500/20 shadow-inner';
+      iconContainer.textContent = '⚠️';
+    }
+  }
+  
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  setTimeout(() => {
+    box.classList.remove('scale-95');
+    box.classList.add('scale-100');
+  }, 10);
+}
+
+function closeInteractiveAlertModal() {
+  const modal = document.getElementById('interactiveAlertModal');
+  const box = document.getElementById('interactiveAlertModalBox');
+  if (box) {
+    box.classList.remove('scale-100');
+    box.classList.add('scale-95');
+  }
+  setTimeout(() => {
+    if (modal) {
+      modal.classList.remove('flex');
+      modal.classList.add('hidden');
+    }
+  }, 150);
 }
 
 
