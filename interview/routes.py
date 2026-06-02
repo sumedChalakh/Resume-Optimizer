@@ -45,6 +45,7 @@ def start_interview():
     # Define first question generator prompt
     is_coding = interview_type.lower() == "coding"
     is_negotiation = interview_type.lower() == "negotiation"
+    is_system_design = interview_type.lower() == "systemdesign"
     if is_coding:
         system_prompt = (
             "You are an elite principal software engineer and tech interviewer.\n"
@@ -58,6 +59,13 @@ def start_interview():
             f"Generate exactly ONE realistic opening salary and compensation proposal/query (Difficulty: {difficulty}) "
             "based on the candidate's target job description and their resume background.\n"
             "Start the conversation as HR making an initial offer or asking for their expectations, keeping it highly realistic and challenging. Pose the proposal directly."
+        )
+    elif is_system_design:
+        system_prompt = (
+            "You are an elite principal systems architect and tech interviewer.\n"
+            f"Generate exactly ONE complex distributed system design problem (Difficulty: {difficulty}) "
+            "designed for the candidate's target job description based on their resume.\n"
+            "Pose a realistic architecture requirement (e.g. rate limiter, live feed, chat backend), describing scale parameters (e.g. QPS, active users), and ask them to detail their architecture proposal directly."
         )
     else:
         system_prompt = (
@@ -140,6 +148,7 @@ def submit_answer():
     # Evaluate the submitted answer using LLM
     is_coding = interview_sess.interview_type.lower() == "coding"
     is_negotiation = interview_sess.interview_type.lower() == "negotiation"
+    is_system_design = interview_sess.interview_type.lower() == "systemdesign"
     if is_coding:
         eval_prompt = (
             "You are an expert software engineering interviewer. Evaluate the candidate's code submission/answer.\n"
@@ -156,6 +165,17 @@ def submit_answer():
             "You are an expert corporate compensation strategist and HR director. Evaluate the candidate's salary negotiation counter-offer or response.\n"
             "Provide a score from 1 to 10 (as an integer) representing their professional framing, assertiveness, packages balancing (base vs bonus vs equity), and collaboration.\n"
             "Provide a constructive critique (max 3 sentences) showing how they can improve their leverage, framing, or package demands.\n"
+            "Respond ONLY in this JSON format:\n"
+            "{\n"
+            "  \"score\": integer_between_1_and_10,\n"
+            "  \"critique\": \"string\"\n"
+            "}"
+        )
+    elif is_system_design:
+        eval_prompt = (
+            "You are an expert systems architect and technical interviewer. Evaluate the candidate's distributed systems design proposal.\n"
+            "Provide a score from 1 to 10 (as an integer) representing architecture correctness, component selection (load balancers, databases, caching), scalability parameters, and SPOF redundancy.\n"
+            "Provide a constructive critique (max 3 sentences) detailing storage choices, single points of failure (SPOFs), or performance bottlenecks.\n"
             "Respond ONLY in this JSON format:\n"
             "{\n"
             "  \"score\": integer_between_1_and_10,\n"
@@ -208,6 +228,7 @@ def submit_answer():
 
     is_coding = interview_sess.interview_type.lower() == "coding"
     is_negotiation = interview_sess.interview_type.lower() == "negotiation"
+    is_system_design = interview_sess.interview_type.lower() == "systemdesign"
     if is_coding:
         next_question_prompt = (
             "You are an elite software engineering interviewer. Generate exactly ONE subsequent algorithmic coding challenge or complexity follow-up question.\n"
@@ -218,6 +239,12 @@ def submit_answer():
         next_question_prompt = (
             "You are an elite Talent Acquisition director. Generate exactly ONE logical subsequent counter-offer, benefits negotiation, or compensation query.\n"
             f"This is Question {next_round_num} of 10. Push back professionally on equity, sign-on, or base salary package options to simulate high-stakes HR discussion.\n"
+            "Do not repeat questions or topics already asked. Poses the question directly without introductory filler."
+        )
+    elif is_system_design:
+        next_question_prompt = (
+            "You are an elite principal systems architect. Generate exactly ONE logical subsequent distributed systems design query or scalability follow-up.\n"
+            f"This is Question {next_round_num} of 10. Query specific bottleneck areas like caching mechanisms, message queues, relational vs NoSQL choice, or active-active replication.\n"
             "Do not repeat questions or topics already asked. Poses the question directly without introductory filler."
         )
     else:
