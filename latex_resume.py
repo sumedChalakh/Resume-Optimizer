@@ -740,9 +740,9 @@ def build_docx_from_latex_data(data):
     if email:
         contact_runs.append(("email", email))
     if linkedin:
-        contact_runs.append(("link", ("LinkedIn", linkedin)))
+        contact_runs.append(("link", (linkedin, linkedin)))
     if github:
-        contact_runs.append(("link", ("GitHub", github)))
+        contact_runs.append(("link", (github, github)))
     
     for idx, item in enumerate(contact_runs):
         if idx > 0:
