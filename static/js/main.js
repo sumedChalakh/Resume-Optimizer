@@ -131,7 +131,6 @@ function setProviderBadge(label) {
   if (!badge) return;
   badge.textContent = label || 'Provider: Auto';
 }
-
 function setSidebarActive(mode) {
   const links = document.querySelectorAll('.sidebar-nav .sidebar-link');
   links.forEach(link => {
@@ -148,6 +147,7 @@ function setSidebarActive(mode) {
   else if (mode === 'tracker') activeId = 'trackerNavLink';
   else if (mode === 'admin') activeId = 'adminNavLink';
   else if (mode === 'interview') activeId = 'interviewNavLink';
+  else if (mode === 'skill-gap') activeId = 'skillGapNavLink';
 
   if (activeId) {
     const activeLink = document.getElementById(activeId);
@@ -187,6 +187,7 @@ function bindSidebarHandlers() {
       else if (targetHash === '#trackerSection') setSidebarActive('tracker');
       else if (targetHash === '#adminSection') setSidebarActive('admin');
       else if (targetHash === '#interviewSection') setSidebarActive('interview');
+      else if (targetHash === '#skillGapSection') setSidebarActive('skill-gap');
     });
   });
 
@@ -217,7 +218,6 @@ function bindSidebarHandlers() {
   }
 }
 
-
 function getPageModeFromHash() {
   const hash = String(window.location.hash || '').toLowerCase();
   if (hash === '#inputsection' || hash === '#resumebuildersection') {
@@ -241,6 +241,9 @@ function getPageModeFromHash() {
   if (hash === '#interviewsection' || hash === '#interview') {
     return 'interview';
   }
+  if (hash === '#skillgapsection' || hash === '#skillgap') {
+    return 'skill-gap';
+  }
   return 'home';
 }
 
@@ -254,7 +257,7 @@ function applyPageModeFromHash() {
     dashboardViews.forEach(el => el.classList.add('hidden'));
   } else {
     // Fallback if elements don't have .dashboard-view yet
-    ['homeSection', 'inputSection', 'latexResumeSection', 'autoApplySection', 'salarySection', 'trackerSection', 'resultsSection', 'coverLetterStandaloneSection', 'adminSection', 'interviewSection'].forEach(id => {
+    ['homeSection', 'inputSection', 'latexResumeSection', 'autoApplySection', 'salarySection', 'trackerSection', 'resultsSection', 'coverLetterStandaloneSection', 'adminSection', 'interviewSection', 'skillGapSection'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
         el.style.display = 'none';
@@ -272,6 +275,7 @@ function applyPageModeFromHash() {
   else if (mode === 'tracker') targetId = 'trackerSection';
   else if (mode === 'admin') targetId = 'adminSection';
   else if (mode === 'interview') targetId = 'interviewSection';
+  else if (mode === 'skill-gap') targetId = 'skillGapSection';
 
   // 2. Target Reveal
   if (targetId) {
@@ -281,6 +285,9 @@ function applyPageModeFromHash() {
       targetEl.style.display = 'block'; // Ensure block display if legacy inline style was used
     }
   }
+
+
+
 
   // Handle specific section initializations
   if (mode === 'latex') {
@@ -3099,5 +3106,178 @@ async function restructureToStar() {
     boostBtn.innerHTML = originalHtml;
   }
 }
+
+function autofillSkillGapResume() {
+  const source = document.getElementById('resumeInput');
+  const target = document.getElementById('skillGapResumeInput');
+  if (source && target) {
+    const val = source.value.trim();
+    if (val) {
+      target.value = val;
+      showToast('Autofilled resume skills!', '#10b981');
+    } else {
+      showToast('Resume is empty. Please enter or upload it in the Resume Builder.', '#ef4444');
+    }
+  }
+}
+
+function autofillSkillGapJd() {
+  const source = document.getElementById('jdInput');
+  const target = document.getElementById('skillGapJdInput');
+  if (source && target) {
+    const val = source.value.trim();
+    if (val) {
+      target.value = val;
+      showToast('Autofilled target Job Description!', '#10b981');
+    } else {
+      showToast('Job Description is empty. Please enter it in the Resume Builder.', '#ef4444');
+    }
+  }
+}
+
+async function analyzeSkillGaps() {
+  const resumeSkills = document.getElementById('skillGapResumeInput').value.trim();
+  const jdText = document.getElementById('skillGapJdInput').value.trim();
+  const auditBtn = document.getElementById('analyzeSkillGapBtn');
+  const outputCard = document.getElementById('skillGapOutputCard');
+
+  if (!resumeSkills || !jdText) {
+    showToast('Please provide both your resume skills and target Job Description.', '#ef4444');
+    return;
+  }
+
+  auditBtn.disabled = true;
+  const originalHtml = auditBtn.innerHTML;
+  auditBtn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></div> Analyzing Career Gaps...';
+
+  try {
+    const response = await fetch('/api/career/skill-gap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resume_skills: resumeSkills,
+        jd: jdText
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to analyze skill gaps.");
+    }
+
+    // Populate overall score ring
+    const scoreVal = data.match_percentage || 0;
+    const scoreEl = document.getElementById('skillGapScore');
+    if (scoreEl) {
+      scoreEl.textContent = `${scoreVal}%`;
+      // Dynamic color/ring border based on match index
+      if (scoreVal >= 80) {
+        scoreEl.style.borderColor = '#10b981';
+        scoreEl.style.color = '#10b981';
+        scoreEl.style.boxShadow = '0 0 20px rgba(16,185,129,0.25)';
+      } else if (scoreVal >= 55) {
+        scoreEl.style.borderColor = '#fbbf24';
+        scoreEl.style.color = '#fbbf24';
+        scoreEl.style.boxShadow = '0 0 20px rgba(251,191,36,0.25)';
+      } else {
+        scoreEl.style.borderColor = '#ef4444';
+        scoreEl.style.color = '#ef4444';
+        scoreEl.style.boxShadow = '0 0 20px rgba(239,68,68,0.25)';
+      }
+    }
+
+    // High Priority Gaps
+    const highContainer = document.getElementById('highPriorityGapsContainer');
+    if (highContainer) {
+      highContainer.innerHTML = '';
+      if (data.high_priority_gaps && data.high_priority_gaps.length > 0) {
+        data.high_priority_gaps.forEach(item => {
+          const div = document.createElement('div');
+          div.style.background = 'rgba(255, 255, 255, 0.03)';
+          div.style.border = '1px solid rgba(255, 255, 255, 0.05)';
+          div.style.padding = '10px';
+          div.style.borderRadius = '6px';
+          div.innerHTML = `<strong style="color: #ef4444; font-size:12px; display:block; margin-bottom:4px;">${escapeHtml(item.skill)}</strong>
+                           <p style="font-size:11px; color:#cbd5e1; margin:0; line-height:1.4;">${escapeHtml(item.reason)}</p>`;
+          highContainer.appendChild(div);
+        });
+      } else {
+        highContainer.innerHTML = '<p style="font-size:11px; color:#94a3b8; font-style:italic;">No crucial skill gaps identified!</p>';
+      }
+    }
+
+    // Medium/Low Priority Gaps
+    const mediumContainer = document.getElementById('mediumPriorityGapsContainer');
+    if (mediumContainer) {
+      mediumContainer.innerHTML = '';
+      if (data.medium_priority_gaps && data.medium_priority_gaps.length > 0) {
+        data.medium_priority_gaps.forEach(item => {
+          const div = document.createElement('div');
+          div.style.background = 'rgba(255, 255, 255, 0.03)';
+          div.style.border = '1px solid rgba(255, 255, 255, 0.05)';
+          div.style.padding = '10px';
+          div.style.borderRadius = '6px';
+          div.innerHTML = `<strong style="color: #fbbf24; font-size:12px; display:block; margin-bottom:4px;">${escapeHtml(item.skill)}</strong>
+                           <p style="font-size:11px; color:#cbd5e1; margin:0; line-height:1.4;">${escapeHtml(item.reason)}</p>`;
+          mediumContainer.appendChild(div);
+        });
+      } else {
+        mediumContainer.innerHTML = '<p style="font-size:11px; color:#94a3b8; font-style:italic;">No secondary skill gaps identified.</p>';
+      }
+    }
+
+    // Upskilling Roadmap Plan
+    const roadmapContainer = document.getElementById('upskillingRoadmapContainer');
+    if (roadmapContainer) {
+      roadmapContainer.innerHTML = '';
+      if (data.learning_recommendations && data.learning_recommendations.length > 0) {
+        data.learning_recommendations.forEach((item, index) => {
+          const div = document.createElement('div');
+          div.style.display = 'flex';
+          div.style.gap = '12px';
+          div.style.alignItems = 'flex-start';
+          div.style.background = 'rgba(255, 255, 255, 0.02)';
+          div.style.border = '1px solid rgba(255, 255, 255, 0.04)';
+          div.style.borderRadius = '6px';
+          div.style.padding = '12px';
+          div.innerHTML = `
+            <div style="width: 24px; height: 24px; border-radius: 50%; background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.3); display: flex; align-items: center; justify-content: center; color: #a78bfa; font-size: 11px; font-weight: 700; flex-shrink: 0;">
+              ${index + 1}
+            </div>
+            <div style="flex-grow:1;">
+              <strong style="color:#f1f5f9; font-size:12px; display:block; margin-bottom:2px;">${escapeHtml(item.topic)}</strong>
+              <span style="font-size:11px; color:#a78bfa;">Recommended: ${escapeHtml(item.resource)}</span>
+            </div>
+          `;
+          roadmapContainer.appendChild(div);
+        });
+      } else {
+        roadmapContainer.innerHTML = '<p style="font-size:11px; color:#94a3b8; font-style:italic;">Roadmap is fully clear.</p>';
+      }
+    }
+
+    // Reveal output card
+    outputCard.style.display = 'block';
+    showToast('✓ Skill Gap Analysis finished successfully!', '#10b981');
+    outputCard.scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    showError(err.message || "Could not analyze skill gaps.");
+  } finally {
+    auditBtn.disabled = false;
+    auditBtn.innerHTML = originalHtml;
+  }
+}
+
+// Utility helper to escape HTML inside dynamic templates
+function escapeHtml(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 
 

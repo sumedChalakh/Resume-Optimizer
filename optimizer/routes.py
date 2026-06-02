@@ -42,3 +42,8 @@ def boost_bullet_route():
     from app import boost_bullet_api
     return boost_bullet_api()
 
+@optimizer_blueprint.post('/api/career/skill-gap')
+def career_skill_gap_route():
+    from app import career_skill_gap
+    return career_skill_gap()
+

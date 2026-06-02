@@ -81,6 +81,10 @@
               <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" /></svg>
               <span class="font-medium">AI Mock Interview</span>
             </a>
+            <a class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="skillGapNavLink" href="/#skillGapSection" data-desc="Identify critical skill gaps in your profile compared to target roles and map learning paths.">
+              <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+              <span class="font-medium">Skill Gap Analyzer</span>
+            </a>
             <a class="sidebar-link hidden items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="adminNavLink" href="/#adminSection" data-desc="Administrative dashboard for managing the ATS Optimizer platform.">
               <span class="text-xl w-5 h-5 flex items-center justify-center text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors">⚙</span>
               <span class="font-medium">Admin Panel</span>
@@ -306,6 +310,89 @@
   </section>
 
   <main class="w-full">
+    <!-- SKILL GAP ANALYZER SECTION -->
+    <section class="latex-section" id="skillGapSection" style="display:none; padding-top: 4rem;">
+      <div class="hero">
+        <h1>Skill Gap <span class="gradient-text">Analyzer</span></h1>
+        <p class="subtitle">Compare your profile against target Job Descriptions to identify critical gaps and map out career upskilling plans.</p>
+      </div>
+
+      <div class="input-grid" style="max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div class="input-card" style="margin: 0; width: 100%;">
+          <div class="card-label">
+            <span class="label-icon">📄</span>
+            Your Resume Skills / Profile
+          </div>
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;">Paste your skills list, or click Autofill to load from the Builder.</p>
+          <textarea id="skillGapResumeInput" style="min-height: 180px;" placeholder="e.g. Python, Flask, SQL, React, Git, Docker..."></textarea>
+          <button type="button" class="top-btn" style="margin-top: 12px; width: 100%; font-size: 11px;" onclick="autofillSkillGapResume()">⚡ Autofill From Builder Resume</button>
+        </div>
+
+        <div class="input-card" style="margin: 0; width: 100%;">
+          <div class="card-label">
+            <span class="label-icon">🎯</span>
+            Target Job Description
+          </div>
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;">Paste the job description of your target role.</p>
+          <textarea id="skillGapJdInput" style="min-height: 180px;" placeholder="Paste the job description here..."></textarea>
+          <button type="button" class="top-btn" style="margin-top: 12px; width: 100%; font-size: 11px;" onclick="autofillSkillGapJd()">⚡ Autofill From Builder JD</button>
+        </div>
+      </div>
+
+      <div class="action-row" style="margin-top: 24px; text-align: center;">
+        <button class="optimize-btn" id="analyzeSkillGapBtn" style="width: auto; padding: 12px 32px;" onclick="analyzeSkillGaps()">
+          <span class="btn-icon">🔍</span> Audit Career Skill Gaps
+        </button>
+      </div>
+
+      <!-- Skill Gap Report Output -->
+      <div class="resume-output" id="skillGapOutputCard" style="display:none; margin-top:32px; max-width:900px; margin-left:auto; margin-right:auto; text-align: left;">
+        <div class="output-header">
+          <h2>📊 Skill Audit Report & Learning Roadmap</h2>
+        </div>
+        <div class="cover-letter-content" style="padding: 24px; display: flex; flex-direction: column; gap: 24px;">
+          <!-- Overall Match Ring -->
+          <div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 24px;">
+            <div style="width: 100px; height: 100px; border-radius: 50%; border: 5px solid #10b981; box-shadow: 0 0 20px rgba(16,185,129,0.25); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 900; color: #10b981;" id="skillGapScore">
+              0%
+            </div>
+            <strong style="font-size: 14px; text-transform: uppercase; color: white;">Skill Match Index</strong>
+          </div>
+
+          <!-- Priority Gaps Lists -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div style="background: rgba(239,68,68,0.03); border: 1px solid rgba(239,68,68,0.15); border-radius: 8px; padding: 16px;">
+              <h3 style="color: #f87171; font-weight: 700; font-size: 13px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                🔴 Crucial Gaps (High Priority)
+              </h3>
+              <div id="highPriorityGapsContainer" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- Dynamically loaded -->
+              </div>
+            </div>
+
+            <div style="background: rgba(245,158,11,0.03); border: 1px solid rgba(245,158,11,0.15); border-radius: 8px; padding: 16px;">
+              <h3 style="color: #fbbf24; font-weight: 700; font-size: 13px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                🟡 Secondary Gaps (Medium/Low)
+              </h3>
+              <div id="mediumPriorityGapsContainer" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- Dynamically loaded -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Upskilling Roadmap Plan -->
+          <div style="background: rgba(139,92,246,0.03); border: 1px solid rgba(139,92,246,0.15); border-radius: 8px; padding: 16px;">
+            <h3 style="color: #a78bfa; font-weight: 700; font-size: 13px; margin-bottom: 12px;">
+              🧠 Personalized Upskilling Roadmap
+            </h3>
+            <div id="upskillingRoadmapContainer" style="display: flex; flex-direction: column; gap: 12px;">
+              <!-- Dynamically loaded -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- SALARY PREDICTOR SECTION -->
     <section class="salary-section" id="salarySection" style="display:none; padding-top: 4rem;">
       <div class="hero">
