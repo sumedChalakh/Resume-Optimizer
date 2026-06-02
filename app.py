@@ -2583,6 +2583,13 @@ def login():
 def create_app():
   app = Flask(__name__, static_folder="static", template_folder="templates")
 
+  # Support reverse proxies like Render
+  try:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+  except Exception as e:
+    print("ProxyFix failed to load:", e)
+
   # Core config
   db_url = os.environ.get('DATABASE_URL')
   if db_url:
