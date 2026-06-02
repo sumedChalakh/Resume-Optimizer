@@ -926,6 +926,21 @@ def export_pdf():
     try:
         src = sanitize_tex(src)
         pdf = compile_latex(src)
+        
+        # Telemetry update
+        from flask import session
+        from extensions import db
+        from models import User
+        user_id = session.get("user_id")
+        if user_id:
+            try:
+                user = db.session.get(User, user_id)
+                if user:
+                    user.resumes_downloaded = (user.resumes_downloaded or 0) + 1
+                    db.session.commit()
+            except Exception:
+                db.session.rollback()
+
         return send_file(
             io.BytesIO(pdf),
             as_attachment=True,
@@ -964,6 +979,21 @@ def export_latex_docx():
 
     try:
         docx_buf = build_docx_from_latex_data(latex_data)
+        
+        # Telemetry update
+        from flask import session
+        from extensions import db
+        from models import User
+        user_id = session.get("user_id")
+        if user_id:
+            try:
+                user = db.session.get(User, user_id)
+                if user:
+                    user.resumes_downloaded = (user.resumes_downloaded or 0) + 1
+                    db.session.commit()
+            except Exception:
+                db.session.rollback()
+
         return send_file(
             docx_buf,
             as_attachment=True,
