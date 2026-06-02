@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Public Resume Dashboard | ATSOptimizer</title>
+  
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+          },
+          colors: {
+            midnight: '#0f172a',
+            electricBlue: '#3b82f6',
+            energeticOrange: '#f59e0b',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .bg-grid {
+      background-image: linear-gradient(rgba(59, 130, 246, 0.02) 1px, transparent 1px), 
+                        linear-gradient(90deg, rgba(59, 130, 246, 0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    .dark .bg-grid {
+      background-image: linear-gradient(rgba(59, 130, 246, 0.04) 1px, transparent 1px), 
+                        linear-gradient(90deg, rgba(59, 130, 246, 0.04) 1px, transparent 1px);
+    }
+    .app-topbar {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+  <script>
+    (function() {
+      const theme = localStorage.getItem('theme') || 'light';
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-midnight dark:text-slate-100 min-h-screen relative font-sans">
+  <!-- Grid backdrop -->
+  <div class="bg-grid absolute inset-0 pointer-events-none z-0"></div>
+
+  <!-- Top bar -->
+  <header class="app-topbar sticky top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-midnight/80 px-6 py-4 flex justify-between items-center relative z-10 border-b border-slate-200/50 dark:border-slate-800/50">
+    <a class="flex items-center gap-2" href="/">
+      <span class="text-xl">⚡</span>
+      <span class="font-display font-bold tracking-tight text-slate-900 dark:text-white text-lg">
+        ATS<span class="text-electricBlue">Optimizer</span>
+      </span>
+    </a>
+    
+    <nav class="hidden md:flex items-center gap-6" aria-label="Primary">
+      <a class="text-slate-600 dark:text-slate-300 hover:text-electricBlue dark:hover:text-white transition-all text-sm font-medium" href="/#homeSection">Home</a>
+      <a class="text-slate-600 dark:text-slate-300 hover:text-electricBlue dark:hover:text-white transition-all text-sm font-medium" href="/#inputSection">Resume Builder</a>
+      <a class="text-slate-600 dark:text-slate-300 hover:text-electricBlue dark:hover:text-white transition-all text-sm font-medium" href="/tracker">Job Tracker</a>
+      <a class="text-electricBlue dark:text-blue-400 text-sm font-bold border-b-2 border-electricBlue pb-1" href="/share-dashboard">Public Resumes</a>
+    </nav>
+
+    <div class="flex items-center gap-3">
+      <button id="themeToggleBtn" class="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 bg-white/5 flex items-center justify-center text-slate-600 dark:text-slate-300 cursor-pointer transition-all" title="Toggle Light/Dark Theme">
+        <span id="themeToggleIcon" class="text-sm">☀️</span>
+      </button>
+      <a class="px-3.5 py-1.5 rounded-lg bg-electricBlue hover:bg-blue-600 text-white text-sm font-medium transition-all shadow-md shadow-blue-500/20" href="/#inputSection">Build Resume</a>
+    </div>
+  </header>
+
+  <!-- Page Content -->
+  <main class="max-w-7xl mx-auto px-6 py-10 relative z-10 space-y-8">
+    
+    <!-- Hero / Header Section -->
+    <section class="space-y-2">
+      <div class="flex items-center gap-2 text-xs font-semibold tracking-wider uppercase text-electricBlue dark:text-blue-400">
+        <span>Analytics Hub</span>
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-emerald-500 font-medium normal-case">Live Tracking Active</span>
+      </div>
+      <h1 class="text-3xl md:text-4xl font-display font-extrabold tracking-tight text-slate-900 dark:text-white">
+        Public Resume <span class="text-transparent bg-clip-text bg-gradient-to-r from-electricBlue to-energeticOrange">Short Links</span>
+      </h1>
+      <p class="text-slate-500 dark:text-slate-400 max-w-2xl text-sm md:text-base">
+        Host read-only versions of your resume snapshots, share custom short-links, and track when, where, and how recruiters view them.
+      </p>
+    </section>
+
+    <!-- Grid Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <!-- Left Column: Shared Links List -->
+      <div class="space-y-6 lg:col-span-1">
+        <div class="bg-white dark:bg-slate-950 rounded-2xl border border-slate-200/60 dark:border-slate-900 shadow-md p-6 space-y-4">
+          <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-900 pb-3">
+            <h2 class="font-display font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+              Your Custom Links
+            </h2>
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900 font-semibold text-slate-600 dark:text-slate-400">{{ links|length }} total</span>
+          </div>
+
+          <div class="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+            {% if not links %}
+              <div class="text-center py-10 px-4 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+                <span class="text-3xl block">🔗</span>
+                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">No public links generated yet</p>
+                <p class="text-xs text-slate-400">Optimize a resume and click the "Share Resume" button in the builder workspace to create a slug.</p>
+              </div>
+            {% else %}
+              {% for link in links %}
+                <div class="shared-link-card group relative p-4 rounded-xl border transition-all cursor-pointer bg-slate-50/50 hover:bg-slate-100/50 dark:bg-slate-900/10 dark:hover:bg-slate-900/30 border-slate-200/60 dark:border-slate-800/80 hover:border-electricBlue/30 dark:hover:border-electricBlue/30 select-none"
+                     onclick="selectLink({{ link.id }}, '{{ link.custom_slug }}', this)"
+                     id="link-card-{{ link.id }}">
+                  
+                  <div class="flex justify-between items-start">
+                    <div class="space-y-1">
+                      <div class="flex items-center gap-1.5">
+                        <strong class="font-display text-sm tracking-tight text-slate-900 dark:text-white group-hover:text-electricBlue transition-colors">/share/{{ link.custom_slug }}</strong>
+                      </div>
+                      <p class="text-[10px] text-slate-400">Created: {{ link.created_at }}</p>
+                    </div>
+
+                    <!-- Status toggle & view badge -->
+                    <div class="flex flex-col items-end gap-1.5" onclick="event.stopPropagation()">
+                      <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="toggle-{{ link.id }}" class="sr-only peer" {% if link.is_active %}checked{% endif %} onchange="toggleLink({{ link.id }})">
+                        <div class="w-8 h-4.5 bg-slate-200 dark:bg-slate-800 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-500/20 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                      <span class="text-xs font-semibold px-2 py-0.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full flex items-center gap-1">
+                        👁️ {{ link.views }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Quick copy -->
+                  <div class="mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-800/50 flex justify-between items-center">
+                    <span class="text-[11px] text-slate-400 group-hover:text-slate-500 truncate max-w-[150px]" id="preview-url-{{ link.id }}">/share/{{ link.custom_slug }}</span>
+                    <button onclick="copySlugUrl('{{ link.custom_slug }}', event)" class="text-[10px] px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900 rounded font-medium transition-all text-slate-600 dark:text-slate-300">
+                      Copy Link
+                    </button>
+                  </div>
+                </div>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Columns: Analytics Pane -->
+      <div class="lg:col-span-2 space-y-6">
+        
+        <!-- Welcome / Not Selected Screen -->
+        <div id="analyticsPlaceholder" class="bg-white dark:bg-slate-950 rounded-2xl border border-slate-200/60 dark:border-slate-900 shadow-md p-12 text-center flex flex-col items-center justify-center h-full min-h-[400px] space-y-3">
+          <span class="text-5xl animate-bounce">📊</span>
+          <h2 class="font-display font-bold text-lg text-slate-800 dark:text-slate-200">Select a link to load analytics</h2>
+          <p class="text-sm text-slate-400 max-w-sm">
+            Choose one of your custom short links from the sidebar to inspect views timeline, visitor referrers, geolocations, and browser tags.
+          </p>
+        </div>
+
+        <!-- Selected Analytics Screen (Hidden by default) -->
+        <div id="analyticsPanel" class="hidden space-y-6">
+          
+          <!-- Selected Link Banner -->
+          <div class="bg-gradient-to-r from-electricBlue/10 to-energeticOrange/10 border border-electricBlue/20 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="space-y-1">
+              <span class="text-xs font-bold text-electricBlue uppercase tracking-wider">Currently Inspecting Link</span>
+              <h2 class="text-xl md:text-2xl font-display font-extrabold text-slate-950 dark:text-white" id="selectedSlugTitle">/share/slug-name</h2>
+              <a href="#" id="selectedPublicLink" target="_blank" class="text-xs text-electricBlue dark:text-blue-400 hover:underline flex items-center gap-1 font-medium mt-1">
+                Open public link in new tab 
+                <svg class="w-3h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              </a>
+            </div>
+            
+            <button onclick="refreshCurrentAnalytics()" class="px-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 shadow-sm text-slate-700 dark:text-slate-300">
+              🔄 Refresh Stats
+            </button>
+          </div>
+
+          <!-- Summary Metric Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-white dark:bg-slate-950 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-900 shadow-md">
+              <span class="text-xs text-slate-400 font-semibold block uppercase">Total Views</span>
+              <strong class="text-3xl font-display font-extrabold text-slate-950 dark:text-white mt-1 block" id="statTotalViews">0</strong>
+              <span class="text-[10px] text-emerald-500 font-medium">🟢 Recruiter actions logged</span>
+            </div>
+            <div class="bg-white dark:bg-slate-950 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-900 shadow-md">
+              <span class="text-xs text-slate-400 font-semibold block uppercase">Top Location</span>
+              <strong class="text-lg font-display font-extrabold text-slate-950 dark:text-white mt-2 block truncate" id="statTopLocation">-</strong>
+              <span class="text-[10px] text-slate-400">Based on client IP routing</span>
+            </div>
+            <div class="bg-white dark:bg-slate-950 p-5 rounded-2xl border border-slate-200/60 dark:border-slate-900 shadow-md">
+              <span class="text-xs text-slate-400 font-semibold block uppercase">Primary Referrer</span>
+              <strong class="text-lg font-display font-extrabold text-slate-950 dark:text-white mt-2 block truncate" id="statTopReferrer">-</strong>
+              <span class="text-[10px] text-slate-400">Visitor inbound channel</span>
+            </div>
+          </div>
+
+          <!-- Chart Area -->
+          <div class="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200/60 dark:border-slate-900 shadow-md space-y-4">
+            <h3 class="font-display font-bold text-sm text-slate-900 dark:text-white">Visitor Activity Timeline</h3>
+            <div class="h-64 w-full">
+              <canvas id="viewsTimelineChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Breakdown Tables/Charts Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Locations -->
+            <div class="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200/60 dark:border-slate-900 shadow-md space-y-4">
+              <h3 class="font-display font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                📍 Geographic Distribution
+              </h3>
+              <div class="space-y-3" id="locationsContainer">
+                <!-- Location list items injected here -->
+              </div>
+            </div>
+
+            <!-- Referrers -->
+            <div class="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200/60 dark:border-slate-900 shadow-md space-y-4">
+              <h3 class="font-display font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                🌐 Inbound Referrer Sources
+              </h3>
+              <div class="space-y-3" id="referrersContainer">
+                <!-- Referrer list items injected here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Detailed Visitor Log -->
+          <div class="bg-white dark:bg-slate-950 rounded-2xl border border-slate-200/60 dark:border-slate-900 shadow-md overflow-hidden">
+            <div class="p-6 border-b border-slate-100 dark:border-slate-900 flex justify-between items-center">
+              <h3 class="font-display font-bold text-sm text-slate-900 dark:text-white">Recent Visitor Log</h3>
+              <span class="text-xs text-slate-400">Showing last 15 actions</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 dark:bg-slate-900/50 text-slate-400 border-b border-slate-100 dark:border-slate-900">
+                  <tr>
+                    <th class="p-4 font-semibold">Timestamp</th>
+                    <th class="p-4 font-semibold">IP Address</th>
+                    <th class="p-4 font-semibold">Location</th>
+                    <th class="p-4 font-semibold">Referrer</th>
+                    <th class="p-4 font-semibold">User Agent</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-900/60 text-slate-600 dark:text-slate-300" id="logsTableBody">
+                  <!-- Injected visitor rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Interactive toast/notification popup -->
+  <div id="toastNotification" class="fixed bottom-6 right-6 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-xl z-50 text-sm transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-2">
+    <span id="toastIcon">✨</span>
+    <span id="toastMessage">Done!</span>
+  </div>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    let activeLinkId = null;
+    let activeLinkSlug = null;
+    let timelineChart = null;
+
+    // Set page URL origins
+    document.addEventListener("DOMContentLoaded", () => {
+      {% if links %}
+        // Pre-render actual paths in links list
+        {% for link in links %}
+          const previewElement = document.getElementById("preview-url-{{ link.id }}");
+          if (previewElement) {
+            previewElement.textContent = window.location.origin + "/share/{{ link.custom_slug }}";
+          }
+        {% endfor %}
+      {% endif %}
+    });
+
+    // Handle Theme Toggle
+    const themeBtn = document.getElementById('themeToggleBtn');
+    const themeIcon = document.getElementById('themeToggleIcon');
+    themeBtn.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      themeIcon.textContent = isDark ? '🌙' : '☀️';
+      
+      // Update charts text colors if active
+      if (timelineChart) {
+        updateChartTheme(isDark);
+      }
+    });
+    themeIcon.textContent = document.documentElement.classList.contains('dark') ? '🌙' : '☀️';
+
+    // Show dynamic toast alert
+    function showToast(message, icon = "✨") {
+      const toast = document.getElementById("toastNotification");
+      const iconEl = document.getElementById("toastIcon");
+      const msgEl = document.getElementById("toastMessage");
+      
+      iconEl.textContent = icon;
+      msgEl.textContent = message;
+      
+      toast.classList.remove("translate-y-20", "opacity-0");
+      toast.classList.add("translate-y-0", "opacity-100");
+      
+      setTimeout(() => {
+        toast.classList.add("translate-y-20", "opacity-0");
+        toast.classList.remove("translate-y-0", "opacity-100");
+      }, 3000);
+    }
+
+    // Copy resume link to clipboard
+    function copySlugUrl(slug, event) {
+      if (event) event.stopPropagation();
+      const url = window.location.origin + "/share/" + slug;
+      navigator.clipboard.writeText(url).then(() => {
+        showToast("Copied to clipboard!", "📋");
+      }).catch(err => {
+        showToast("Could not copy link", "⚠️");
+      });
+    }
+
+    // Toggle Active State
+    function toggleLink(linkId) {
+      fetch("/share/api/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: linkId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          showToast(data.error, "⚠️");
+          // Revert toggle switch
+          document.getElementById(`toggle-${linkId}`).checked = !document.getElementById(`toggle-${linkId}`).checked;
+        } else {
+          showToast(data.message || "Link updated!", data.is_active ? "🟢" : "🔴");
+        }
+      })
+      .catch(err => {
+        showToast("Network error", "⚠️");
+      });
+    }
+
+    // Select Active Link
+    function selectLink(linkId, slug, element) {
+      // Highlight selected card
+      document.querySelectorAll(".shared-link-card").forEach(card => {
+        card.classList.remove("border-electricBlue", "bg-electricBlue/5", "dark:bg-electricBlue/5");
+        card.classList.add("border-slate-200/60", "dark:border-slate-800/80");
+      });
+      element.classList.remove("border-slate-200/60", "dark:border-slate-800/80");
+      element.classList.add("border-electricBlue", "bg-electricBlue/5", "dark:bg-electricBlue/5");
+
+      activeLinkId = linkId;
+      activeLinkSlug = slug;
+
+      loadAnalytics(linkId);
+    }
+
+    function refreshCurrentAnalytics() {
+      if (activeLinkId) {
+        loadAnalytics(activeLinkId);
+      }
+    }
+
+    // Fetch and render analytics data
+    function loadAnalytics(linkId) {
+      // Show loader state
+      const panel = document.getElementById("analyticsPanel");
+      const placeholder = document.getElementById("analyticsPlaceholder");
+      placeholder.innerHTML = `<span class="text-3xl animate-spin block">🔄</span><p class="text-sm text-slate-400 mt-2">Loading analytics...</p>`;
+      placeholder.classList.remove("hidden");
+      panel.classList.add("hidden");
+
+      fetch(`/share/api/analytics/${linkId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          showToast(data.error, "⚠️");
+          placeholder.innerHTML = `⚠️ Failed to load stats.`;
+          return;
+        }
+
+        // Hide placeholder, reveal panel
+        placeholder.classList.add("hidden");
+        panel.classList.remove("hidden");
+
+        // Set text titles
+        document.getElementById("selectedSlugTitle").textContent = "/share/" + data.slug;
+        const publicLink = document.getElementById("selectedPublicLink");
+        publicLink.href = window.location.origin + "/share/" + data.slug;
+        publicLink.innerHTML = `Open ${window.location.origin}/share/${data.slug} ↗️`;
+
+        // Set KPI metrics
+        document.getElementById("statTotalViews").textContent = data.total_views;
+        document.getElementById("statTopLocation").textContent = data.top_locations.length > 0 ? data.top_locations[0].location : "-";
+        document.getElementById("statTopReferrer").textContent = data.top_referrers.length > 0 ? data.top_referrers[0].referrer : "-";
+
+        // Render Location Bars
+        const locContainer = document.getElementById("locationsContainer");
+        if (data.top_locations.length === 0) {
+          locContainer.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">No locations tracked yet.</p>`;
+        } else {
+          locContainer.innerHTML = data.top_locations.map(loc => {
+            const percentage = Math.round((loc.count / data.total_views) * 100);
+            return `
+              <div class="space-y-1">
+                <div class="flex justify-between items-center text-xs font-semibold">
+                  <span class="text-slate-800 dark:text-slate-200">${loc.location}</span>
+                  <span class="text-slate-500">${loc.count} (${percentage}%)</span>
+                </div>
+                <div class="w-full bg-slate-100 dark:bg-slate-900 h-2 rounded-full overflow-hidden">
+                  <div class="bg-electricBlue h-full rounded-full" style="width: ${percentage}%"></div>
+                </div>
+              </div>
+            `;
+          }).join("");
+        }
+
+        // Render Referrer Bars
+        const refContainer = document.getElementById("referrersContainer");
+        if (data.top_referrers.length === 0) {
+          refContainer.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">No referrers tracked yet.</p>`;
+        } else {
+          refContainer.innerHTML = data.top_referrers.map(ref => {
+            const percentage = Math.round((ref.count / data.total_views) * 100);
+            return `
+              <div class="space-y-1">
+                <div class="flex justify-between items-center text-xs font-semibold">
+                  <span class="text-slate-800 dark:text-slate-200 truncate max-w-[200px]" title="${ref.referrer}">${ref.referrer}</span>
+                  <span class="text-slate-500">${ref.count} (${percentage}%)</span>
+                </div>
+                <div class="w-full bg-slate-100 dark:bg-slate-900 h-2 rounded-full overflow-hidden">
+                  <div class="bg-energeticOrange h-full rounded-full" style="width: ${percentage}%"></div>
+                </div>
+              </div>
+            `;
+          }).join("");
+        }
+
+        // Render Visitor logs
+        const logBody = document.getElementById("logsTableBody");
+        if (data.recent_logs.length === 0) {
+          logBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">No views recorded. Share your link with recruiters to begin logging.</td></tr>`;
+        } else {
+          logBody.innerHTML = data.recent_logs.map(log => `
+            <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+              <td class="p-4 whitespace-nowrap font-medium text-[11px] text-slate-400">${log.timestamp}</td>
+              <td class="p-4 font-mono font-semibold text-slate-700 dark:text-slate-300">${log.ip}</td>
+              <td class="p-4"><span class="px-2 py-0.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded font-medium">${log.location}</span></td>
+              <td class="p-4 truncate max-w-[150px] font-medium" title="${log.referrer}">${log.referrer}</td>
+              <td class="p-4 text-slate-400 text-[10px] truncate max-w-[200px]" title="${log.user_agent}">${log.user_agent}</td>
+            </tr>
+          `).join("");
+        }
+
+        // Render Chart
+        renderTimelineChart(data.history);
+      })
+      .catch(err => {
+        showToast("Error parsing analytics", "⚠️");
+        placeholder.innerHTML = `⚠️ Failed to load stats.`;
+      });
+    }
+
+    // Timeline line graph
+    function renderTimelineChart(history) {
+      const ctx = document.getElementById('viewsTimelineChart').getContext('2d');
+      const isDark = document.documentElement.classList.contains('dark');
+      
+      const labels = history.map(item => item.date);
+      const views = history.map(item => item.views);
+
+      if (timelineChart) {
+        timelineChart.destroy();
+      }
+
+      timelineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Resume Views',
+            data: views,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.05)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.35,
+            pointBackgroundColor: '#3b82f6',
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: isDark ? '#94a3b8' : '#64748b',
+                font: { family: 'Outfit', size: 10 }
+              }
+            },
+            y: {
+              grid: {
+                color: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.04)'
+              },
+              ticks: {
+                color: isDark ? '#94a3b8' : '#64748b',
+                font: { family: 'Outfit', size: 10 },
+                stepSize: 1,
+                precision: 0
+              },
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function updateChartTheme(isDark) {
+      if (!timelineChart) return;
+      timelineChart.options.scales.x.ticks.color = isDark ? '#94a3b8' : '#64748b';
+      timelineChart.options.scales.y.ticks.color = isDark ? '#94a3b8' : '#64748b';
+      timelineChart.options.scales.y.grid.color = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.04)';
+      timelineChart.update();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ resume.name or resume.full_name or "Public Resume" }} | ATSOptimizer</title>
+  
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+          },
+          colors: {
+            midnight: '#0f172a',
+            electricBlue: '#3b82f6',
+            energeticOrange: '#f59e0b',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom CSS adjustments */
+    body {
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .resume-card {
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .resume-card:hover {
+      transform: translateY(-2px);
+    }
+    /* Grid background */
+    .bg-grid {
+      background-image: linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px), 
+                        linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+      background-size: 30px 30px;
+    }
+    .dark .bg-grid {
+      background-image: linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px), 
+                        linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+    }
+  </style>
+  <script>
+    // Initialize dark/light mode from local storage or system preference
+    (function() {
+      const theme = localStorage.getItem('public-theme') || 
+                    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-midnight dark:text-slate-100 min-h-screen relative font-sans">
+  <!-- Grid backdrop -->
+  <div class="bg-grid absolute inset-0 pointer-events-none z-0"></div>
+
+  <!-- Top Utilities Bar -->
+  <header class="sticky top-0 z-50 backdrop-blur-md bg-white/70 dark:bg-midnight/70 border-b border-slate-200/50 dark:border-slate-800/50 px-4 py-3">
+    <div class="max-w-4xl mx-auto flex justify-between items-center relative z-10">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">⚡</span>
+        <span class="font-display font-bold tracking-tight text-slate-900 dark:text-white">
+          ATS<span class="text-electricBlue">Optimizer</span>
+        </span>
+        <span class="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium ml-2">Public View</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Print / PDF button -->
+        <button onclick="window.print()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900 text-sm font-medium transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+          Print / Save PDF
+        </button>
+        <!-- Theme Toggle -->
+        <button id="themeToggleBtn" class="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center text-lg hover:bg-slate-100 dark:hover:bg-slate-900 transition-all">
+          <span id="themeToggleIcon">☀️</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-4xl mx-auto px-4 py-8 md:py-12 relative z-10">
+    {% set r = resume.optimized_resume if resume.optimized_resume is defined else resume %}
+
+    <!-- Resume Box -->
+    <div class="bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-900 rounded-2xl shadow-xl dark:shadow-2xl/40 overflow-hidden print:border-0 print:shadow-none print:bg-transparent">
+      <!-- Top banner strip -->
+      <div class="h-2 bg-gradient-to-r from-electricBlue to-energeticOrange print:hidden"></div>
+
+      <div class="p-6 md:p-12 space-y-8 print:p-0">
+        <!-- Header / Contact Info -->
+        <div class="border-b border-slate-100 dark:border-slate-900 pb-8 space-y-4">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 class="text-3xl md:text-4xl font-display font-bold tracking-tight text-slate-950 dark:text-white">{{ r.name or r.full_name or "Candidate Name" }}</h1>
+              {% if r.headline %}
+                <p class="text-lg text-electricBlue dark:text-blue-400 font-medium mt-1">{{ r.headline }}</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Contact items grid -->
+          <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-600 dark:text-slate-400">
+            {% if r.location %}
+              <div class="flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span>{{ r.location }}</span>
+              </div>
+            {% endif %}
+            {% if r.email %}
+              <a href="mailto:{{ r.email }}" class="flex items-center gap-1.5 hover:text-electricBlue transition-colors">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                <span>{{ r.email }}</span>
+              </a>
+            {% endif %}
+            {% if r.phone %}
+              <div class="flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                <span>{{ r.phone }}</span>
+              </div>
+            {% endif %}
+            {% if r.linkedin %}
+              <a href="{{ 'https://' ~ r.linkedin if not r.linkedin.startswith('http') else r.linkedin }}" target="_blank" rel="noopener" class="flex items-center gap-1.5 hover:text-electricBlue transition-colors">
+                <svg class="w-4 h-4 text-slate-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                <span>LinkedIn</span>
+              </a>
+            {% endif %}
+            {% if r.github %}
+              <a href="{{ 'https://' ~ r.github if not r.github.startswith('http') else r.github }}" target="_blank" rel="noopener" class="flex items-center gap-1.5 hover:text-electricBlue transition-colors">
+                <svg class="w-4 h-4 text-slate-400" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"/></svg>
+                <span>GitHub</span>
+              </a>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Professional Summary -->
+        {% if r.summary %}
+          <section class="space-y-3">
+            <h2 class="text-lg font-display font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 bg-electricBlue rounded-sm"></span>
+              Professional Summary
+            </h2>
+            <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-justify">
+              {{ r.summary }}
+            </p>
+          </section>
+        {% endif %}
+
+        <!-- Technical Skills -->
+        {% if r.skills %}
+          <section class="space-y-4">
+            <h2 class="text-lg font-display font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 bg-electricBlue rounded-sm"></span>
+              Technical Skills
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {% if r.skills is mapping %}
+                {% for category, items in r.skills.items() %}
+                  <div class="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-900/60 resume-card">
+                    <h3 class="font-display font-bold text-sm text-slate-950 dark:text-slate-200 mb-2">{{ category }}</h3>
+                    <div class="flex flex-wrap gap-1.5">
+                      {% if items is string %}
+                        {% for item in items.split(',') %}
+                          {% if item.strip() %}
+                            <span class="text-xs px-2.5 py-1 bg-white dark:bg-slate-950 rounded-md border border-slate-200/50 dark:border-slate-800/80 font-medium text-slate-700 dark:text-slate-300">{{ item.strip() }}</span>
+                          {% endif %}
+                        {% endfor %}
+                      {% elif items is iterable %}
+                        {% for item in items %}
+                          <span class="text-xs px-2.5 py-1 bg-white dark:bg-slate-950 rounded-md border border-slate-200/50 dark:border-slate-800/80 font-medium text-slate-700 dark:text-slate-300">{{ item }}</span>
+                        {% endfor %}
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              {% elif r.skills is iterable %}
+                {% for line in r.skills %}
+                  {% if ':' in line %}
+                    {% set parts = line.split(':', 1) %}
+                    <div class="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-900/60 resume-card">
+                      <h3 class="font-display font-bold text-sm text-slate-950 dark:text-slate-200 mb-2">{{ parts[0].strip() }}</h3>
+                      <div class="flex flex-wrap gap-1.5">
+                        {% for item in parts[1].split(',') %}
+                          {% if item.strip() %}
+                            <span class="text-xs px-2.5 py-1 bg-white dark:bg-slate-950 rounded-md border border-slate-200/50 dark:border-slate-800/80 font-medium text-slate-700 dark:text-slate-300">{{ item.strip() }}</span>
+                          {% endif %}
+                        {% endfor %}
+                      </div>
+                    </div>
+                  {% else %}
+                    <span class="text-xs px-2.5 py-1 bg-slate-100 dark:bg-slate-900 rounded-md font-medium text-slate-700 dark:text-slate-300 m-0.5 inline-block">{{ line }}</span>
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            </div>
+          </section>
+        {% endif %}
+
+        <!-- Work Experience -->
+        {% if r.experience %}
+          <section class="space-y-6">
+            <h2 class="text-lg font-display font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 bg-electricBlue rounded-sm"></span>
+              Work Experience
+            </h2>
+            
+            <div class="space-y-6 relative border-l border-slate-200 dark:border-slate-900 ml-3 pl-5">
+              {% if r.experience is string %}
+                <p class="text-slate-600 dark:text-slate-300 whitespace-pre-line">{{ r.experience }}</p>
+              {% elif r.experience is iterable %}
+                {% for exp in r.experience %}
+                  <div class="relative space-y-2">
+                    <!-- Dot indicators -->
+                    <span class="absolute -left-[26px] top-1.5 w-3.5 h-3.5 rounded-full bg-white dark:bg-slate-950 border-2 border-electricBlue"></span>
+                    
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-1">
+                      <div>
+                        <h3 class="font-display font-bold text-base text-slate-950 dark:text-white">{{ exp.title }}</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">{{ exp.company }}</p>
+                      </div>
+                      <div class="text-left md:text-right">
+                        <span class="text-xs font-semibold px-2 py-1 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 rounded">{{ exp.duration or exp.date or "Date" }}</span>
+                        {% if exp.location %}
+                          <p class="text-xs text-slate-400 mt-1">{{ exp.location }}</p>
+                        {% endif %}
+                      </div>
+                    </div>
+
+                    {% if exp.bullets %}
+                      <ul class="list-disc list-outside ml-4 text-sm text-slate-600 dark:text-slate-300 space-y-1.5 leading-relaxed">
+                        {% for bullet in exp.bullets %}
+                          <li>{{ bullet }}</li>
+                        {% endfor %}
+                      </ul>
+                    {% elif exp.description %}
+                      <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{{ exp.description }}</p>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            </div>
+          </section>
+        {% endif %}
+
+        <!-- Projects -->
+        {% if r.projects %}
+          <section class="space-y-6">
+            <h2 class="text-lg font-display font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 bg-electricBlue rounded-sm"></span>
+              Key Projects
+            </h2>
+
+            <div class="grid grid-cols-1 gap-6">
+              {% if r.projects is string %}
+                <p class="text-slate-600 dark:text-slate-300 whitespace-pre-line">{{ r.projects }}</p>
+              {% elif r.projects is iterable %}
+                {% for proj in r.projects %}
+                  <div class="p-6 bg-slate-50/50 dark:bg-slate-900/10 border border-slate-150 dark:border-slate-900 rounded-xl space-y-3 resume-card">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                      <div>
+                        <h3 class="font-display font-bold text-base text-slate-950 dark:text-white">{{ proj.name }}</h3>
+                        {% if proj.tech %}
+                          <span class="text-xs text-electricBlue dark:text-blue-400 font-medium">Built with: {{ proj.tech }}</span>
+                        {% endif %}
+                      </div>
+                      {% if proj.date %}
+                        <span class="text-xs font-semibold px-2 py-1 bg-slate-200/50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 rounded">{{ proj.date }}</span>
+                      {% endif %}
+                    </div>
+
+                    {% if proj.bullets %}
+                      <ul class="list-disc list-outside ml-4 text-sm text-slate-600 dark:text-slate-300 space-y-1.5 leading-relaxed">
+                        {% for bullet in proj.bullets %}
+                          <li>{{ bullet }}</li>
+                        {% endfor %}
+                      </ul>
+                    {% elif proj.description %}
+                      <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{{ proj.description }}</p>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            </div>
+          </section>
+        {% endif %}
+
+        <!-- Education -->
+        {% if r.education %}
+          <section class="space-y-4">
+            <h2 class="text-lg font-display font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 bg-electricBlue rounded-sm"></span>
+              Education
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {% if r.education is string %}
+                <p class="text-slate-600 dark:text-slate-300 whitespace-pre-line">{{ r.education }}</p>
+              {% elif r.education is iterable %}
+                {% for edu in r.education %}
+                  <div class="p-5 bg-slate-50/50 dark:bg-slate-900/10 border border-slate-150 dark:border-slate-900 rounded-xl space-y-1.5 resume-card">
+                    {% if edu is mapping %}
+                      <h3 class="font-display font-bold text-sm text-slate-950 dark:text-white">{{ edu.degree or edu.course or "Degree" }}</h3>
+                      <p class="text-xs text-slate-600 dark:text-slate-400 font-medium">{{ edu.institution or edu.school or "Institution" }}</p>
+                      <div class="flex justify-between items-center text-xs text-slate-400 mt-2">
+                        <span>{{ edu.year or edu.duration or "Year" }}</span>
+                        {% if edu.details %}
+                          <span class="italic text-slate-500">{{ edu.details }}</span>
+                        {% endif %}
+                      </div>
+                    {% else %}
+                      <p class="text-sm text-slate-700 dark:text-slate-300 font-medium">{{ edu }}</p>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            </div>
+          </section>
+        {% endif %}
+
+        <!-- Certifications -->
+        {% if r.certifications %}
+          <section class="space-y-4">
+            <h2 class="text-lg font-display font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+              <span class="w-1.5 h-5 bg-electricBlue rounded-sm"></span>
+              Certifications & Courses
+            </h2>
+
+            <div class="flex flex-wrap gap-2">
+              {% if r.certifications is string %}
+                {% for cert in r.certifications.split('\n') %}
+                  {% if cert.strip() %}
+                    <span class="text-xs px-3.5 py-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 rounded-lg text-slate-700 dark:text-slate-300 font-medium">{{ cert.strip() }}</span>
+                  {% endif %}
+                {% endfor %}
+              {% elif r.certifications is iterable %}
+                {% for cert in r.certifications %}
+                  <span class="text-xs px-3.5 py-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 rounded-lg text-slate-700 dark:text-slate-300 font-medium">{{ cert }}</span>
+                {% endfor %}
+              {% endif %}
+            </div>
+          </section>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-8 text-center text-xs text-slate-400 dark:text-slate-600 print:hidden space-y-2">
+      <p>This resume was optimized and hosted using <a href="/" class="underline font-medium hover:text-electricBlue">ATSOptimizer</a>.</p>
+      <p>&copy; 2026 ATSOptimizer. All rights reserved.</p>
+    </footer>
+  </main>
+
+  <script>
+    const toggleBtn = document.getElementById('themeToggleBtn');
+    const toggleIcon = document.getElementById('themeToggleIcon');
+
+    toggleBtn.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('public-theme', isDark ? 'dark' : 'light');
+      toggleIcon.textContent = isDark ? '🌙' : '☀️';
+    });
+
+    // Set initial icon representation
+    toggleIcon.textContent = document.documentElement.classList.contains('dark') ? '🌙' : '☀️';
+  </script>
+</body>
+</html>
