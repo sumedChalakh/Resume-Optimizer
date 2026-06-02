@@ -15,6 +15,12 @@ class User(UserMixin, db.Model):
     stripe_customer_id = db.Column(db.String(255), nullable=True)
     subscription_active = db.Column(db.Boolean, default=False, nullable=False)
     api_credits = db.Column(db.Integer, default=2, nullable=False)
+    
+    # Activity metrics telemetry
+    resumes_created = db.Column(db.Integer, default=0, nullable=False)
+    resumes_optimized = db.Column(db.Integer, default=0, nullable=False)
+    resumes_downloaded = db.Column(db.Integer, default=0, nullable=False)
+    mock_interviews = db.Column(db.Integer, default=0, nullable=False)
 
 
 class TrackerBoard(db.Model):
@@ -74,3 +80,28 @@ class InterviewSession(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref=db.backref('interview_sessions', lazy=True, cascade="all, delete-orphan"))
+
+
+class SharedResume(db.Model):
+    __tablename__ = 'shared_resumes'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete="CASCADE"), nullable=False)
+    custom_slug = db.Column(db.String(100), unique=True, index=True, nullable=False)
+    resume_data_json = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+
+    user = db.relationship('User', backref=db.backref('shared_resumes', lazy=True, cascade="all, delete-orphan"))
+
+
+class ResumeAnalytics(db.Model):
+    __tablename__ = 'resume_analytics'
+    id = db.Column(db.Integer, primary_key=True)
+    shared_resume_id = db.Column(db.Integer, db.ForeignKey('shared_resumes.id', ondelete="CASCADE"), nullable=False)
+    viewed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ip_address = db.Column(db.String(100), nullable=True)
+    location = db.Column(db.String(255), default='Unknown Location', nullable=False)
+    user_agent = db.Column(db.Text, nullable=True)
+    referrer = db.Column(db.Text, nullable=True)
+
+    shared_resume = db.relationship('SharedResume', backref=db.backref('analytics', lazy=True, cascade="all, delete-orphan"))
