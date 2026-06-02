@@ -1825,6 +1825,7 @@ def optimize():
                         "limit_reached": True
                     }), 403
                 user.resume_text = resume_text
+                user.resumes_optimized = (user.resumes_optimized or 0) + 1
                 if user.plan == 'free':
                     user.api_credits = max(0, user.api_credits - 1)
                 db.session.commit()
@@ -2042,6 +2043,7 @@ def extract_resume():
                 user = db.session.get(User, user_id)
                 if user:
                     user.resume_text = text
+                    user.resumes_created = (user.resumes_created or 0) + 1
                     if user.plan == 'free':
                         user.api_credits = max(0, user.api_credits - 1)
                     db.session.commit()
@@ -2308,6 +2310,18 @@ def export_docx():
                 style_paragraph(p_cert, spacing_before=1, spacing_after=0, line_spacing=1.0)
                 add_text_with_links_styled(p_cert, line, size=10)
 
+    from flask import session
+    user_id = session.get('user_id')
+    if user_id:
+        try:
+            from models import User
+            user = db.session.get(User, user_id)
+            if user:
+                user.resumes_downloaded = (user.resumes_downloaded or 0) + 1
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
@@ -2387,6 +2401,18 @@ def export_cover_letter_docx():
     style_paragraph(p_close, spacing_before=8, spacing_after=0)
     p_name = doc.add_paragraph(candidate_name)
     style_paragraph(p_name, spacing_after=0)
+
+    from flask import session
+    user_id = session.get('user_id')
+    if user_id:
+        try:
+            from models import User
+            user = db.session.get(User, user_id)
+            if user:
+                user.resumes_downloaded = (user.resumes_downloaded or 0) + 1
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -2631,6 +2657,12 @@ def create_app():
   except Exception as e:
     print("Failed to register interview blueprint:", e)
 
+  try:
+    from share_resume import share_blueprint
+    app.register_blueprint(share_blueprint)
+  except Exception as e:
+    print("Failed to register share blueprint:", e)
+
   with app.app_context():
     db.create_all()
     # Dynamic Auto-Migrations and Seeding
@@ -2702,6 +2734,72 @@ def create_app():
           db.session.rollback()
           print("Failed to create interview_sessions table:", e)
 
+      # Create shared_resumes table if it doesn't exist (failsafe SQL)
+      try:
+        db.session.execute(text("""
+          CREATE TABLE IF NOT EXISTS shared_resumes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            custom_slug VARCHAR(100) UNIQUE NOT NULL,
+            resume_data_json TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT 1,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+          )
+        """))
+        db.session.commit()
+      except Exception:
+        db.session.rollback()
+        try:
+          db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS shared_resumes (
+              id SERIAL PRIMARY KEY,
+              user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              custom_slug VARCHAR(100) UNIQUE NOT NULL,
+              resume_data_json TEXT NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              is_active BOOLEAN DEFAULT TRUE NOT NULL
+            )
+          """))
+          db.session.commit()
+        except Exception as e:
+          db.session.rollback()
+          print("Failed to create shared_resumes table:", e)
+
+      # Create resume_analytics table if it doesn't exist (failsafe SQL)
+      try:
+        db.session.execute(text("""
+          CREATE TABLE IF NOT EXISTS resume_analytics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shared_resume_id INTEGER NOT NULL,
+            viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ip_address VARCHAR(100),
+            location VARCHAR(255) DEFAULT 'Unknown Location',
+            user_agent TEXT,
+            referrer TEXT,
+            FOREIGN KEY(shared_resume_id) REFERENCES shared_resumes(id) ON DELETE CASCADE
+          )
+        """))
+        db.session.commit()
+      except Exception:
+        db.session.rollback()
+        try:
+          db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS resume_analytics (
+              id SERIAL PRIMARY KEY,
+              shared_resume_id INTEGER NOT NULL REFERENCES shared_resumes(id) ON DELETE CASCADE,
+              viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              ip_address VARCHAR(100),
+              location VARCHAR(255) DEFAULT 'Unknown Location',
+              user_agent TEXT,
+              referrer TEXT
+            )
+          """))
+          db.session.commit()
+        except Exception as e:
+          db.session.rollback()
+          print("Failed to create resume_analytics table:", e)
+
       # 2. Add columns to applications table dynamically
       for col_def in [
         "board_id INTEGER DEFAULT 1",
@@ -2720,12 +2818,16 @@ def create_app():
       except Exception:
         db.session.rollback()
 
-      # Add billing columns to users table dynamically
+      # Add billing and activity telemetry columns to users table dynamically
       for col_def in [
         "plan VARCHAR(50) DEFAULT 'free'",
         "stripe_customer_id VARCHAR(255)",
         "subscription_active BOOLEAN DEFAULT FALSE",
-        "api_credits INTEGER DEFAULT 2"
+        "api_credits INTEGER DEFAULT 2",
+        "resumes_created INTEGER DEFAULT 0",
+        "resumes_optimized INTEGER DEFAULT 0",
+        "resumes_downloaded INTEGER DEFAULT 0",
+        "mock_interviews INTEGER DEFAULT 0"
       ]:
         try:
           db.session.execute(text(f"ALTER TABLE users ADD COLUMN {col_def}"))
