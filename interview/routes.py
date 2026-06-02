@@ -83,6 +83,7 @@ def start_interview():
         first_question = "Could you walk me through your technical experience working with the core requirements of this role?"
 
     # Create new session record in database
+    user.mock_interviews = (user.mock_interviews or 0) + 1
     interview_sess = InterviewSession(
         user_id=user.id,
         job_title=job_title,
