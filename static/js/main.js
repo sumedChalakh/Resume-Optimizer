@@ -292,6 +292,9 @@ function applyPageModeFromHash() {
   // Handle specific section initializations
   if (mode === 'latex') {
     loadLatexEngineStatus();
+    if (typeof updateLatexLivePreview === 'function') {
+      updateLatexLivePreview();
+    }
   } else if (mode === 'builder') {
     restoreBuilderState();
     renderAutoQueue();
@@ -1930,9 +1933,24 @@ if (downloadLatexDocxBtn) {
 const latexTemplateIdEl = document.getElementById('latexTemplateId');
 if (latexTemplateIdEl) {
   latexTemplateIdEl.addEventListener('change', () => {
+    if (typeof updateLatexLivePreview === 'function') updateLatexLivePreview();
     generateLatexResume();
   });
 }
+
+// Bind live preview listeners on all LaTeX fields
+const latexInputIds = [
+  'latexName', 'latexEmail', 'latexPhone', 'latexLocation', 'latexLinkedin', 'latexGithub', 'latexHeadline',
+  'latexSummary', 'latexSkills', 'latexExperience', 'latexProjects', 'latexEducation', 'latexCertifications'
+];
+latexInputIds.forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('input', () => {
+      if (typeof updateLatexLivePreview === 'function') updateLatexLivePreview();
+    });
+  }
+});
 
 const autoJobFields = ['autoTitle', 'autoCompany', 'autoLocation', 'autoSource', 'autoJobUrl', 'autoNotes', 'autoJobDescription'];
 autoJobFields.forEach((id) => {
@@ -3277,6 +3295,245 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function updateLatexLivePreview() {
+  const sheet = document.getElementById('latexLivePreviewSheet');
+  if (!sheet) return;
+
+  const data = getLatexFormData();
+  const templateId = document.getElementById('latexTemplateId')?.value || 'classic';
+
+  // Define template styling variables
+  let accentColor = '#3b82f6'; // Classic Blue
+  let fontFam = "'Space Grotesk', sans-serif";
+  let headingStyle = 'text-transform: uppercase; letter-spacing: 1px;';
+
+  if (templateId === 'modern') {
+    accentColor = '#1e293b'; // Slate Dark
+    fontFam = "'Space Grotesk', sans-serif";
+    headingStyle = 'font-weight: 700;';
+  } else if (templateId === 'executive') {
+    accentColor = '#991b1b'; // Crimson Red
+    fontFam = "Georgia, serif";
+    headingStyle = 'font-family: Georgia, serif; font-weight: 700;';
+  }
+
+  // Structure sections
+  let summaryHtml = '';
+  if (data.summary) {
+    summaryHtml = `
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Professional Summary</h3>
+        <p style="margin: 0; line-height: 1.5; color: #475569;">${escapeHtml(data.summary)}</p>
+      </div>
+    `;
+  }
+
+  let skillsHtml = '';
+  if (data.skills && data.skills.length > 0) {
+    const listItems = data.skills.map(sk => {
+      return `<li style="margin-bottom: 3px; color: #475569;">${escapeHtml(sk)}</li>`;
+    }).join('');
+    skillsHtml = `
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Core Expertise</h3>
+        <ul style="margin: 0; padding-left: 14px; line-height: 1.4;">${listItems}</ul>
+      </div>
+    `;
+  }
+
+  let expHtml = '';
+  if (data.experience && data.experience.length > 0) {
+    const items = data.experience.map(line => {
+      const parts = line.split('|').map(p => p.trim());
+      const role = parts[0] || 'Role';
+      const company = parts[1] || '';
+      const dates = parts[2] || '';
+      const bullets = parts.slice(3).join(' | ');
+
+      return `
+        <div style="margin-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; font-weight: 700; color: #1e293b;">
+            <span>${escapeHtml(role)} ${company ? `at ${escapeHtml(company)}` : ''}</span>
+            <span style="font-weight: normal; color: #64748b; font-size: 9px;">${escapeHtml(dates)}</span>
+          </div>
+          ${bullets ? `<p style="margin: 3px 0 0 0; color: #475569; line-height: 1.4;">• ${escapeHtml(bullets)}</p>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    expHtml = `
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Professional Experience</h3>
+        <div>${items}</div>
+      </div>
+    `;
+  }
+
+  let projHtml = '';
+  if (data.projects && data.projects.length > 0) {
+    const items = data.projects.map(line => {
+      const parts = line.split('|').map(p => p.trim());
+      const name = parts[0] || 'Project';
+      const tech = parts[1] || '';
+      const desc = parts.slice(2).join(' | ');
+
+      return `
+        <div style="margin-bottom: 10px;">
+          <div style="font-weight: 700; color: #1e293b;">
+            <span>${escapeHtml(name)}</span>
+            ${tech ? `<span style="font-weight: normal; color: ${accentColor}; font-size: 9px; margin-left: 6px;">(${escapeHtml(tech)})</span>` : ''}
+          </div>
+          ${desc ? `<p style="margin: 3px 0 0 0; color: #475569; line-height: 1.4;">• ${escapeHtml(desc)}</p>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    projHtml = `
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Key Projects</h3>
+        <div>${items}</div>
+      </div>
+    `;
+  }
+
+  let eduHtml = '';
+  if (data.education && data.education.length > 0) {
+    const items = data.education.map(line => {
+      return `<p style="margin: 0 0 4px 0; color: #475569;">${escapeHtml(line)}</p>`;
+    }).join('');
+    eduHtml = `
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Education</h3>
+        <div>${items}</div>
+      </div>
+    `;
+  }
+
+  let certHtml = '';
+  if (data.certifications && data.certifications.length > 0) {
+    const items = data.certifications.map(line => {
+      return `<p style="margin: 0 0 4px 0; color: #475569;">• ${escapeHtml(line)}</p>`;
+    }).join('');
+    certHtml = `
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Certifications</h3>
+        <div>${items}</div>
+      </div>
+    `;
+  }
+
+  sheet.innerHTML = `
+    <div style="font-family: ${fontFam};">
+      <!-- Header -->
+      <div style="text-align: center; margin-bottom: 18px; border-bottom: 2px solid ${accentColor}; padding-bottom: 10px;">
+        <h1 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 700; color: #1e293b; letter-spacing: 0.5px;">${escapeHtml(data.full_name) || 'Candidate Name'}</h1>
+        ${data.headline ? `<div style="font-size: 10px; color: ${accentColor}; font-weight: 600; margin-bottom: 6px; text-transform: uppercase;">${escapeHtml(data.headline)}</div>` : ''}
+        <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; font-size: 8.5px; color: #64748b;">
+          ${data.email ? `<span>📧 ${escapeHtml(data.email)}</span>` : ''}
+          ${data.phone ? `<span>📞 ${escapeHtml(data.phone)}</span>` : ''}
+          ${data.location ? `<span>📍 ${escapeHtml(data.location)}</span>` : ''}
+          ${data.linkedin ? `<span>🔗 ${escapeHtml(data.linkedin)}</span>` : ''}
+          ${data.github ? `<span>🐈 ${escapeHtml(data.github)}</span>` : ''}
+        </div>
+      </div>
+
+      <!-- Sections -->
+      ${summaryHtml}
+      ${skillsHtml}
+      ${expHtml}
+      ${projHtml}
+      ${eduHtml}
+      ${certHtml}
+    </div>
+  `;
+}
+
+// AI Assistant helpers
+async function executeLatexAiTask(taskType, currentValue, customPrompt = '') {
+  const loader = document.getElementById('latexAiLoader');
+  const jdText = document.getElementById('jdInput')?.value || '';
+
+  if (loader) loader.style.display = 'block';
+
+  try {
+    const response = await fetch('/api/latex/ai-assist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task: taskType,
+        value: currentValue,
+        prompt: customPrompt,
+        jd: jdText
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to get AI suggestion.");
+    }
+    return data.suggestion || '';
+  } catch (error) {
+    showError(error.message || "AI assist failed.");
+    return null;
+  } finally {
+    if (loader) loader.style.display = 'none';
+  }
+}
+
+async function runCustomLatexAiPrompt() {
+  const promptEl = document.getElementById('latexAiPrompt');
+  const promptText = promptEl?.value.trim();
+  if (!promptText) {
+    showToast('Please enter a prompt first!', '#ef4444');
+    return;
+  }
+
+  const currentSummary = document.getElementById('latexSummary')?.value || '';
+  const result = await executeLatexAiTask('custom', currentSummary, promptText);
+  if (result) {
+    const summaryField = document.getElementById('latexSummary');
+    if (summaryField) {
+      summaryField.value = result;
+      updateLatexLivePreview();
+      showToast('Summary updated with custom AI advice!', '#10b981');
+      if (promptEl) promptEl.value = '';
+    }
+  }
+}
+
+async function optimizeLatexSummary() {
+  const summaryField = document.getElementById('latexSummary');
+  const val = summaryField?.value || '';
+  const result = await executeLatexAiTask('summary', val);
+  if (result && summaryField) {
+    summaryField.value = result;
+    updateLatexLivePreview();
+    showToast('Summary optimized successfully!', '#10b981');
+  }
+}
+
+async function suggestLatexSkills() {
+  const skillsField = document.getElementById('latexSkills');
+  const val = skillsField?.value || '';
+  const result = await executeLatexAiTask('skills', val);
+  if (result && skillsField) {
+    skillsField.value = result;
+    updateLatexLivePreview();
+    showToast('Skills suggestions appended!', '#10b981');
+  }
+}
+
+async function enhanceLatexExperience() {
+  const expField = document.getElementById('latexExperience');
+  const val = expField?.value || '';
+  const result = await executeLatexAiTask('experience', val);
+  if (result && expField) {
+    expField.value = result;
+    updateLatexLivePreview();
+    showToast('Experience bullets enhanced!', '#10b981');
+  }
 }
 
 

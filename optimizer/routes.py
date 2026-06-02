@@ -47,3 +47,9 @@ def career_skill_gap_route():
     from app import career_skill_gap
     return career_skill_gap()
 
+@optimizer_blueprint.post('/api/latex/ai-assist')
+def latex_ai_assist_route():
+    from app import latex_ai_assist
+    return latex_ai_assist()
+
+

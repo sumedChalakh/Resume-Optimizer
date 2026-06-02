@@ -457,99 +457,150 @@
         <div class="latex-engine-badge" id="latexEngineStatus">Checking PDF engine...</div>
       </div>
 
-      <div class="input-grid">
-        <div class="input-card">
-          <div class="card-label">
-            <span class="label-icon">📂</span>
-            Import Existing Resume
+      <div class="latex-3pane-container" style="display: flex; gap: 24px; align-items: stretch; margin-top: 24px; min-height: 800px; text-align: left; flex-wrap: wrap;">
+        
+        <!-- Left Pane: AI Suggestions (25% width) -->
+        <div class="latex-pane ai-pane" style="flex: 1.1; min-width: 260px; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 16px; backdrop-filter: blur(10px);">
+          <div class="card-label" style="font-size: 14px; font-weight: 700; color: #a78bfa; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+            <span>🤖</span> AI Assistant Suggestions
           </div>
-          <div class="upload-row">
-            <label for="latexResumeFile" class="upload-btn">Upload Resume</label>
-            <input id="latexResumeFile" type="file" accept=".pdf,.doc,.docx,.txt" />
-            <span class="upload-hint">PDF, DOC, DOCX, TXT</span>
+          
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 11px; color: var(--text-muted);">Ask AI to write or optimize sections:</label>
+            <textarea id="latexAiPrompt" placeholder="e.g., Rewrite my experience bullets to focus on cloud scale..." style="min-height: 80px; font-size: 11px; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white; resize: vertical;"></textarea>
+            <button type="button" class="top-btn" style="font-size: 11px; width: 100%;" onclick="runCustomLatexAiPrompt()">🪄 Execute Custom Prompt</button>
           </div>
-          <div class="char-count" id="latexUploadStatus">Upload your current resume to auto-fill fields, then edit as needed.</div>
 
-          <div class="card-label" style="color: var(--text-muted); margin-top: 8px;">
-            <span class="label-icon">🎨</span>
-            Select Layout Template
+          <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <span style="font-size: 11px; font-weight:600; color: var(--text-muted);">Quick AI Generators:</span>
+            
+            <button type="button" class="top-btn" style="text-align: left; font-size: 11px; display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px;" onclick="optimizeLatexSummary()">
+              <span>⚡</span> Auto-Optimize Summary
+            </button>
+            
+            <button type="button" class="top-btn" style="text-align: left; font-size: 11px; display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px;" onclick="suggestLatexSkills()">
+              <span>💡</span> Suggest Skills from Target JD
+            </button>
+            
+            <button type="button" class="top-btn" style="text-align: left; font-size: 11px; display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px;" onclick="enhanceLatexExperience()">
+              <span>🚀</span> Enhance Experience Bullets
+            </button>
           </div>
-          <select id="latexTemplateId" class="latex-input" style="background: var(--surface2); border: 1px solid var(--border); color: var(--text); width: 100%; margin-bottom: 12px;">
-            <option value="classic" style="background: var(--sidebar-bg); color: var(--text);" selected>📘 Classic Serif (Blue Headings)</option>
-            <option value="modern" style="background: var(--sidebar-bg); color: var(--text);">📓 Modern Sans-Serif (Clean Dark headings)</option>
-            <option value="executive" style="background: var(--sidebar-bg); color: var(--text);">📕 Elegant Executive (Rich Crimson Serif)</option>
-          </select>
 
-          <div class="card-label">
-            <span class="label-icon">👤</span>
-            Candidate Details
+          <!-- Loader badge -->
+          <div id="latexAiLoader" style="display:none; text-align: center; font-size: 11px; color: #a78bfa; padding: 12px; background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.2); border-radius: 8px;">
+            <div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px;"></div> Processing suggestion...
           </div>
-          <input id="latexName" class="latex-input" type="text" placeholder="Full name" />
-          <input id="latexEmail" class="latex-input" type="email" placeholder="Email" />
-          <input id="latexPhone" class="latex-input" type="text" placeholder="Phone" />
-          <input id="latexLocation" class="latex-input" type="text" placeholder="Location (City, Country)" />
-          <input id="latexLinkedin" class="latex-input" type="text" placeholder="LinkedIn URL (optional)" />
-          <input id="latexGithub" class="latex-input" type="text" placeholder="GitHub URL (optional)" />
-          <input id="latexHeadline" class="latex-input" type="text" placeholder="Professional headline (e.g., ML Engineer | AI Systems)" />
-
-          <div class="card-label" style="margin-top: 8px;">
-            <span class="label-icon">🧠</span>
-            Summary
-          </div>
-          <textarea id="latexSummary" placeholder="2-4 line professional summary"></textarea>
         </div>
 
-        <div class="input-card">
-          <div class="card-label">
-            <span class="label-icon">🛠️</span>
-            Skills (One category per line)
+        <!-- Middle Pane: Form Editor (40% width) -->
+        <div class="latex-pane edit-pane" style="flex: 1.8; min-width: 360px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 16px; max-height: 850px; overflow-y: auto; backdrop-filter: blur(10px);">
+          <div class="card-label" style="font-size: 14px; font-weight: 700; color: #f1f5f9; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+            <span>✍️</span> Edit Details (I will edit)
           </div>
-          <textarea id="latexSkills" placeholder="Programming: Python, Java, SQL&#10;Frameworks: Flask, FastAPI, React&#10;Tools: Git, Docker, Linux"></textarea>
 
-          <div class="card-label">
-            <span class="label-icon">💼</span>
-            Experience (Use | separator)
+          <!-- Upload / layout row -->
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 12px; display:flex; flex-direction:column; gap:8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 11px; color: #cbd5e1; font-weight:600;">Import / Theme Selector</span>
+              <label for="latexResumeFile" class="top-btn" style="margin:0; font-size:10px; padding:4px 8px; cursor:pointer;">Upload Resume</label>
+              <input id="latexResumeFile" type="file" accept=".pdf,.doc,.docx,.txt" style="display:none;" />
+            </div>
+            <select id="latexTemplateId" class="latex-input" style="background: var(--surface2); border: 1px solid var(--border); color: var(--text); width: 100%; font-size: 11px; margin: 0; padding: 6px;">
+              <option value="classic" selected>📘 Classic Serif (Blue Headings)</option>
+              <option value="modern">📓 Modern Sans-Serif (Clean Dark headings)</option>
+              <option value="executive">📕 Elegant Executive (Rich Crimson Serif)</option>
+            </select>
+            <div class="char-count" id="latexUploadStatus" style="font-size: 10px; margin:0;">Upload your current resume to auto-fill fields.</div>
           </div>
-          <textarea id="latexExperience" placeholder="Software Engineer | ABC Corp | Jan 2023 - Present | Built ATS parser improving keyword extraction by 28%&#10;Software Engineer | ABC Corp | Jan 2023 - Present | Automated resume scoring workflow for 10k+ profiles"></textarea>
 
-          <div class="card-label">
-            <span class="label-icon">🚀</span>
-            Projects (Use | separator)
+          <!-- General Details -->
+          <div>
+            <div class="card-label" style="font-size: 11px; margin-bottom: 6px;"><span class="label-icon">👤</span> Contact Info</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <input id="latexName" class="latex-input" type="text" placeholder="Full name" style="font-size:11px; padding:8px; width: 100%; box-sizing: border-box;" />
+              <input id="latexEmail" class="latex-input" type="email" placeholder="Email" style="font-size:11px; padding:8px; width: 100%; box-sizing: border-box;" />
+              <input id="latexPhone" class="latex-input" type="text" placeholder="Phone" style="font-size:11px; padding:8px; width: 100%; box-sizing: border-box;" />
+              <input id="latexLocation" class="latex-input" type="text" placeholder="City, Country" style="font-size:11px; padding:8px; width: 100%; box-sizing: border-box;" />
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top:8px;">
+              <input id="latexLinkedin" class="latex-input" type="text" placeholder="LinkedIn URL" style="font-size:11px; padding:8px; width: 100%; box-sizing: border-box;" />
+              <input id="latexGithub" class="latex-input" type="text" placeholder="GitHub URL" style="font-size:11px; padding:8px; width: 100%; box-sizing: border-box;" />
+            </div>
+            <input id="latexHeadline" class="latex-input" type="text" placeholder="Professional Headline (e.g. Software Engineer | Python, React)" style="font-size:11px; padding:8px; margin-top:8px; width:100%; box-sizing: border-box;" />
           </div>
-          <textarea id="latexProjects" placeholder="ATS Optimizer | Flask, JS, PostgreSQL | Built role-aware resume optimization with recruiter-focused sections"></textarea>
 
-          <div class="card-label">
-            <span class="label-icon">🎓</span>
-            Education (One per line)
+          <!-- Professional Summary -->
+          <div>
+            <div class="card-label" style="font-size: 11px; margin-bottom: 6px;"><span class="label-icon">🧠</span> Professional Summary</div>
+            <textarea id="latexSummary" placeholder="Write a summary about your skills and goals..." style="min-height: 80px; font-size:11px; width:100%; padding:8px; box-sizing: border-box;"></textarea>
           </div>
-          <textarea id="latexEducation" placeholder="B.Tech in Computer Science | XYZ University | 2022"></textarea>
 
-          <div class="card-label">
-            <span class="label-icon">🏅</span>
-            Certifications (One per line)
+          <!-- Technical Skills -->
+          <div>
+            <div class="card-label" style="font-size: 11px; margin-bottom: 6px;"><span class="label-icon">🛠️</span> Skills (One Category per line)</div>
+            <textarea id="latexSkills" placeholder="Languages: Python, JavaScript&#10;Frameworks: React, Flask&#10;Tools: Git, Docker" style="min-height: 80px; font-size:11px; width:100%; padding:8px; box-sizing: border-box;"></textarea>
           </div>
-          <textarea id="latexCertifications" placeholder="AWS Cloud Practitioner | 2026&#10;Google AI-ML Virtual Internship | 2025"></textarea>
+
+          <!-- Professional Experience -->
+          <div>
+            <div class="card-label" style="font-size: 11px; margin-bottom: 6px;"><span class="label-icon">💼</span> Professional Experience (Use | separator)</div>
+            <textarea id="latexExperience" placeholder="Software Engineer | ABC Corp | Jan 2023 - Present | Developed microservices using Python and Flask&#10;Frontend Intern | XYZ Inc | May 2022 - Dec 2022 | Built responsive interfaces in React" style="min-height: 100px; font-size:11px; width:100%; padding:8px; box-sizing: border-box;"></textarea>
+          </div>
+
+          <!-- Projects -->
+          <div>
+            <div class="card-label" style="font-size: 11px; margin-bottom: 6px;"><span class="label-icon">🚀</span> Projects (Use | separator)</div>
+            <textarea id="latexProjects" placeholder="ATS Optimizer | Python, JS, SQLite | Built fully-featured SaaS platform&#10;Portfolio Site | React, CSS | Created interactive showcase website" style="min-height: 80px; font-size:11px; width:100%; padding:8px; box-sizing: border-box;"></textarea>
+          </div>
+
+          <!-- Education -->
+          <div>
+            <div class="card-label" style="font-size: 11px; margin-bottom: 6px;"><span class="label-icon">🎓</span> Education (One per line)</div>
+            <textarea id="latexEducation" placeholder="B.Tech in Computer Science | XYZ University | 2018 - 2022" style="min-height: 60px; font-size:11px; width:100%; padding:8px; box-sizing: border-box;"></textarea>
+          </div>
+
+          <!-- Certifications -->
+          <div>
+            <div class="card-label" style="font-size: 11px; margin-bottom: 6px;"><span class="label-icon">🏅</span> Certifications (One per line)</div>
+            <textarea id="latexCertifications" placeholder="AWS Certified Cloud Practitioner | 2026&#10;Docker Certified Associate | 2025" style="min-height: 60px; font-size:11px; width:100%; padding:8px; box-sizing: border-box;"></textarea>
+          </div>
         </div>
+
+        <!-- Right Pane: Live Stylized Preview & Actions (35% width) -->
+        <div class="latex-pane preview-pane" style="flex: 1.6; min-width: 320px; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 20px; max-height: 850px; overflow-y: auto; backdrop-filter: blur(10px);">
+          <div class="card-label" style="font-size: 14px; font-weight: 700; color: #10b981; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span>👁️ Live Preview (Check)</span>
+            <button class="top-btn" id="generateLatexBtn" type="button" style="margin:0; font-size:10px; padding:4px 10px; background:#10b981; border-color:#10b981; color:white;">🧾 Generate Source</button>
+          </div>
+
+          <!-- Stylized Visual Resume Sheet -->
+          <div id="latexLivePreviewSheet" style="background: white; color: #1e293b; border-radius: 8px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); font-family: 'Space Grotesk', sans-serif; min-height: 480px; overflow-y: auto; font-size: 10px; line-height: 1.4; border: 1px solid rgba(255,255,255,0.1); text-align: left;">
+            <!-- Rendered Reactively in JS -->
+            <div style="text-align: center; color: #64748b; padding-top: 150px; font-style: italic;">
+              Enter details in the editor to see your resume build dynamically in real-time...
+            </div>
+          </div>
+
+          <!-- Export / Compilation Actions -->
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button class="export-btn primary" id="downloadLatexPdfBtn" type="button" style="font-size: 11px; padding: 10px; width: 100%; justify-content: center; display: flex; align-items: center; gap: 4px;">📥 Get PDF</button>
+              <button class="export-btn primary" id="downloadLatexDocxBtn" type="button" style="font-size: 11px; padding: 10px; width: 100%; justify-content: center; display: flex; align-items: center; gap: 4px;">📝 Get Word</button>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button class="export-btn" id="copyLatexBtn" type="button" style="font-size: 11px; padding: 8px; width: 100%;">Copy LaTeX</button>
+              <button class="export-btn primary" id="downloadLatexBtn" type="button" style="font-size: 11px; padding: 8px; width: 100%;">Get .tex</button>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <div class="action-row">
-        <div class="action-buttons">
-          <button class="optimize-btn" id="generateLatexBtn" type="button">
-            <span class="btn-icon">🧾</span>
-            Generate LaTeX
-          </button>
-        </div>
-      </div>
-
-      <div class="resume-output" id="latexOutputCard" style="display:none">
+      <!-- LaTeX Raw Source Output -->
+      <div class="resume-output" id="latexOutputCard" style="display:none; margin-top:24px;">
         <div class="output-header">
-          <h2>LaTeX Source</h2>
-          <div class="export-btns">
-            <button class="export-btn" id="copyLatexBtn" type="button">Copy LaTeX</button>
-            <button class="export-btn primary" id="downloadLatexBtn" type="button">Download .tex</button>
-            <button class="export-btn primary" id="downloadLatexPdfBtn" type="button">Download PDF</button>
-            <button class="export-btn primary" id="downloadLatexDocxBtn" type="button">Download Word</button>
-          </div>
+          <h2>LaTeX Source Code</h2>
         </div>
         <div class="cover-letter-content" id="latexOutput"></div>
       </div>

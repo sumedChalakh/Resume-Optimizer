@@ -2473,6 +2473,84 @@ def career_skill_gap():
             ]
         })
 
+def latex_ai_assist():
+    from flask import session
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Unauthorized. Please log in first."}), 401
+
+    data = request.get_json(silent=True) or {}
+    task_type = data.get("task", "").strip()
+    current_value = data.get("value", "").strip()
+    custom_prompt = data.get("prompt", "").strip()
+    target_jd = data.get("jd", "").strip()
+
+    if not task_type:
+        return jsonify({"error": "Task type is required."}), 400
+
+    from models import User
+    user = db.session.get(User, user_id)
+    if user:
+        if user.plan == 'free' and user.api_credits <= 0:
+            return jsonify({
+                "error": "You have exhausted your Free Tier credits. Please upgrade to Pro or Premium Elite to continue!",
+                "limit_reached": True
+            }), 403
+        if user.plan == 'free':
+            user.api_credits = max(0, user.api_credits - 1)
+        db.session.commit()
+
+    # Persona definition
+    system_prompt = (
+        "You are an elite Resume AI Assistant, Technical Recruiter, and Career Coach.\n"
+        "Your task is to write, optimize, or suggest content for the candidate's LaTeX Resume Builder.\n"
+        "Output ONLY the revised/suggested text. Do not include markdown code block formatting like ```, "
+        "no conversational intro/outro remarks. Just provide the direct text to be copied/inserted."
+    )
+
+    if task_type == "summary":
+        user_message = (
+            f"Optimize the following professional summary for impact, action verbs, and keyword alignment.\n"
+            f"Current Summary: {current_value}\n"
+            f"Target JD (if any): {target_jd}\n"
+            f"Rewrite it into 2-4 lines of pristine professional summary."
+        )
+    elif task_type == "skills":
+        user_message = (
+            f"Based on the following target Job Description, suggest a list of 6-12 relevant skills "
+            f"categorized by one category per line (format: 'Category Name: Skill 1, Skill 2, Skill 3').\n"
+            f"Target JD: {target_jd}\n"
+            f"Already has skills: {current_value}"
+        )
+    elif task_type == "experience":
+        user_message = (
+            f"Enhance the following professional experience bullet points to have strong action verbs, "
+            f"specific technologies, and quantified business impact.\n"
+            f"Current Experience Bullets:\n{current_value}\n"
+            f"Target JD (if any): {target_jd}\n"
+            f"Rewrite and format them cleanly, one experience per line."
+        )
+    else:  # custom prompt
+        user_message = (
+            f"Help the user edit/write their resume using this custom instruction: {custom_prompt}\n"
+            f"Current context: {current_value}\n"
+            f"Target JD (if any): {target_jd}"
+        )
+
+    try:
+        raw_response, _ = generate_model_response(user_message, system_prompt=system_prompt)
+        return jsonify({"suggestion": raw_response.strip()})
+    except Exception as e:
+        print("LaTeX AI Assist LLM error:", e)
+        # return a high quality mock fallback in case LLM fails
+        if task_type == "summary":
+            fallback = "Results-driven Software Engineer with extensive experience designing high-scale cloud architectures, optimizing database queries, and leading cross-functional teams to deliver secure, performant software solutions."
+        elif task_type == "skills":
+            fallback = "Languages: Python, SQL, JavaScript, HTML/CSS\nFrameworks: Flask, React, Node.js\nTools: Docker, Git, AWS"
+        else:
+            fallback = "Software Engineer | ABC Corp | Jan 2023 - Present | Designed and deployed robust API backends increasing transaction throughput by 35%."
+        return jsonify({"suggestion": fallback})
+
 def login():
     return render_template("login.html")
 
