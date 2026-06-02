@@ -22,7 +22,11 @@ def _google_oidc_config():
 
 
 def _google_redirect_uri():
-    return url_for("auth.google_callback", _external=True)
+    uri = url_for("auth.google_callback", _external=True)
+    if "localhost" not in uri and "127.0.0.1" not in uri:
+        if uri.startswith("http://"):
+            uri = "https://" + uri[7:]
+    return uri
 
 
 @auth_blueprint.post('/auth/signup')
