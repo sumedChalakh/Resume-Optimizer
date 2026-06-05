@@ -144,7 +144,6 @@ function setSidebarActive(mode) {
   else if (mode === 'builder') activeId = 'builderNavLink';
   else if (mode === 'latex') activeId = 'latexNavLink';
   else if (mode === 'auto') activeId = 'autoApplyNavLink';
-  else if (mode === 'salary') activeId = 'salaryNavLink';
   else if (mode === 'tracker') activeId = 'trackerNavLink';
   else if (mode === 'admin') activeId = 'adminNavLink';
   else if (mode === 'interview') activeId = 'interviewNavLink';
@@ -184,7 +183,6 @@ function bindSidebarHandlers() {
       else if (targetHash === '#inputSection') setSidebarActive('builder');
       else if (targetHash === '#latexResumeSection') setSidebarActive('latex');
       else if (targetHash === '#autoApplySection') setSidebarActive('auto');
-      else if (targetHash === '#salarySection') setSidebarActive('salary');
       else if (targetHash === '#trackerSection') setSidebarActive('tracker');
       else if (targetHash === '#adminSection') setSidebarActive('admin');
       else if (targetHash === '#interviewSection') setSidebarActive('interview');
@@ -230,9 +228,7 @@ function getPageModeFromHash() {
   if (hash === '#autoapplysection' || hash === '#autoapply') {
     return 'auto';
   }
-  if (hash === '#salarysection' || hash === '#salary') {
-    return 'salary';
-  }
+
   if (hash === '#trackersection' || hash === '#tracker') {
     return 'tracker';
   }
@@ -258,7 +254,7 @@ function applyPageModeFromHash() {
     dashboardViews.forEach(el => el.classList.add('hidden'));
   } else {
     // Fallback if elements don't have .dashboard-view yet
-    ['homeSection', 'inputSection', 'latexResumeSection', 'autoApplySection', 'salarySection', 'trackerSection', 'resultsSection', 'coverLetterStandaloneSection', 'adminSection', 'interviewSection', 'skillGapSection'].forEach(id => {
+    ['homeSection', 'inputSection', 'latexResumeSection', 'autoApplySection', 'trackerSection', 'resultsSection', 'coverLetterStandaloneSection', 'adminSection', 'interviewSection', 'skillGapSection'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
         el.style.display = 'none';
@@ -272,7 +268,6 @@ function applyPageModeFromHash() {
   else if (mode === 'builder') targetId = 'inputSection';
   else if (mode === 'latex') targetId = 'latexResumeSection';
   else if (mode === 'auto') targetId = 'autoApplySection';
-  else if (mode === 'salary') targetId = 'salarySection';
   else if (mode === 'tracker') targetId = 'trackerSection';
   else if (mode === 'admin') targetId = 'adminSection';
   else if (mode === 'interview') targetId = 'interviewSection';
@@ -317,51 +312,7 @@ function applyPageModeFromHash() {
   }
 }
 
-async function predictSalary() {
-  const btn = document.getElementById('predictSalaryBtn');
-  const jdText = document.getElementById('salaryJd')?.value.trim();
-  const location = document.getElementById('salaryLocation')?.value.trim() || 'Bangalore';
-  const yoe = document.getElementById('salaryYoe')?.value || 0;
-  const companySize = document.getElementById('salaryCompanySize')?.value || 'Scale-up';
 
-  if (!jdText) return showError('Please enter a job description to predict salary.');
-
-  btn.disabled = true;
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px;"></div> Predicting...';
-
-  try {
-    const response = await fetch('/api/predict_salary', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jd_text: jdText, location, yoe, company_size: companySize })
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Prediction failed');
-
-    document.getElementById('salaryOutputCard').style.display = 'block';
-    document.getElementById('salaryRangeOutput').textContent = `₹ ${data.salary_min_lpa} - ${data.salary_max_lpa} LPA`;
-    document.getElementById('salaryDetailsOutput').textContent = `Detected Role: ${data.detected_role} | Confidence: ${(data.confidence * 100).toFixed(0)}%`;
-    
-    // Update levels.fyi iframe track if applicable
-    const iframe = document.getElementById('levelsIframe');
-    if (iframe) {
-      let track = 'Software Engineer';
-      if (data.detected_role && data.detected_role.toLowerCase().includes('data scientist')) {
-        track = 'Data Scientist';
-      }
-      iframe.src = `https://www.levels.fyi/charts_embed.html?company=Google&track=${encodeURIComponent(track)}&hide_selector=false`;
-    }
-
-    showToast('Salary predicted successfully', '#22c55e');
-  } catch (err) {
-    showError(err.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = originalText;
-  }
-}
 
 async function loadLatexEngineStatus() {
   const badge = document.getElementById('latexEngineStatus');
