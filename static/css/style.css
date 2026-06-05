@@ -2,40 +2,44 @@
 
 /* --- LIGHT THEME (DEFAULT) --- */
 :root {
-  --bg: #f8fafc;
-  --workspace-bg: #f1f5f9;
+  --bg: #f3f4f7; /* Cloud White */
+  --workspace-bg: #f3f4f7; /* Cloud White */
   --sidebar-bg: #ffffff;
-  --surface: rgba(15, 23, 42, 0.04);
+  --surface: rgba(139, 61, 255, 0.05); /* Canva Purple tint */
   --surface2: #ffffff;
-  --border: rgba(15, 23, 42, 0.08);
-  --accent: #2563eb;
-  --accent2: #d97706;
-  --green: #16a34a;
-  --red: #dc2626;
-  --yellow: #d97706;
-  --text: #0f172a;
+  --border: #1c2130; /* Border Gray */
+  --accent: #8b3dff; /* Canva Purple */
+  --accent2: #7630d7; /* Deep Violet */
+  --accent3: #612dae; /* Royal Purple */
+  --green: #10b981;
+  --red: #ef4444;
+  --yellow: #f59e0b;
+  --text: #0f1015; /* Ink Black */
   --text-muted: #64748b;
-  --font: 'Space Grotesk', sans-serif;
+  --font: "Canva Sans", "Plus Jakarta Sans", "Inter", sans-serif;
   --mono: 'JetBrains Mono', monospace;
-  --radius: 12px;
-  --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-  --glow-opacity: 0.04;
+  --radius: 8px; /* 8px minimum */
+  --radius-lg: 16px;
+  --radius-xl: 48px;
+  --card-shadow: rgba(64, 79, 109, 0.06) 0px 0px 0px 0.5px, rgba(24, 44, 89, 0.137) 0px 2px 4px 0px;
+  --glow-opacity: 0.06;
 }
 
 /* --- DARK THEME --- */
 [data-theme="dark"] {
-  --bg: #0f172a;
-  --workspace-bg: #0a0f1d;
-  --sidebar-bg: #0d1527;
-  --surface: rgba(255, 255, 255, 0.05);
+  --bg: #0f1015; /* Ink Black */
+  --workspace-bg: #101219; /* Medium Gray */
+  --sidebar-bg: #0f1015;
+  --surface: rgba(255, 255, 255, 0.06);
   --surface2: rgba(255, 255, 255, 0.02);
-  --border: rgba(255, 255, 255, 0.1);
-  --accent: #3b82f6;
-  --accent2: #f59e0b;
-  --green: #22c55e;
+  --border: #1c2130; /* Border Gray */
+  --accent: #8b3dff;
+  --accent2: #7630d7;
+  --accent3: #612dae;
+  --green: #10b981;
   --red: #ef4444;
   --yellow: #f59e0b;
-  --text: #f8fafc;
+  --text: #f3f4f7; /* Cloud White */
   --text-muted: #94a3b8;
   --card-shadow: none;
   --glow-opacity: 0.15;
