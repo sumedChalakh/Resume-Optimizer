@@ -9,5 +9,13 @@ if __name__ == "__main__":
         port = int(os.getenv("PORT", "5000"))
     except ValueError:
         port = 5000
-        
-    app.run(host="0.0.0.0", debug=debug_enabled, port=port)
+
+    if debug_enabled:
+        # Dev mode: use Flask's built-in server with hot-reload
+        app.run(host="0.0.0.0", debug=True, port=port)
+    else:
+        # Production mode: use Waitress (no warning, multi-threaded)
+        from waitress import serve
+        print(f" * Serving on http://127.0.0.1:{port} (Waitress)")
+        print(f" * Press Ctrl+C to stop")
+        serve(app, host="0.0.0.0", port=port, threads=8)
