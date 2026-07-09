@@ -40,8 +40,107 @@
       document.documentElement.setAttribute('data-theme', theme);
     })();
   </script>
+  <style>
+    /* Live Preview Zoom - Fixed viewport-centered overlay */
+    #latexLivePreviewSheet {
+      transition: none;
+    }
+
+    /* Zoom overlay: full-screen fixed container that centers the zoomed resume */
+    #previewZoomOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9000;
+      background: rgba(9, 13, 22, 0.82);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      align-items: center;
+      justify-content: center;
+      /* CRITICAL: never steal mouse events — wrapper below handles open/close */
+      pointer-events: none;
+    }
+    #previewZoomOverlay.active {
+      display: flex;
+    }
+    #previewZoomClone {
+      background: white;
+      color: #1f2937;
+      padding: 36px 40px;
+      box-sizing: border-box;
+      overflow: hidden;
+      font-size: 8px;
+      line-height: 1.35;
+      text-align: left;
+      border: none;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 60px rgba(139, 92, 246, 0.3);
+      border-radius: 4px;
+      /* Scale up to ~70% of viewport height keeping A4 ratio */
+      width: calc(70vh * (8.5 / 11));
+      height: 70vh;
+      transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.34,1.3,0.64,1);
+      transform: scale(0.92);
+      opacity: 0;
+    }
+    #previewZoomOverlay.active #previewZoomClone {
+      transform: scale(1);
+      opacity: 1;
+    }
+    /* Hint badge on preview */
+    #latexLivePreviewWrapper {
+      cursor: zoom-in;
+    }
+    #latexPreviewZoomHint {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      background: rgba(139,92,246,0.85);
+      color: white;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 10;
+    }
+    #latexLivePreviewWrapper:hover #latexPreviewZoomHint {
+      opacity: 1;
+    }
+    /* Pointer style for hover zoom */
+    #latexLivePreviewWrapper {
+      cursor: zoom-in;
+    }
+    /* Thin clean scrollbar for resume preview */
+    #latexLivePreviewSheet::-webkit-scrollbar {
+      width: 3px;
+    }
+    #latexLivePreviewSheet::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    #latexLivePreviewSheet::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 2px;
+    }
+    #latexLivePreviewSheet::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    @keyframes pulse-mic {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .pulse-mic-animation {
+      animation: pulse-mic 1.5s infinite;
+    }
+  </style>
 </head>
 <body class="bg-midnight text-slate-200">
+  <!-- Centered Zoom Overlay for Live Preview (pointer-events:none — no mouse interference) -->
+  <div id="previewZoomOverlay">
+    <div id="previewZoomClone"></div>
+  </div>
   <div class="bg-grid opacity-10 mix-blend-screen pointer-events-none"></div>
   
   <div class="app-workspace flex h-screen w-screen overflow-hidden bg-[#0a0f1d] text-slate-200">
@@ -93,6 +192,10 @@
           <a class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="skillGapNavLink" href="/#skillGapSection" data-desc="Identify critical skill gaps in your profile compared to target roles and map learning paths.">
             <svg class="w-5 h-5 text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
             <span class="font-medium">Skill Gap Analyzer</span>
+          </a>
+          <a class="sidebar-link hidden items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="resumeArchitectNavLink" href="/admin/build-resume" data-desc="Tailor resumes automatically using private projects catalog and keywords matching.">
+            <span class="text-xl w-5 h-5 flex items-center justify-center text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors">📐</span>
+            <span class="font-medium">Resume Architect</span>
           </a>
           <a class="sidebar-link hidden items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all relative overflow-hidden group" id="adminNavLink" href="/#adminSection" data-desc="Administrative dashboard for managing the ATS Optimizer platform.">
             <span class="text-xl w-5 h-5 flex items-center justify-center text-slate-400 group-[.active]:text-electricBlue group-hover:text-electricBlue transition-colors">⚙</span>
@@ -564,14 +667,14 @@
 
           <!-- Professional Experience -->
           <div>
-            <div class="card-label" style="font-size: 11px; margin-bottom: 6px;"><span class="label-icon">💼</span> Professional Experience (Use | separator)</div>
-            <textarea id="latexExperience" placeholder="Software Engineer | ABC Corp | Jan 2023 - Present | Developed microservices using Python and Flask&#10;Frontend Intern | XYZ Inc | May 2022 - Dec 2022 | Built responsive interfaces in React" style="min-height: 100px; font-size:11px; width:100%; padding:8px; box-sizing: border-box;"></textarea>
+            <div class="card-label" style="font-size: 11px; margin-bottom: 6px;"><span class="label-icon">💼</span> Experience (Title | Company | Date | Location — then bullets below)</div>
+            <textarea id="latexExperience" placeholder="Software Engineer | ABC Corp | Jan 2023 - Present | Remote&#10;• Developed microservices reducing latency by 40%&#10;• Led team of 5 engineers on core platform&#10;&#10;Frontend Intern | XYZ Inc | May 2022 - Dec 2022 | New York&#10;• Built responsive UI in React for 10k+ users" style="min-height: 120px; font-size:11px; width:100%; padding:8px; box-sizing: border-box;"></textarea>
           </div>
 
           <!-- Projects -->
           <div>
-            <div class="card-label" style="font-size: 11px; margin-bottom: 6px;"><span class="label-icon">🚀</span> Projects (Use | separator)</div>
-            <textarea id="latexProjects" placeholder="ATS Optimizer | Python, JS, SQLite | Built fully-featured SaaS platform&#10;Portfolio Site | React, CSS | Created interactive showcase website" style="min-height: 80px; font-size:11px; width:100%; padding:8px; box-sizing: border-box;"></textarea>
+            <div class="card-label" style="font-size: 11px; margin-bottom: 6px;"><span class="label-icon">🚀</span> Projects (Name | Tech | Date | Link — then bullets below)</div>
+            <textarea id="latexProjects" placeholder="ATS Optimizer | Python, Flask, SQLite | Jan 2024 | https://github.com/you/ats&#10;• Built end-to-end SaaS platform with 500+ users&#10;• Integrated AI-powered resume optimization&#10;&#10;Portfolio | React, CSS | 2023&#10;• Interactive portfolio with animations" style="min-height: 100px; font-size:11px; width:100%; padding:8px; box-sizing: border-box;"></textarea>
           </div>
 
           <!-- Education -->
@@ -594,12 +697,18 @@
             <button class="top-btn" id="generateLatexBtn" type="button" style="margin:0; font-size:10px; padding:4px 10px; background:#10b981; border-color:#10b981; color:white;">🧾 Generate Source</button>
           </div>
 
-          <!-- Stylized Visual Resume Sheet -->
-          <div id="latexLivePreviewSheet" style="background: white; color: #1e293b; border-radius: 8px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); font-family: 'Space Grotesk', sans-serif; min-height: 480px; overflow-y: auto; font-size: 10px; line-height: 1.4; border: 1px solid rgba(255,255,255,0.1); text-align: left;">
-            <!-- Rendered Reactively in JS -->
-            <div style="text-align: center; color: #64748b; padding-top: 150px; font-style: italic;">
-              Enter details in the editor to see your resume build dynamically in real-time...
+          <!-- Static Wrapper to prevent hover flickering -->
+          <div id="latexLivePreviewWrapper" style="position: relative; width: 100%; aspect-ratio: 8.5 / 11; margin-bottom: 16px;"
+            onmouseenter="openPreviewZoom()" onmouseleave="closePreviewZoom()">
+            <!-- Stylized Visual Resume Sheet -->
+            <div id="latexLivePreviewSheet" style="background: white; color: #1f2937; padding: 16px 18px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden; position: absolute; inset: 0; width: 100%; height: 100%; font-size: 6px; line-height: 1.25; text-align: left; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.25);">
+              <!-- Rendered Reactively in JS -->
+              <div style="text-align: center; color: #64748b; padding-top: 150px; font-style: italic; font-size: 10px;">
+                Enter details in the editor to see your resume build dynamically in real-time...
+              </div>
             </div>
+            <!-- Zoom hint badge -->
+            <div id="latexPreviewZoomHint">🔍 Hover to Zoom</div>
           </div>
 
           <!-- Export / Compilation Actions -->
@@ -1033,11 +1142,14 @@
             </div>
           </div>
 
-          <div style="display: flex; gap: 12px;">
-            <button type="button" class="optimize-btn" style="flex: 1;" onclick="submitInterviewAnswer()">
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button type="button" id="micBtn" class="top-btn" onclick="toggleInterviewSpeech()" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 10px 16px; display: flex; align-items: center; gap: 8px; margin: 0; min-height: 42px;">
+              <span id="micIcon">🎤</span> <span id="micText">Speak Answer</span>
+            </button>
+            <button type="button" class="optimize-btn" style="flex: 1; min-height: 42px;" onclick="submitInterviewAnswer()">
               <span class="btn-icon">📤</span> Submit Response
             </button>
-            <button type="button" class="top-btn" onclick="forceEndInterview()" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171;">
+            <button type="button" class="top-btn" onclick="forceEndInterview()" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; margin: 0; min-height: 42px;">
               🛑 Finish & Get Scorecard
             </button>
           </div>
