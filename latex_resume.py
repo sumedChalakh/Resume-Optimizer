@@ -91,7 +91,22 @@ def bullet_items(lines):
     for line in lines or []:
         clean = str(line or "").strip()
         if clean:
-            items.append(f"  \\item {latex_escape(clean)}")
+            github_match = re.search(r"(github\.com/[^\s\(\)]+)", clean, re.IGNORECASE)
+            if github_match:
+                url = github_match.group(1)
+                url_clean = url if url.lower().startswith("http") else f"https://{url}"
+                start_idx = github_match.start()
+                end_idx = github_match.end()
+                before = clean[:start_idx]
+                after = clean[end_idx:]
+                
+                escaped_before = latex_escape(before)
+                escaped_after = latex_escape(after)
+                escaped_url_label = latex_escape(url)
+                
+                items.append(f"  \\item {escaped_before}\\href{{{url_clean}}}{{{escaped_url_label}}}{escaped_after}")
+            else:
+                items.append(f"  \\item {latex_escape(clean)}")
     return "\n".join(items)
 
 
@@ -431,8 +446,16 @@ def render_template_document(data, template_id="classic"):
     certifications_block = "\n".join(rf"  \item {latex_escape(item)}" for item in certifications_lines) if certifications_lines else r"  \item Add certifications here"
 
     rendered = template
-    # Replace the name placeholder directly
-    rendered = rendered.replace(r"{\LARGE\bfseries YOUR FULL NAME}", "{\\LARGE\\bfseries " + full_name + "}")
+    # Replace the name placeholder directly, adding headline if present
+    headline = data.get("headline") or ""
+    if headline:
+        headline_escaped = latex_escape(headline)
+        rendered = rendered.replace(
+            r"{\LARGE\bfseries YOUR FULL NAME}",
+            "{\\LARGE\\bfseries " + full_name + "}\\\\[3pt]\n  {\\large\\color{accent} " + headline_escaped + "}"
+        )
+    else:
+        rendered = rendered.replace(r"{\LARGE\bfseries YOUR FULL NAME}", "{\\LARGE\\bfseries " + full_name + "}")
     # Replace the contact/small block
     rendered = re.sub(
         r"\{\\small\n(    \\faMapMarker.*?)\n  \}",
@@ -820,8 +843,26 @@ def build_docx_from_latex_data(data):
             for bullet in trim_lines(exp.get("bullets") or [], max_lines=8, max_len=260):
                 bp = doc.add_paragraph(style="List Bullet")
                 _set_paragraph_spacing(bp, before=1, after=1, line=1.1)
-                br = bp.add_run(bullet)
-                br.font.size = Pt(10.5)
+                
+                github_match = re.search(r"(github\.com/[^\s\(\)]+)", bullet, re.IGNORECASE)
+                if github_match:
+                    url = github_match.group(1)
+                    url_clean = url if url.lower().startswith("http") else f"https://{url}"
+                    start_idx = github_match.start()
+                    end_idx = github_match.end()
+                    before = bullet[:start_idx]
+                    after = bullet[end_idx:]
+                    
+                    if before:
+                        br_before = bp.add_run(before)
+                        br_before.font.size = Pt(10.5)
+                    add_hyperlink(bp, url, url_clean)
+                    if after:
+                        br_after = bp.add_run(after)
+                        br_after.font.size = Pt(10.5)
+                else:
+                    br = bp.add_run(bullet)
+                    br.font.size = Pt(10.5)
 
     projects = parse_project_entries(data.get("projects"))[:8]
     if projects:
@@ -853,8 +894,26 @@ def build_docx_from_latex_data(data):
             for bullet in trim_lines(proj.get("bullets") or [], max_lines=8, max_len=260):
                 bp = doc.add_paragraph(style="List Bullet")
                 _set_paragraph_spacing(bp, before=1, after=1, line=1.1)
-                br = bp.add_run(bullet)
-                br.font.size = Pt(10.5)
+                
+                github_match = re.search(r"(github\.com/[^\s\(\)]+)", bullet, re.IGNORECASE)
+                if github_match:
+                    url = github_match.group(1)
+                    url_clean = url if url.lower().startswith("http") else f"https://{url}"
+                    start_idx = github_match.start()
+                    end_idx = github_match.end()
+                    before = bullet[:start_idx]
+                    after = bullet[end_idx:]
+                    
+                    if before:
+                        br_before = bp.add_run(before)
+                        br_before.font.size = Pt(10.5)
+                    add_hyperlink(bp, url, url_clean)
+                    if after:
+                        br_after = bp.add_run(after)
+                        br_after.font.size = Pt(10.5)
+                else:
+                    br = bp.add_run(bullet)
+                    br.font.size = Pt(10.5)
 
     education = parse_block_items(data.get("education"), min_fields=3, defaults=["Institution", "Year"])[:6]
     if education:
