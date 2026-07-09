@@ -1938,6 +1938,28 @@ latexInputIds.forEach(id => {
   }
 });
 
+// Hover-to-zoom for LaTeX live preview (centered viewport overlay)
+// Overlay is pointer-events:none so it never steals mouse events from the wrapper
+function openPreviewZoom() {
+  const sheet = document.getElementById('latexLivePreviewSheet');
+  const clone = document.getElementById('previewZoomClone');
+  const overlay = document.getElementById('previewZoomOverlay');
+  if (!sheet || !clone || !overlay) return;
+  clone.innerHTML = sheet.innerHTML;
+  clone.style.fontFamily = sheet.style.fontFamily || 'Georgia, serif';
+  overlay.classList.add('active');
+}
+
+function closePreviewZoom() {
+  const overlay = document.getElementById('previewZoomOverlay');
+  if (overlay) overlay.classList.remove('active');
+}
+
+// ESC key also closes
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePreviewZoom();
+});
+
 const autoJobFields = ['autoTitle', 'autoCompany', 'autoLocation', 'autoSource', 'autoJobUrl', 'autoNotes', 'autoJobDescription'];
 autoJobFields.forEach((id) => {
   const el = document.getElementById(id);
@@ -2085,6 +2107,7 @@ async function checkSessionStatus() {
 
       // Check role for admin link visibility
       const adminNavLink = document.getElementById('adminNavLink');
+      const resumeArchitectNavLink = document.getElementById('resumeArchitectNavLink');
       if (adminNavLink) {
         if (data.user.role === 'admin') {
           adminNavLink.classList.remove('hidden');
@@ -2092,6 +2115,15 @@ async function checkSessionStatus() {
         } else {
           adminNavLink.classList.add('hidden');
           adminNavLink.classList.remove('flex');
+        }
+      }
+      if (resumeArchitectNavLink) {
+        if (data.user.role === 'admin') {
+          resumeArchitectNavLink.classList.remove('hidden');
+          resumeArchitectNavLink.classList.add('flex');
+        } else {
+          resumeArchitectNavLink.classList.add('hidden');
+          resumeArchitectNavLink.classList.remove('flex');
         }
       }
     } else {
@@ -2103,9 +2135,14 @@ async function checkSessionStatus() {
       if (loginLink) loginLink.style.display = 'inline-block';
       
       const adminNavLink = document.getElementById('adminNavLink');
+      const resumeArchitectNavLink = document.getElementById('resumeArchitectNavLink');
       if (adminNavLink) {
         adminNavLink.classList.add('hidden');
         adminNavLink.classList.remove('flex');
+      }
+      if (resumeArchitectNavLink) {
+        resumeArchitectNavLink.classList.add('hidden');
+        resumeArchitectNavLink.classList.remove('flex');
       }
     }
   } catch (error) {
@@ -2765,6 +2802,83 @@ function appendUserMessage(text) {
   stream.scrollTop = stream.scrollHeight;
 }
 
+let speechRecognitionInstance = null;
+let isSpeechRecording = false;
+let baseSpeechText = '';
+
+function toggleInterviewSpeech() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showError("Speech Recognition is not supported by your browser. Please try Google Chrome.");
+    return;
+  }
+
+  const micBtn = document.getElementById('micBtn');
+  const micIcon = document.getElementById('micIcon');
+  const micText = document.getElementById('micText');
+  const inputEl = document.getElementById('interviewAnswerInput');
+
+  if (isSpeechRecording) {
+    // Stop recording
+    if (speechRecognitionInstance) {
+      speechRecognitionInstance.stop();
+    }
+    return;
+  }
+
+  // Start recording
+  isSpeechRecording = true;
+  baseSpeechText = inputEl.value; // Store what's already in the box
+  
+  // Style button as active / recording
+  micBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+  micBtn.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+  micBtn.style.color = '#ef4444';
+  micIcon.textContent = '🛑';
+  micText.textContent = 'Stop Listening';
+  micBtn.classList.add('pulse-mic-animation');
+
+  speechRecognitionInstance = new SpeechRecognition();
+  speechRecognitionInstance.continuous = true;
+  speechRecognitionInstance.interimResults = true;
+  speechRecognitionInstance.lang = 'en-US';
+
+  speechRecognitionInstance.onresult = function(event) {
+    let sessionTranscript = '';
+    for (let i = 0; i < event.results.length; ++i) {
+      sessionTranscript += event.results[i][0].transcript;
+    }
+
+    const newText = sessionTranscript.trim();
+    inputEl.value = (baseSpeechText ? baseSpeechText.trim() + ' ' : '') + newText;
+    
+    // Trigger input event to update Pace & Filler Telemetry HUD
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
+  speechRecognitionInstance.onerror = function(event) {
+    console.error("Speech recognition error:", event.error);
+    showError("Microphone Error: " + event.error + ". Please ensure your microphone is plugged in, active, and browser permission is granted.");
+    stopSpeechUI();
+  };
+
+  speechRecognitionInstance.onend = function() {
+    stopSpeechUI();
+  };
+
+  function stopSpeechUI() {
+    isSpeechRecording = false;
+    micBtn.style.background = 'rgba(59, 130, 246, 0.1)';
+    micBtn.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+    micBtn.style.color = '#60a5fa';
+    micIcon.textContent = '🎤';
+    micText.textContent = 'Speak Answer';
+    micBtn.classList.remove('pulse-mic-animation');
+  }
+
+  speechRecognitionInstance.start();
+}
+
 async function submitInterviewAnswer() {
   const inputEl = document.getElementById('interviewAnswerInput');
   const answer = inputEl.value.trim();
@@ -3294,158 +3408,282 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
+function parseExperienceEntriesJS(lines) {
+  const entries = [];
+  const dateRx = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|\d{4}|present|current)/i;
+  const bulletRx = /^[\-•\*]/;
+
+  (lines || []).forEach(line => {
+    const raw = String(line || '').trim();
+    if (!raw) return;
+
+    // Pipe-delimited format: title | company | date | location
+    const parts = raw.split('|').map(p => p.trim());
+    if (parts.length >= 3) {
+      entries.push({
+        title: parts[0] || '',
+        company: parts[1] || '',
+        duration: parts[2] || '',
+        location: parts[3] || '',
+        bullets: parts.slice(4).filter(Boolean)
+      });
+      return;
+    }
+
+    const clean = raw.replace(/^[\-•\*\s]+/, '').trim();
+    if (!clean) return;
+
+    if (entries.length === 0) {
+      // First non-empty line is a title
+      entries.push({ title: clean, company: '', duration: '', location: '', bullets: [] });
+      return;
+    }
+
+    const last = entries[entries.length - 1];
+
+    if (bulletRx.test(raw)) {
+      // Explicit bullet
+      last.bullets.push(clean);
+    } else if (!last.company && !dateRx.test(clean) && clean.length < 80 && last.bullets.length === 0) {
+      // Short non-date line before any bullets = company name
+      last.company = clean;
+    } else if (!last.duration && dateRx.test(clean) && last.bullets.length === 0) {
+      // Looks like a date range
+      last.duration = clean;
+    } else if (clean.length > 80 || last.company) {
+      // Long line or company already set = bullet point
+      last.bullets.push(clean);
+    } else {
+      // Fallback: treat as new title entry
+      entries.push({ title: clean, company: '', duration: '', location: '', bullets: [] });
+    }
+  });
+  return entries;
+}
+
+function parseProjectEntriesJS(lines) {
+  const entries = [];
+  const dateRx = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{4}|present)/i;
+  const bulletRx = /^[\-•\*]/;
+  const linkRx = /^https?:\/\//i;
+
+  (lines || []).forEach(line => {
+    const raw = String(line || '').trim();
+    if (!raw) return;
+
+    // Pipe-delimited: name | tech | date | link
+    const parts = raw.split('|').map(p => p.trim());
+    if (parts.length >= 2) {
+      entries.push({
+        name: parts[0] || '',
+        tech: parts[1] || '',
+        date: parts[2] || '',
+        link: parts[3] || '',
+        bullets: parts.slice(4).filter(Boolean)
+      });
+      return;
+    }
+
+    const clean = raw.replace(/^[\-•\*\s]+/, '').trim();
+    if (!clean) return;
+
+    if (entries.length === 0) {
+      entries.push({ name: clean, tech: '', date: '', link: '', bullets: [] });
+      return;
+    }
+
+    const last = entries[entries.length - 1];
+
+    if (bulletRx.test(raw)) {
+      last.bullets.push(clean);
+    } else if (!last.tech && !dateRx.test(clean) && !linkRx.test(clean) && clean.length < 100 && last.bullets.length === 0) {
+      last.tech = clean;
+    } else if (!last.date && dateRx.test(clean) && last.bullets.length === 0) {
+      last.date = clean;
+    } else if (!last.link && linkRx.test(clean) && last.bullets.length === 0) {
+      last.link = clean;
+    } else if (clean.length > 80 || last.tech) {
+      last.bullets.push(clean);
+    } else {
+      entries.push({ name: clean, tech: '', date: '', link: '', bullets: [] });
+    }
+  });
+  return entries;
+}
+
+function parseEducationEntriesJS(lines) {
+  const entries = [];
+  (lines || []).forEach(line => {
+    const raw = String(line || '').trim();
+    if (!raw) return;
+
+    const clean = raw.replace(/^[\-•\*\s]+/, '').trim();
+    if (!clean) return;
+
+    const parts = raw.split('|').map(p => p.trim());
+    if (parts.length >= 2) {
+      entries.push({
+        degree: parts[0] || '',
+        institution: parts[1] || '',
+        date: parts[2] || '',
+        location: parts[3] || '',
+        details: parts.slice(4).filter(Boolean)
+      });
+    } else if (entries.length > 0) {
+      entries[entries.length - 1].details.push(clean);
+    } else {
+      entries.push({
+        degree: clean,
+        institution: '',
+        date: '',
+        location: '',
+        details: []
+      });
+    }
+  });
+  return entries;
+}
 function updateLatexLivePreview() {
   const sheet = document.getElementById('latexLivePreviewSheet');
   if (!sheet) return;
 
   const data = getLatexFormData();
-  const templateId = document.getElementById('latexTemplateId')?.value || 'classic';
 
-  // Define template styling variables
-  let accentColor = '#3b82f6'; // Classic Blue
-  let fontFam = "'Space Grotesk', sans-serif";
-  let headingStyle = 'text-transform: uppercase; letter-spacing: 1px;';
+  // Preview is ~49% the width of a real page so scale all sizes ~50%
+  // Real doc: name 16pt, body 10.5pt, headings 11pt → preview: ~8px, ~5.5px, ~6px
+  const FONT = "'Times New Roman', Times, serif";
+  const BODY = '#1a1a1a';
+  const esc = (s) => escapeHtml(String(s || ''));
 
-  if (templateId === 'modern') {
-    accentColor = '#1e293b'; // Slate Dark
-    fontFam = "'Space Grotesk', sans-serif";
-    headingStyle = 'font-weight: 700;';
-  } else if (templateId === 'executive') {
-    accentColor = '#991b1b'; // Crimson Red
-    fontFam = "Georgia, serif";
-    headingStyle = 'font-family: Georgia, serif; font-weight: 700;';
-  }
+  // Section heading: UPPERCASE bold, solid black bottom border
+  const secHead = (title) =>
+    `<div style="margin-top:5px; margin-bottom:1.5px; border-bottom:0.8px solid #000; padding-bottom:1px;">
+       <span style="font-size:6.5px; font-weight:700; color:#000; text-transform:uppercase; letter-spacing:0.3px; font-family:${FONT};">${esc(title)}</span>
+     </div>`;
 
-  // Structure sections
+  // NAME: 16pt → 9px bold uppercase centered
+  const nameHtml = `
+    <div style="text-align:center; margin-bottom:1px;">
+      <div style="font-size:9px; font-weight:700; font-family:${FONT}; color:#000; letter-spacing:0.2px; line-height:1.2;">
+        ${esc(data.full_name).toUpperCase() || 'YOUR FULL NAME'}
+      </div>
+    </div>`;
+
+  // SUBTITLE: headline | location — 11pt → 6px bold centered
+  const subParts = [data.headline, data.location].filter(Boolean);
+  const subtitleHtml = subParts.length ? `
+    <div style="text-align:center; margin-bottom:1px;">
+      <span style="font-size:6px; font-weight:700; font-family:${FONT}; color:#000;">${subParts.map(esc).join(' | ')}</span>
+    </div>` : '';
+
+  // CONTACT: 5.5px centered, plain | separators
+  const contactParts = [
+    data.phone,
+    data.email,
+    data.linkedin ? data.linkedin.replace(/^https?:\/\/(www\.)?/i, '') : '',
+    data.github   ? data.github.replace(/^https?:\/\/(www\.)?/i, '')   : ''
+  ].filter(Boolean);
+  const contactHtml = `
+    <div style="text-align:center; margin-bottom:3px;">
+      <span style="font-size:5.5px; font-family:${FONT}; color:${BODY};">${contactParts.map(esc).join(' | ')}</span>
+    </div>`;
+
+  // PROFESSIONAL SUMMARY: 5.5px justified
   let summaryHtml = '';
   if (data.summary) {
     summaryHtml = `
-      <div style="margin-bottom: 16px;">
-        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Professional Summary</h3>
-        <p style="margin: 0; line-height: 1.5; color: #475569;">${escapeHtml(data.summary)}</p>
-      </div>
-    `;
+      ${secHead('Professional Summary')}
+      <p style="margin:1px 0 3px 0; font-size:5.5px; line-height:1.3; font-family:${FONT}; color:${BODY}; text-align:justify;">${esc(data.summary)}</p>`;
   }
 
+  // SKILLS: Bold label: value — 5.5px
   let skillsHtml = '';
   if (data.skills && data.skills.length > 0) {
-    const listItems = data.skills.map(sk => {
-      return `<li style="margin-bottom: 3px; color: #475569;">${escapeHtml(sk)}</li>`;
-    }).join('');
-    skillsHtml = `
-      <div style="margin-bottom: 16px;">
-        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Core Expertise</h3>
-        <ul style="margin: 0; padding-left: 14px; line-height: 1.4;">${listItems}</ul>
-      </div>
-    `;
+    const rows = data.skills.map(line => {
+      const t = line.trim();
+      if (!t) return '';
+      if (t.includes(':')) {
+        const ci = t.indexOf(':');
+        return `<div style="font-size:5.5px; font-family:${FONT}; color:${BODY}; margin-bottom:0.8px; line-height:1.25;"><strong style="font-weight:700;">${esc(t.slice(0,ci).trim())}:</strong> ${esc(t.slice(ci+1).trim())}</div>`;
+      }
+      return `<div style="font-size:5.5px; font-family:${FONT}; color:${BODY}; margin-bottom:0.8px; line-height:1.25;">${esc(t)}</div>`;
+    }).filter(Boolean).join('');
+    if (rows) skillsHtml = `${secHead('Skills')}<div style="margin:1px 0 2px 0;">${rows}</div>`;
   }
 
+  // EXPERIENCE: title 6.5px bold, company 5.5px, date 5px italic, bullets 5.5px
   let expHtml = '';
-  if (data.experience && data.experience.length > 0) {
-    const items = data.experience.map(line => {
-      const parts = line.split('|').map(p => p.trim());
-      const role = parts[0] || 'Role';
-      const company = parts[1] || '';
-      const dates = parts[2] || '';
-      const bullets = parts.slice(3).join(' | ');
-
-      return `
-        <div style="margin-bottom: 10px;">
-          <div style="display: flex; justify-content: space-between; font-weight: 700; color: #1e293b;">
-            <span>${escapeHtml(role)} ${company ? `at ${escapeHtml(company)}` : ''}</span>
-            <span style="font-weight: normal; color: #64748b; font-size: 9px;">${escapeHtml(dates)}</span>
-          </div>
-          ${bullets ? `<p style="margin: 3px 0 0 0; color: #475569; line-height: 1.4;">• ${escapeHtml(bullets)}</p>` : ''}
-        </div>
-      `;
+  const expEntries = parseExperienceEntriesJS(data.experience);
+  if (expEntries.length > 0) {
+    const items = expEntries.map(e => {
+      const companyLine = [e.company, (e.location && e.location !== 'Location') ? `(${e.location})` : ''].filter(Boolean).join(' ');
+      const bullets = (e.bullets || []).map(b =>
+        `<div style="display:flex; gap:2px; margin-bottom:0.5px;">
+           <span style="font-size:5.5px; font-family:${FONT}; flex-shrink:0; line-height:1.25;">•</span>
+           <span style="font-size:5.5px; font-family:${FONT}; color:${BODY}; line-height:1.25;">${esc(b)}</span>
+         </div>`).join('');
+      return `<div style="margin-top:2px; margin-bottom:2px;">
+        <div style="font-size:6.5px; font-weight:700; font-family:${FONT}; color:#000; line-height:1.2;">${esc(e.title)}</div>
+        ${companyLine ? `<div style="font-size:5.5px; font-family:${FONT}; color:${BODY}; line-height:1.2;">${esc(companyLine)}</div>` : ''}
+        ${(e.duration && e.duration !== 'Date') ? `<div style="font-size:5px; font-family:${FONT}; color:#555; font-style:italic; line-height:1.2; margin-bottom:1px;">${esc(e.duration)}</div>` : ''}
+        ${bullets}
+      </div>`;
     }).join('');
-
-    expHtml = `
-      <div style="margin-bottom: 16px;">
-        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Professional Experience</h3>
-        <div>${items}</div>
-      </div>
-    `;
+    expHtml = `${secHead('Professional Experience')}<div style="margin-top:1px;">${items}</div>`;
   }
 
+  // PROJECTS: title 6.5px bold, tech 5px italic, bullets 5.5px
   let projHtml = '';
-  if (data.projects && data.projects.length > 0) {
-    const items = data.projects.map(line => {
-      const parts = line.split('|').map(p => p.trim());
-      const name = parts[0] || 'Project';
-      const tech = parts[1] || '';
-      const desc = parts.slice(2).join(' | ');
-
-      return `
-        <div style="margin-bottom: 10px;">
-          <div style="font-weight: 700; color: #1e293b;">
-            <span>${escapeHtml(name)}</span>
-            ${tech ? `<span style="font-weight: normal; color: ${accentColor}; font-size: 9px; margin-left: 6px;">(${escapeHtml(tech)})</span>` : ''}
-          </div>
-          ${desc ? `<p style="margin: 3px 0 0 0; color: #475569; line-height: 1.4;">• ${escapeHtml(desc)}</p>` : ''}
-        </div>
-      `;
+  const projEntries = parseProjectEntriesJS(data.projects);
+  if (projEntries.length > 0) {
+    const items = projEntries.map(p => {
+      const title = (p.date && p.date !== 'Date') ? `${p.name} \u2014 ${p.date}` : p.name;
+      const bullets = (p.bullets || []).map(b =>
+        `<div style="display:flex; gap:2px; margin-bottom:0.5px;">
+           <span style="font-size:5.5px; font-family:${FONT}; flex-shrink:0; line-height:1.25;">•</span>
+           <span style="font-size:5.5px; font-family:${FONT}; color:${BODY}; line-height:1.25;">${esc(b)}</span>
+         </div>`).join('');
+      return `<div style="margin-top:2px; margin-bottom:2px;">
+        <div style="font-size:6.5px; font-weight:700; font-family:${FONT}; color:#000; line-height:1.2;">${esc(title)}</div>
+        ${(p.tech && p.tech !== 'Tech Stack') ? `<div style="font-size:5px; font-family:${FONT}; color:#555; font-style:italic; line-height:1.2; margin-bottom:1px;">${esc(p.tech)}</div>` : ''}
+        ${bullets}
+      </div>`;
     }).join('');
-
-    projHtml = `
-      <div style="margin-bottom: 16px;">
-        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Key Projects</h3>
-        <div>${items}</div>
-      </div>
-    `;
+    projHtml = `${secHead('Projects')}<div style="margin-top:1px;">${items}</div>`;
   }
 
+  // EDUCATION: single line 5.5px
   let eduHtml = '';
-  if (data.education && data.education.length > 0) {
-    const items = data.education.map(line => {
-      return `<p style="margin: 0 0 4px 0; color: #475569;">${escapeHtml(line)}</p>`;
+  const eduEntries = parseEducationEntriesJS(data.education);
+  if (eduEntries.length > 0) {
+    const rows = eduEntries.map(e => {
+      const parts = [e.degree, e.institution, e.date, e.location].filter(Boolean);
+      return `<div style="font-size:5.5px; font-family:${FONT}; color:${BODY}; margin-bottom:1px; line-height:1.25;">${parts.map(esc).join(' | ')}</div>`;
     }).join('');
-    eduHtml = `
-      <div style="margin-bottom: 16px;">
-        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Education</h3>
-        <div>${items}</div>
-      </div>
-    `;
+    eduHtml = `${secHead('Education')}<div style="margin-top:1px;">${rows}</div>`;
   }
 
+  // CERTIFICATIONS: bullets 5.5px
   let certHtml = '';
   if (data.certifications && data.certifications.length > 0) {
-    const items = data.certifications.map(line => {
-      return `<p style="margin: 0 0 4px 0; color: #475569;">• ${escapeHtml(line)}</p>`;
-    }).join('');
-    certHtml = `
-      <div style="margin-bottom: 16px;">
-        <h3 style="color: ${accentColor}; font-size: 11px; ${headingStyle} border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 2px; margin-bottom: 6px;">Certifications</h3>
-        <div>${items}</div>
-      </div>
-    `;
+    const bullets = data.certifications.map(line => {
+      const clean = line.replace(/^[\-\u2022\*\s]+/, '').trim();
+      if (!clean) return '';
+      return `<div style="display:flex; gap:2px; margin-bottom:0.5px;">
+                <span style="font-size:5.5px; font-family:${FONT}; flex-shrink:0; line-height:1.25;">•</span>
+                <span style="font-size:5.5px; font-family:${FONT}; color:${BODY}; line-height:1.25;">${esc(clean)}</span>
+              </div>`;
+    }).filter(Boolean).join('');
+    if (bullets) certHtml = `${secHead('Certifications &amp; Courses')}<div style="margin-top:1px;">${bullets}</div>`;
   }
 
   sheet.innerHTML = `
-    <div style="font-family: ${fontFam};">
-      <!-- Header -->
-      <div style="text-align: center; margin-bottom: 18px; border-bottom: 2px solid ${accentColor}; padding-bottom: 10px;">
-        <h1 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 700; color: #1e293b; letter-spacing: 0.5px;">${escapeHtml(data.full_name) || 'Candidate Name'}</h1>
-        ${data.headline ? `<div style="font-size: 10px; color: ${accentColor}; font-weight: 600; margin-bottom: 6px; text-transform: uppercase;">${escapeHtml(data.headline)}</div>` : ''}
-        <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; font-size: 8.5px; color: #64748b;">
-          ${data.email ? `<span>📧 ${escapeHtml(data.email)}</span>` : ''}
-          ${data.phone ? `<span>📞 ${escapeHtml(data.phone)}</span>` : ''}
-          ${data.location ? `<span>📍 ${escapeHtml(data.location)}</span>` : ''}
-          ${data.linkedin ? `<span>🔗 ${escapeHtml(data.linkedin)}</span>` : ''}
-          ${data.github ? `<span>🐈 ${escapeHtml(data.github)}</span>` : ''}
-        </div>
-      </div>
-
-      <!-- Sections -->
-      ${summaryHtml}
-      ${skillsHtml}
-      ${expHtml}
-      ${projHtml}
-      ${eduHtml}
-      ${certHtml}
-    </div>
-  `;
+    <div style="font-family:${FONT}; color:${BODY};">
+      ${nameHtml}${subtitleHtml}${contactHtml}
+      ${summaryHtml}${skillsHtml}${expHtml}${projHtml}${eduHtml}${certHtml}
+    </div>`;
 }
+
 
 // AI Assistant helpers
 async function executeLatexAiTask(taskType, currentValue, customPrompt = '') {
