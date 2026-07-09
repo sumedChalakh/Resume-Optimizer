@@ -130,8 +130,8 @@ def match_keyword_in_text(keyword, text):
         return False
         
     text_lower = text.lower()
-    boundary_prefix = r"(?:^|[\s,.;:(){}[\]\-\/\\|])"
-    boundary_suffix = r"(?:$|[\s,.;:(){}[\]\-\/\\|])"
+    boundary_prefix = r"(?:^|[\s,.;:(){}[\]\-\/\\|&])"
+    boundary_suffix = r"(?:$|[\s,.;:(){}[\]\-\/\\|&])"
     
     candidates = [kw_clean]
     
@@ -162,11 +162,159 @@ def match_keyword_in_text(keyword, text):
 
 def calculate_advanced_ats_score(resume_text, jd_text, optimized_resume_dict=None, low_credit_mode=False):
     """
-    Unified advanced ATS scoring algorithm incorporating:
-    - Technical Keyword Proximity & Location weight (60%)
-    - Formatting & Recruiter Quality Checks (25%)
-    - AI Domain Alignment (15%)
+    Unified advanced ATS scoring algorithm:
+    1. AI Scoring attempt (when API is available)
+    2. Fallback to local heuristic scoring if API is unavailable
     """
+    # Try AI Scoring first
+    try:
+        from app import generate_model_response, extract_first_json_object
+        import json
+
+        # Flatten/format the resume to text if it's a dict
+        if optimized_resume_dict and isinstance(optimized_resume_dict, dict):
+            resume_lines = []
+            if optimized_resume_dict.get("name"):
+                resume_lines.append(f"Name: {optimized_resume_dict['name']}")
+            if optimized_resume_dict.get("headline"):
+                resume_lines.append(f"Headline: {optimized_resume_dict['headline']}")
+            if optimized_resume_dict.get("summary"):
+                resume_lines.append(f"Summary:\n{optimized_resume_dict['summary']}")
+            
+            skills_val = optimized_resume_dict.get("skills", {})
+            if skills_val:
+                resume_lines.append("Skills:")
+                if isinstance(skills_val, dict):
+                    for cat, items in skills_val.items():
+                        items_str = ", ".join(items) if isinstance(items, list) else str(items)
+                        resume_lines.append(f"  - {cat}: {items_str}")
+                elif isinstance(skills_val, list):
+                    resume_lines.append("  - " + ", ".join(skills_val))
+                else:
+                    resume_lines.append(f"  - {skills_val}")
+                    
+            exp_val = optimized_resume_dict.get("experience", [])
+            if exp_val:
+                resume_lines.append("Experience:")
+                for exp in exp_val:
+                    if isinstance(exp, dict):
+                        title = exp.get("title", "")
+                        comp = exp.get("company", "")
+                        dur = exp.get("duration", "")
+                        loc = exp.get("location", "")
+                        resume_lines.append(f"  - {title} at {comp} ({dur}) | {loc}")
+                        for b in exp.get("bullets", []):
+                            resume_lines.append(f"    * {b}")
+                    else:
+                        resume_lines.append(f"  - {exp}")
+                        
+            proj_val = optimized_resume_dict.get("projects", [])
+            if proj_val:
+                resume_lines.append("Projects:")
+                for proj in proj_val:
+                    if isinstance(proj, dict):
+                        name = proj.get("name", "")
+                        tech = proj.get("tech", "")
+                        date = proj.get("date", "")
+                        link = proj.get("link", "")
+                        resume_lines.append(f"  - {name} | {tech} ({date}) | {link}")
+                        for b in proj.get("bullets", []):
+                            resume_lines.append(f"    * {b}")
+                    else:
+                        resume_lines.append(f"  - {proj}")
+            
+            edu_val = optimized_resume_dict.get("education", [])
+            if edu_val:
+                resume_lines.append("Education:")
+                for edu in edu_val:
+                    if isinstance(edu, dict):
+                        resume_lines.append(f"  - {edu.get('degree', '')} from {edu.get('school', '') or edu.get('institution', '')}")
+                    else:
+                        resume_lines.append(f"  - {edu}")
+                        
+            cert_val = optimized_resume_dict.get("certifications", [])
+            if cert_val:
+                resume_lines.append("Certifications:")
+                for cert in cert_val:
+                    if isinstance(cert, dict):
+                        resume_lines.append(f"  - {cert.get('name', '')}")
+                    else:
+                        resume_lines.append(f"  - {cert}")
+            resume_to_eval = "\n".join(resume_lines)
+        else:
+            resume_to_eval = resume_text or ""
+
+        # Construct prompt for the LLM
+        system_prompt = (
+            "You are a strict, recruiter-aligned Applicant Tracking System (ATS) AI. "
+            "Analyze the candidate's resume and job description (JD) to evaluate match quality. "
+            "Output ONLY a raw JSON object with no wrapping, code blocks, or markdown formatting."
+        )
+        
+        user_message = f"""
+Evaluate the candidate's resume against the Job Description (JD).
+Return a JSON object conforming exactly to this schema:
+{{
+  "total": <int, total score from 0 to 100 based on below components>,
+  "breakdown": {{
+    "local_technical_match": <int, 0 to 60 based on technical keyword matching, proximity, and experience depth>,
+    "ai_alignment_score": <int, 0 to 15 based on domain fit, semantic similarity of experiences to the role>,
+    "structural_score": <int, 0 to 25 based on formatting, quantifiable metrics, action verbs, and structure>
+  }},
+  "score_reasoning": "<string, brief explanation of the candidate's core strengths/weaknesses and the score breakdown>",
+  "keyword_analysis": {{
+    "jd_keywords_extracted": [<list of important tech/business keywords found in the JD>],
+    "matched_in_resume": [<list of JD keywords found in the resume>],
+    "missing_keywords": [<list of JD keywords missing in the resume>],
+    "matched_by_location": {{
+      "experience": [<keywords matched in experience section>],
+      "projects": [<keywords matched in projects section>],
+      "skills": [<keywords matched in skills section>],
+      "other": [<keywords matched elsewhere>]
+    }}
+  }},
+  "formatting_analysis": {{
+    "sections_present": {{
+      "experience": <bool>,
+      "projects": <bool>,
+      "skills": <bool>,
+      "education": <bool>
+    }},
+    "action_verbs_found": [<list of action verbs found in resume>],
+    "action_verbs_count": <int>,
+    "metrics_found": [<list of quantifiable metrics/percentages/numbers found in resume experience/projects>],
+    "metrics_count": <int>
+  }}
+}}
+
+Job Description:
+\"\"\"
+{jd_text}
+\"\"\"
+
+Candidate's Resume:
+\"\"\"
+{resume_to_eval}
+\"\"\"
+"""
+        
+        response_text, _ = generate_model_response(user_message, low_credit_mode=low_credit_mode, system_prompt=system_prompt)
+        
+        # Clean response text from markdown block quotes if any
+        if "```" in response_text:
+            response_text = response_text.replace("```json", "").replace("```", "").strip()
+            
+        candidate_json = extract_first_json_object(response_text)
+        if candidate_json:
+            result = json.loads(candidate_json)
+            # Validate required top-level fields
+            required_keys = {"total", "breakdown", "score_reasoning", "keyword_analysis", "formatting_analysis"}
+            if all(k in result for k in required_keys):
+                return result
+    except Exception as e:
+        print(f"AI Scorer failed/unavailable, falling back to local scorer: {e}")
+        pass
+
     from app import extract_keywords_from_jd, check_domain_alignment
     
     # Standardize/extract sections

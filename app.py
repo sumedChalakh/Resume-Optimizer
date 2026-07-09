@@ -918,14 +918,70 @@ TECH_KEYWORDS = {
 }
 
 STOP_WORDS = {
-  "with", "that", "from", "this", "have", "your", "will", "were", "been", "into",
-  "for", "and", "the", "you", "our", "are", "job", "role", "using", "able", "must",
-  "also", "such", "both", "each", "they", "them", "their", "what", "when", "where",
-  "which", "while", "about", "after", "before", "between", "through", "during",
-  "including", "required", "preferred", "experience", "work", "team", "ability",
-  "strong", "good", "excellent", "candidate", "position", "company", "business",
-  "help", "build", "make", "need", "use", "new", "per", "well", "etc", "via",
+  # common prepositions, conjunctions, pronouns, articles, etc.
+  "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "aren't", "as", "at",
+  "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "can", "can't", "cannot", "could", "couldn't",
+  "did", "didn't", "do", "does", "doesn't", "doing", "don't", "down", "during", "each", "few", "for", "from", "further",
+  "had", "hadn't", "has", "hasn't", "have", "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here", "here's", "hers", "herself", "him", "himself", "his", "how", "how's",
+  "i", "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's", "its", "itself",
+  "let's", "me", "more", "most", "mustn't", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own",
+  "same", "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so", "some", "such", "than", "that", "that's", "the", "their", "theirs", "them", "themselves", "then", "there", "there's", "these", "they", "they'd", "they'll", "they're", "they've", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasn't", "we", "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when", "when's", "where", "where's", "which", "while", "who", "who's", "whom", "why", "why's", "with", "won't", "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves",
+  # generic job description / resume jargon
+  "job", "role", "using", "able", "must", "also", "such", "both", "each", "about",
+  "required", "preferred", "experience", "work", "team", "ability", "strong", "good", "excellent",
+  "candidate", "position", "company", "business", "help", "build", "make", "need", "use", "new", "per", "well", "etc", "via",
+  "responsibilities", "duties", "requirements", "qualifications", "skills", "years", "plus", "working", "career",
+  "highly", "motivated", "detail", "oriented", "passion", "passionate", "impact", "successful", "track", "record",
+  "proven", "demonstrated", "written", "verbal", "communication", "collaborate", "collaborating", "independent",
+  "independently", "starter", "learn", "growing", "dynamic", "fast", "paced", "environment", "client", "services",
+  "solutions", "ideal", "joining", "project", "product", "member", "join", "part", "looking", "description",
+  "apply", "application", "knowledge", "understanding", "solid", "hands", "practical", "technical",
+  "non", "related", "professional", "employment", "history", "degree", "education", "university", "college",
+  "school", "certificate", "certification", "course", "courses", "training", "development", "developer",
+  "engineer", "designer", "manager", "lead", "director", "architect", "analyst", "consultant", "specialist",
+  "administrator", "support", "operations", "system", "systems", "application", "applications", "software",
+  "hardware", "infrastructure", "platform", "platforms", "technology", "technologies", "tool", "tools",
+  "framework", "frameworks", "library", "libraries", "language", "languages", "programming", "code", "coding",
+  "design", "development", "testing", "deployment", "maintenance", "integration", "delivery", "process",
+  "processes", "practice", "practices", "standard", "standards", "best", "quality", "assurance", "control",
+  "security", "privacy", "compliance", "regulation", "regulations", "policy", "policies", "procedure",
+  "procedures", "guideline", "guidelines", "documentation", "report", "reports", "reporting", "dashboard",
+  "dashboards", "metric", "metrics", "kpi", "kpis", "analysis", "analytics", "data", "information",
+  "database", "databases", "storage", "retrieval", "processing", "management", "governance", "architecture",
+  "design", "implementation", "configuration", "administration", "troubleshooting", "debugging", "optimization",
+  "performance", "scalability", "reliability", "availability", "efficiency", "effectiveness", "productivity",
+  "collaboration", "communication", "interpersonal", "leadership", "management", "mentoring", "coaching",
+  "training", "supervision", "supervising", "direction", "coordination", "facilitation", "facilitating",
+  "negotiation", "negotiating", "presentation", "presenting", "public", "speaking", "writing", "documentation",
+  "technical", "business", "functional", "non-functional", "requirement", "requirements", "specification",
+  "specifications", "user", "story", "stories", "use", "case", "cases", "scenario", "scenarios", "test",
+  "case", "cases", "plan", "plans", "strategy", "strategies", "roadmap", "roadmaps", "milestone",
+  "milestones", "deliverable", "deliverables", "project", "projects", "program", "programs", "portfolio",
+  "portfolios", "initiative", "initiatives", "task", "tasks", "activity", "activities", "assignment",
+  "assignments", "responsibility", "responsibilities", "duty", "duties", "role", "roles", "position",
+  "positions", "job", "jobs", "career", "careers", "opportunity", "opportunities", "organization",
+  "organizations", "enterprise", "enterprises", "corporation", "corporations", "firm", "firms", "agency",
+  "agencies", "institution", "institutions", "department", "departments", "division", "divisions",
+  "group", "groups", "team", "teams", "unit", "units", "section", "sections", "branch", "branches",
+  "office", "offices", "site", "sites", "location", "locations", "region", "regions", "country",
+  "countries", "global", "international", "national", "regional", "local", "remote", "hybrid", "on-site",
+  "flexible", "full-time", "part-time", "contract", "internship", "temporary", "permanent", "employment",
+  "work", "job", "career", "position", "role", "hands-on", "day-to-day", "day", "to", "day-to-day",
+  "responsibilities", "include", "but", "are", "not", "limited", "to", "the", "following", "perform",
+  "other", "duties", "as", "assigned", "must", "be", "able", "to", "work", "in", "a", "team", "environment"
 }
+
+
+def count_keyword_occurrences(keyword, text):
+  """Helper to count occurrences of a keyword in text with word boundaries."""
+  kw_clean = keyword.strip().lower()
+  if not kw_clean or not text:
+    return 0
+  text_lower = text.lower()
+  boundary_prefix = r"(?:^|[\s,.;:(){}[\]\-\/\\|&])"
+  boundary_suffix = r"(?:$|[\s,.;:(){}[\]\-\/\\|&])"
+  pattern = rf"{boundary_prefix}{re.escape(kw_clean)}{boundary_suffix}"
+  return len(re.findall(pattern, text_lower))
 
 
 def extract_keywords(text, limit=30):
@@ -938,7 +994,7 @@ def extract_keywords(text, limit=30):
 
   # pass 1: exact phrase matches from domain bank.
   for kw in TECH_KEYWORDS:
-    if kw in tl and kw not in matched:
+    if count_keyword_occurrences(kw, tl) > 0:
       matched.append(kw)
 
   # pass 2: high-frequency extra tokens.
@@ -962,7 +1018,7 @@ def extract_keywords_from_jd(jd_text, resume_text="", limit=30):
   scored = {}
 
   for kw in TECH_KEYWORDS:
-    count = jd_lower.count(kw)
+    count = count_keyword_occurrences(kw, jd_lower)
     if count > 0:
       scored[kw] = count * 3
 
@@ -2651,6 +2707,12 @@ def create_app():
     app.register_blueprint(latex_blueprint)
   except Exception:
     pass
+
+  try:
+    from admin_routes import admin_blueprint
+    app.register_blueprint(admin_blueprint)
+  except Exception as e:
+    print("Failed to register admin blueprint:", e)
 
   try:
     from billing.routes import billing_blueprint
